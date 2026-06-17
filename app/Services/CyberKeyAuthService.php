@@ -21,12 +21,12 @@ class CyberKeyAuthService
         }
 
         try {
-            $pdo = DB::connection('sso');
+            $pdo = DB::connection(config('database.default', 'mysql'));
             $table = (string) config('sso.cyber_key_table', 'cyber_key');
             $passwordCol = $this->resolvePasswordColumn($pdo, $table);
 
             $fidSelect = $this->hasColumn($pdo, $table, 'fid')
-                ? "TRIM(CAST(fid AS CHAR)) AS fid"
+                ? 'TRIM(CAST(fid AS CHAR)) AS fid'
                 : "'' AS fid";
             $kelSelect = $this->hasColumn($pdo, $table, 'kel')
                 ? 'TRIM(kel) AS kel'
@@ -35,8 +35,8 @@ class CyberKeyAuthService
                 ? 'TRIM(kunci) AS kunci'
                 : "'' AS kunci";
 
-            $where = 'LOWER(TRIM(users)) = LOWER(TRIM(:login))';
-            $bindings = [':login' => $login];
+            $where = 'LOWER(TRIM(users)) = LOWER(TRIM(?))';
+            $bindings = [$login];
 
             if ($this->hasColumn($pdo, $table, 'deleted_at')) {
                 $where .= ' AND deleted_at IS NULL';
@@ -44,8 +44,8 @@ class CyberKeyAuthService
 
             $kunciFilter = trim((string) config('sso.kunci', ''));
             if ($kunciFilter !== '' && $this->hasColumn($pdo, $table, 'kunci')) {
-                $where .= ' AND TRIM(kunci) = :kunci';
-                $bindings[':kunci'] = $kunciFilter;
+                $where .= ' AND TRIM(kunci) = ?';
+                $bindings[] = $kunciFilter;
             }
 
             $sql = "
@@ -57,7 +57,7 @@ class CyberKeyAuthService
                     {$fidSelect},
                     {$kelSelect},
                     {$kunciSelect}
-                FROM {$table}
+                FROM `{$table}`
                 WHERE {$where}
                 LIMIT 1
             ";
@@ -109,9 +109,18 @@ class CyberKeyAuthService
                 ],
             ];
         } catch (Throwable $e) {
-            Log::error('[CyberKey SSO] login failed: ' . $e->getMessage());
+            Log::error('[CyberKey SSO] login failed', [
+                'message' => $e->getMessage(),
+                'host' => config('database.connections.mysql.host'),
+                'database' => config('database.connections.mysql.database'),
+            ]);
 
-            return ['ok' => false, 'message' => 'Tidak dapat terhubung ke server autentikasi.'];
+            $message = 'Tidak dapat terhubung ke server autentikasi.';
+            if (config('app.debug')) {
+                $message .= ' (' . $e->getMessage() . ')';
+            }
+
+            return ['ok' => false, 'message' => $message];
         }
     }
 

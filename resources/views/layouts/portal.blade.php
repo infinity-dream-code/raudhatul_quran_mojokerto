@@ -210,6 +210,15 @@
             margin-top: 18px;
             gap: 12px;
         }
+        .turnstile-wrap {
+            display: flex;
+            justify-content: center;
+            margin: 4px 0 14px;
+            padding: 10px;
+            background: #f7faf8;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
         .btn-link {
             background: none;
             border: none;

@@ -51,8 +51,13 @@
             </div>
 
             @if(config('services.turnstile.site_key'))
-                <div class="field" style="display:flex;justify-content:center;margin-bottom:14px;">
-                    <div class="cf-turnstile" data-sitekey="{{ config('services.turnstile.site_key') }}" data-language="id"></div>
+                <div class="turnstile-wrap">
+                    <div
+                        class="cf-turnstile"
+                        data-sitekey="{{ config('services.turnstile.site_key') }}"
+                        data-theme="light"
+                        data-language="id"
+                    ></div>
                 </div>
                 @error('turnstile')
                     <div class="error-text" style="text-align:center;margin-bottom:10px;">{{ $message }}</div>
