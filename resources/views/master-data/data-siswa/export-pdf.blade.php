@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Export Data Siswa</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; color: #111827; margin: 24px; }
+        .meta { margin-bottom: 12px; line-height: 1.6; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        th, td { border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; vertical-align: top; }
+        th { background: #f3f4f6; font-weight: 700; }
+        .text-center { text-align: center; }
+        @media print { body { margin: 12px; } }
+    </style>
+</head>
+<body>
+    <h3>Data Siswa</h3>
+    <div class="meta">
+        <div><strong>Dicetak:</strong> {{ $printedAt }}</div>
+        <div>
+            <strong>Filter:</strong>
+            Angkatan: {{ $filters['angkatan'] !== '' ? $filters['angkatan'] : 'Semua' }},
+            Sekolah: {{ $filters['sekolah'] !== '' ? $filters['sekolah'] : 'Semua' }},
+            Kelas: {{ $filters['kelas'] !== '' ? $filters['kelas'] : 'Semua' }},
+            Siswa: {{ $filters['siswa'] !== '' ? $filters['siswa'] : 'Semua' }},
+            Cari: {{ $filters['q'] !== '' ? $filters['q'] : 'Semua' }}
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th class="text-center">No</th>
+                <th>NIS</th>
+                <th>NO VA</th>
+                <th>NAMA</th>
+                <th>No Pendaftaran</th>
+                <th>Unit</th>
+                <th>Kelas</th>
+                <th>Kelompok</th>
+                <th>Angkatan</th>
+                <th>Wali</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse ($rows as $index => $row)
+                @php
+                    $r = array_change_key_case((array) $row, CASE_LOWER);
+                    $nocust = trim((string) ($r['nocust'] ?? ''));
+                    $vaDigits = preg_replace('/\D+/', '', $nocust);
+                    $unit = trim((string) ($r['code02'] ?? ''));
+                    if ($unit === '') {
+                        $c01 = trim((string) ($r['code01'] ?? ''));
+                        $uSek = trim((string) ($r['unit_sekolah'] ?? ''));
+                        $unit = ($c01 !== '' && $uSek !== '') ? ($c01 . ' — ' . $uSek) : (($uSek !== '') ? $uSek : (($c01 !== '') ? $c01 : '-'));
+                    }
+                    $wali = trim((string) ($r['wali'] ?? $r['genus'] ?? ''));
+                @endphp
+                <tr>
+                    <td class="text-center">{{ $index + 1 }}</td>
+                    <td>{{ $nocust !== '' ? $nocust : '-' }}</td>
+                    <td>{{ $vaDigits !== '' ? ('7510050' . $vaDigits) : '-' }}</td>
+                    <td>{{ trim((string) ($r['nmcust'] ?? '')) !== '' ? $r['nmcust'] : '-' }}</td>
+                    <td>{{ trim((string) ($r['num2nd'] ?? '')) !== '' ? $r['num2nd'] : '-' }}</td>
+                    <td>{{ $unit !== '' ? $unit : '-' }}</td>
+                    <td>{{ trim((string) ($r['desc02'] ?? '')) !== '' ? $r['desc02'] : '-' }}</td>
+                    <td>{{ trim((string) ($r['desc03'] ?? '')) !== '' ? $r['desc03'] : '-' }}</td>
+                    <td>{{ trim((string) ($r['desc04'] ?? '')) !== '' ? $r['desc04'] : '-' }}</td>
+                    <td>{{ $wali !== '' ? $wali : '-' }}</td>
+                </tr>
+            @empty
+                <tr>
+                    <td colspan="10" class="text-center">Data tidak ditemukan.</td>
+                </tr>
+            @endforelse
+        </tbody>
+    </table>
+
+    <script>
+        window.onload = function () {
+            window.print();
+        };
+    </script>
+</body>
+</html>
