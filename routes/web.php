@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CashlessController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MasterData\BebanPostController;
 use App\Http\Controllers\MasterData\DataSiswaController;
@@ -202,5 +203,13 @@ Route::middleware(['web', 'dummy.auth'])->group(function () {
         Route::get('/cek-pelunasan/rows', [CekPelunasanController::class, 'rows'])->name('cek_pelunasan.rows');
         Route::post('/cek-pelunasan/kartu-siswa', [CekPelunasanController::class, 'printKartuSiswa'])->name('cek_pelunasan.kartu_siswa');
     });
+});
+
+Route::middleware(['web', 'sso.auth', 'cashless.module'])->prefix('cashless')->name('cashless.')->group(function () {
+    Route::get('/', [CashlessController::class, 'index'])->name('index');
+    Route::get('/saldo', [CashlessController::class, 'saldo'])->name('saldo');
+    Route::get('/topup', [CashlessController::class, 'topup'])->name('topup');
+    Route::post('/topup', [CashlessController::class, 'topupStore'])->name('topup.store');
+    Route::get('/transactions', [CashlessController::class, 'transactions'])->name('transactions');
 });
 

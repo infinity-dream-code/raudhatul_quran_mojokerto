@@ -34,7 +34,7 @@
                 <p>Sistem Informasi Keuangan — tagihan, pembayaran, dan laporan.</p>
             </a>
 
-            @if(($modules['cashless']['enabled'] ?? false) && !empty($modules['cashless']['url']))
+            @if(($modules['cashless']['enabled'] ?? false))
                 <a href="{{ route('portal.cashless') }}" class="module-card">
                     <div class="module-icon">💳</div>
                     <h3>Cashless</h3>
@@ -44,7 +44,7 @@
                 <div class="module-card disabled">
                     <div class="module-icon">💳</div>
                     <h3>Cashless</h3>
-                    <p>URL modul belum dikonfigurasi.</p>
+                    <p>Modul cashless tidak aktif.</p>
                 </div>
             @endif
 

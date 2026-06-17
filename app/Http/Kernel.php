@@ -60,6 +60,7 @@ class Kernel extends HttpKernel
         'can' => \Illuminate\Auth\Middleware\Authorize::class,
         'guest' => \App\Http\Middleware\RedirectIfAuthenticated::class,
         'sso.auth' => \App\Http\Middleware\SsoAuth::class,
+        'cashless.module' => \App\Http\Middleware\CashlessModuleAuth::class,
         'dummy.auth' => \App\Http\Middleware\DummyAuth::class,
         'superadmin' => \App\Http\Middleware\EnsureSuperAdmin::class,
         'password.confirm' => \Illuminate\Auth\Middleware\RequirePassword::class,

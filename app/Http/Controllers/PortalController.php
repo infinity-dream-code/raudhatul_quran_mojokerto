@@ -53,23 +53,10 @@ class PortalController extends Controller
             return redirect()->route('login');
         }
 
-        $url = trim((string) config('sso.modules.cashless.url', ''));
-        if ($url === '') {
-            return redirect()->route('portal')->withErrors([
-                'module' => 'URL modul Cashless belum dikonfigurasi.',
-            ]);
-        }
+        $request->session()->put('auth_module', 'cashless');
+        $request->session()->put('dummy_logged_in', false);
 
-        $query = array_filter([
-            'username' => session('auth_username'),
-            'name' => session('auth_name'),
-            'fid' => session('auth_fid'),
-            'kel' => session('auth_kel'),
-        ], fn ($v) => $v !== null && $v !== '');
-
-        $separator = str_contains($url, '?') ? '&' : '?';
-
-        return redirect()->away($url . ($query ? $separator . http_build_query($query) : ''));
+        return redirect()->route('cashless.index');
     }
 
     public function presensi(): RedirectResponse
