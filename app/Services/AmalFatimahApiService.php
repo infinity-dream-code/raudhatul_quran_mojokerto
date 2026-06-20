@@ -17,7 +17,7 @@ class AmalFatimahApiService
 
     protected function useLocalPindahKelas(): bool
     {
-        return (bool) config('services.ws_amal_fatimah.local_pindah_kelas', false)
+        return (bool) config('services.ws_raudhatul_quran.local_pindah_kelas', false)
             || $this->sikeuPindahKelas->isConfigured();
     }
 
@@ -37,25 +37,25 @@ class AmalFatimahApiService
 
     protected function wsReady(): bool
     {
-        $url = trim((string) config('services.ws_amal_fatimah.url', ''));
-        $key = trim((string) config('services.ws_amal_fatimah.jwt_key', ''));
+        $url = trim((string) config('services.ws_raudhatul_quran.url', ''));
+        $key = trim((string) config('services.ws_raudhatul_quran.jwt_key', ''));
 
         return $url !== '' && $key !== '';
     }
 
     protected function wsUrl(): string
     {
-        return (string) config('services.ws_amal_fatimah.url', '');
+        return (string) config('services.ws_raudhatul_quran.url', '');
     }
 
     protected function wsTimeout(): int
     {
-        return max(3, (int) config('services.ws_amal_fatimah.timeout', 8));
+        return max(3, (int) config('services.ws_raudhatul_quran.timeout', 8));
     }
 
     protected function wsConnectTimeout(): int
     {
-        return max(1, (int) config('services.ws_amal_fatimah.connect_timeout', 2));
+        return max(1, (int) config('services.ws_raudhatul_quran.connect_timeout', 2));
     }
 
     protected function wsPost(array $payload, ?int $timeout = null, ?int $connectTimeout = null): ?\Illuminate\Http\Client\Response
@@ -123,7 +123,7 @@ class AmalFatimahApiService
             return ['dashboard' => null, 'tagihan' => null, 'tagihanDibayarChart' => []];
         }
 
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $url = $this->wsUrl();
         $timeout = $this->wsTimeout();
         $connect = $this->wsConnectTimeout();
@@ -189,12 +189,12 @@ class AmalFatimahApiService
         if (!$this->wsReady()) {
             return [
                 'ok' => false,
-                'message' => 'Layanan SIKEU belum dikonfigurasi (WS_AMAL_FATIMAH_JWT_KEY kosong).',
+                'message' => 'Layanan SIKEU belum dikonfigurasi (JWT_KEY kosong).',
                 'data' => [],
             ];
         }
 
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'loginUser', 'rnd' => uniqid()], $jwtKey);
 
         $body = [
@@ -235,8 +235,8 @@ class AmalFatimahApiService
 
     public function dashboard(): ?array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
 
         $token = $this->jwt->encode(['sub' => 'dashboard', 'rnd' => uniqid()], $jwtKey);
         $payload = ['method' => 'dashboard', 'token' => $token];
@@ -279,8 +279,8 @@ class AmalFatimahApiService
 
     public function tagihandashboard(): ?array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
 
         $token = $this->jwt->encode(['sub' => 'tagihandashboard', 'rnd' => uniqid()], $jwtKey);
 
@@ -307,8 +307,8 @@ class AmalFatimahApiService
 
     public function tagihanbayarDashboard(): ?array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
 
         $token = $this->jwt->encode(['sub' => 'tagihanbayarDashboard', 'rnd' => uniqid()], $jwtKey);
 
@@ -332,8 +332,8 @@ class AmalFatimahApiService
 
     public function getKelas(array $filters = []): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getKelas', 'rnd' => uniqid()], $jwtKey);
 
         $payload = array_filter([
@@ -418,8 +418,8 @@ class AmalFatimahApiService
      */
     public function deleteKelas(int $id): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'deleteKelas', 'rnd' => uniqid()], $jwtKey);
 
         try {
@@ -454,8 +454,8 @@ class AmalFatimahApiService
 
     public function createKelas(array $payload): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'createKelas', 'rnd' => uniqid()], $jwtKey);
 
         $body = [
@@ -501,8 +501,8 @@ class AmalFatimahApiService
 
     public function getSekolah(array $filters = []): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getSekolah', 'rnd' => uniqid()], $jwtKey);
 
         $payload = array_filter([
@@ -544,8 +544,8 @@ class AmalFatimahApiService
 
     public function getSekolahById(int $id): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getSekolahByid', 'rnd' => uniqid()], $jwtKey);
 
         try {
@@ -570,8 +570,8 @@ class AmalFatimahApiService
 
     public function createSekolah(array $payload): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'createSekolah', 'rnd' => uniqid()], $jwtKey);
 
         $body = [
@@ -617,8 +617,8 @@ class AmalFatimahApiService
 
     public function updateSekolah(array $payload): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'updateSekolah', 'rnd' => uniqid()], $jwtKey);
 
         $body = [
@@ -665,8 +665,8 @@ class AmalFatimahApiService
 
     public function deleteSekolah(int $id): bool
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'deleteSekolah', 'rnd' => uniqid()], $jwtKey);
 
         try {
@@ -696,8 +696,8 @@ class AmalFatimahApiService
 
     public function getAkun(?string $namaAkun = null, ?string $kodeAkun = null): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getAkun', 'rnd' => uniqid()], $jwtKey);
 
         $payload = array_filter([
@@ -738,8 +738,8 @@ class AmalFatimahApiService
 
     public function createAkun(array $payload): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'createAkun', 'rnd' => uniqid()], $jwtKey);
 
         try {
@@ -783,8 +783,8 @@ class AmalFatimahApiService
 
     public function getThnAka(?string $keyword = null): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getThnAka', 'rnd' => uniqid()], $jwtKey);
 
         $payload = array_filter([
@@ -834,8 +834,8 @@ class AmalFatimahApiService
 
     public function createThnAka(string $thnAka): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'createThnAka', 'rnd' => uniqid()], $jwtKey);
 
         try {
@@ -877,8 +877,8 @@ class AmalFatimahApiService
 
     public function getFilterSiswa(): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getFilterSiswa', 'rnd' => uniqid()], $jwtKey);
 
         try {
@@ -907,8 +907,8 @@ class AmalFatimahApiService
 
     public function getSiswaCount(array $filters): int
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getSiswaCount', 'rnd' => uniqid()], $jwtKey);
 
         $body = array_filter([
@@ -945,8 +945,8 @@ class AmalFatimahApiService
      */
     public function getSiswa(array $filters, int $limit = 10, int $offset = 0): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getSiswa', 'rnd' => uniqid()], $jwtKey);
 
         $body = array_filter([
@@ -996,8 +996,8 @@ class AmalFatimahApiService
 
     public function createSiswa(array $payload): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'createSiswa', 'rnd' => uniqid()], $jwtKey);
 
         $body = [
@@ -1054,8 +1054,8 @@ class AmalFatimahApiService
 
     public function getFilterBebanPost(): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getFilterBebanPost', 'rnd' => uniqid()], $jwtKey);
 
         try {
@@ -1113,8 +1113,8 @@ class AmalFatimahApiService
      */
     public function getBebanPost(array $filters = [], int $limit = 200, int $offset = 0): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getBebanPost', 'rnd' => uniqid()], $jwtKey);
 
         $body = array_filter([
@@ -1163,8 +1163,8 @@ class AmalFatimahApiService
 
     public function createBebanPost(array $payload): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'createBebanPost', 'rnd' => uniqid()], $jwtKey);
         $requestBody = [
             'method' => 'createBebanPost',
@@ -1226,8 +1226,8 @@ class AmalFatimahApiService
 
     public function exportSiswa(array $filters = []): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'exportSiswa', 'rnd' => uniqid()], $jwtKey);
 
         $body = array_filter([
@@ -1291,8 +1291,8 @@ class AmalFatimahApiService
 
     public function importSiswaByFilePath(string $filePath, string $originalName = 'import.xlsx'): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'importSiswa', 'rnd' => uniqid()], $jwtKey);
 
         try {
@@ -1346,8 +1346,8 @@ class AmalFatimahApiService
 
     public function getSettingAtributSiswa(array $filters, int $limit = 200, int $offset = 0): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getSettingAtributSiswa', 'rnd' => uniqid()], $jwtKey);
 
         $body = array_filter([
@@ -1393,8 +1393,8 @@ class AmalFatimahApiService
 
     public function importSettingAtributSiswaByFilePath(string $filePath, string $originalName = 'atribut.xlsx'): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'importSettingAtributSiswa', 'rnd' => uniqid()], $jwtKey);
 
         try {
@@ -1451,8 +1451,8 @@ class AmalFatimahApiService
             return $this->sikeuPindahKelas->getSiswaByKelas($kelasSumber, $search, $limit, $offset);
         }
 
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getSiswaByKelas', 'rnd' => uniqid()], $jwtKey);
 
         $body = [
@@ -1513,8 +1513,8 @@ class AmalFatimahApiService
             return $this->sikeuPindahKelas->pindahKelas($kelasSumber, $kelasTujuan, $mode, $custids);
         }
 
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'pindahKelas', 'rnd' => uniqid()], $jwtKey);
 
         $body = [
@@ -1550,8 +1550,8 @@ class AmalFatimahApiService
 
     public function getFilterBuatTagihan(): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getFilterBuatTagihan', 'rnd' => uniqid()], $jwtKey);
 
         try {
@@ -1579,8 +1579,8 @@ class AmalFatimahApiService
 
     public function getBuatTagihan(array $filters, int $limit = 10, int $offset = 0): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getBuatTagihan', 'rnd' => uniqid()], $jwtKey);
 
         $body = array_filter([
@@ -1644,8 +1644,8 @@ class AmalFatimahApiService
 
     public function createBuatTagihan(array $payload): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'createBuatTagihan', 'rnd' => uniqid()], $jwtKey);
 
         $body = [
@@ -1689,8 +1689,8 @@ class AmalFatimahApiService
 
     public function getFungsiBuatTagihan(string $thnAkademik, string $tagihan = ''): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getFungsiBuatTagihan', 'rnd' => uniqid()], $jwtKey);
 
         $body = [
@@ -1735,8 +1735,8 @@ class AmalFatimahApiService
      */
     public function enrichTagihanExcelRows(array $rows): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'enrichTagihanExcelRows', 'rnd' => uniqid()], $jwtKey);
 
         $body = [
@@ -1778,8 +1778,8 @@ class AmalFatimahApiService
      */
     public function createTagihanExcelUpload(array $payload): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'createTagihanExcelUpload', 'rnd' => uniqid()], $jwtKey);
 
         $body = [
@@ -1830,8 +1830,8 @@ class AmalFatimahApiService
         bool $rekapCetak = false,
         bool $rekapList = false
     ): array {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getDataTagihan', 'rnd' => uniqid()], $jwtKey);
 
         $body = array_merge([
@@ -1925,8 +1925,8 @@ class AmalFatimahApiService
      */
     public function getTagihanRekapCetak(array $filters, int $maxRows = 50000): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getTagihanRekapCetak', 'rnd' => uniqid()], $jwtKey);
 
         $body = array_merge([
@@ -1982,8 +1982,8 @@ class AmalFatimahApiService
      */
     public function getTagihanRekapMatrix(array $filters, int $limit, int $offset): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getTagihanRekapMatrix', 'rnd' => uniqid()], $jwtKey);
 
         $body = array_merge([
@@ -2062,8 +2062,8 @@ class AmalFatimahApiService
             ];
         }
 
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getTagihanKartuSiswa', 'rnd' => uniqid()], $jwtKey);
 
         $body = [
@@ -2112,8 +2112,8 @@ class AmalFatimahApiService
      */
     public function getDataPenerimaan(array $filters, int $limit, int $offset): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getDataPenerimaan', 'rnd' => uniqid()], $jwtKey);
 
         $body = array_merge([
@@ -2195,8 +2195,8 @@ class AmalFatimahApiService
      */
     public function getHapusTagihanRows(array $filters, int $limit, int $offset): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getHapusTagihanRows', 'rnd' => uniqid()], $jwtKey);
 
         $body = array_merge([
@@ -2253,8 +2253,8 @@ class AmalFatimahApiService
      */
     public function getCekPelunasanRows(array $filters, int $limit, int $offset): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getCekPelunasanRows', 'rnd' => uniqid()], $jwtKey);
 
         $body = array_merge([
@@ -2313,8 +2313,8 @@ class AmalFatimahApiService
      */
     public function getCekPelunasanCards(array $custids, array $filters = []): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getCekPelunasanCards', 'rnd' => uniqid()], $jwtKey);
 
         $cleanIds = array_values(array_unique(array_filter(
@@ -2373,8 +2373,8 @@ class AmalFatimahApiService
      */
     public function hapusTagihanSiswaBatch(array $items): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'hapusTagihanSiswaBatch', 'rnd' => uniqid()], $jwtKey);
 
         $body = [
@@ -2425,8 +2425,8 @@ class AmalFatimahApiService
      */
     public function getEditManualBillsByCustid(int $custid): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getEditManualBillsByCustid', 'rnd' => uniqid()], $jwtKey);
 
         $body = [
@@ -2464,8 +2464,8 @@ class AmalFatimahApiService
      */
     public function getEditManualBillDetailRows(int $custid, string $billcd): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getEditManualBillDetailRows', 'rnd' => uniqid()], $jwtKey);
 
         $body = [
@@ -2504,8 +2504,8 @@ class AmalFatimahApiService
      */
     public function saveEditManualBillDetail(int $custid, string $billcd, array $lines): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'saveEditManualBillDetail', 'rnd' => uniqid()], $jwtKey);
 
         $body = [
@@ -2548,8 +2548,8 @@ class AmalFatimahApiService
      */
     public function getSaldoVirtualAccountRows(array $filters, int $limit, int $offset): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getSaldoVirtualAccountRows', 'rnd' => uniqid()], $jwtKey);
 
         $body = array_merge([
@@ -2600,8 +2600,8 @@ class AmalFatimahApiService
      */
     public function getSaldoVirtualAccountMutasi(int $custid, string $cari, int $limit, int $offset): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getSaldoVirtualAccountMutasi', 'rnd' => uniqid()], $jwtKey);
 
         $body = array_merge([
@@ -2652,8 +2652,8 @@ class AmalFatimahApiService
      */
     public function getDataTransaksiSccttran(array $filters, int $limit, int $offset, bool $forExport = false): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getDataTransaksiSccttran', 'rnd' => uniqid()], $jwtKey);
 
         $body = array_merge([
@@ -2756,8 +2756,8 @@ class AmalFatimahApiService
      */
     public function getDataBiayaAdminRows(array $filters, int $limit, int $offset, bool $includeTotal = false): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getDataBiayaAdminRows', 'rnd' => uniqid()], $jwtKey);
 
         $body = array_merge([
@@ -2811,8 +2811,8 @@ class AmalFatimahApiService
      */
     public function getRekapPenerimaanMatrixExport(array $filters): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getRekapPenerimaanMatrix', 'rnd' => uniqid()], $jwtKey);
 
         $body = array_merge([
@@ -2873,8 +2873,8 @@ class AmalFatimahApiService
      */
     public function getDataPenerimaanPdfExport(array $filters): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getDataPenerimaan', 'rnd' => uniqid()], $jwtKey);
 
         $body = array_merge([
@@ -2940,8 +2940,8 @@ class AmalFatimahApiService
      */
     public function getKartuSiswaPenerimaan(array $filters, array $custids, array $selectedBills = []): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getKartuSiswaPenerimaan', 'rnd' => uniqid()], $jwtKey);
 
         $cleanIds = [];
@@ -3037,8 +3037,8 @@ class AmalFatimahApiService
             ];
         }
 
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
 
         $tokenFilters = $this->jwt->encode(['sub' => 'getFilterBuatTagihan', 'rnd' => uniqid()], $jwtKey);
         $tokenBanks = $this->jwt->encode(['sub' => 'getManualPembayaranBankOptions', 'rnd' => uniqid()], $jwtKey);
@@ -3110,8 +3110,8 @@ class AmalFatimahApiService
      */
     public function loadRekapPenerimaanShell(): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getRekapPenerimaanFilterShell', 'rnd' => uniqid()], $jwtKey);
 
         try {
@@ -3180,8 +3180,8 @@ class AmalFatimahApiService
             ];
         }
 
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
 
         $tokenFilters = $this->jwt->encode(['sub' => 'getFilterBuatTagihan', 'rnd' => uniqid()], $jwtKey);
         $tokenBanks = $this->jwt->encode(['sub' => 'getManualPembayaranBankOptions', 'rnd' => uniqid()], $jwtKey);
@@ -3316,8 +3316,8 @@ class AmalFatimahApiService
      */
     public function getDataPembayaranPerNis(array $filters, array $custids): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getDataPembayaranPerNis', 'rnd' => uniqid()], $jwtKey);
 
         $cleanCustids = [];
@@ -3383,8 +3383,8 @@ class AmalFatimahApiService
      */
     public function updateDataTagihanUrutan(int $custid, string $billcd, string $direction, ?string $aa = null): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'updateDataTagihanUrutan', 'rnd' => uniqid()], $jwtKey);
 
         $body = [
@@ -3427,8 +3427,8 @@ class AmalFatimahApiService
      */
     public function deleteDataTagihan(int $custid, string $billcd): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'deleteDataTagihan', 'rnd' => uniqid()], $jwtKey);
 
         $body = [
@@ -3467,8 +3467,8 @@ class AmalFatimahApiService
      */
     public function getSiswaByCustid(int $custid, array $selectedBillcds = [], string $thnAka = ''): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getSiswaByCustid', 'rnd' => uniqid()], $jwtKey);
 
         $billcds = array_values(array_filter(array_map(static fn ($v) => trim((string) $v), $selectedBillcds), static fn ($v) => $v !== ''));
@@ -3506,8 +3506,8 @@ class AmalFatimahApiService
      */
     public function getManualPembayaranBankOptions(): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getManualPembayaranBankOptions', 'rnd' => uniqid()], $jwtKey);
 
         try {
@@ -3546,8 +3546,8 @@ class AmalFatimahApiService
      */
     public function createManualPembayaran(int $custid, string $fidbank, array $selectedBillcds, string $paiddt = ''): array
     {
-        $url = config('services.ws_amal_fatimah.url');
-        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = config('services.ws_raudhatul_quran.url');
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'createManualPembayaran', 'rnd' => uniqid()], $jwtKey);
 
         $billcds = array_values(array_filter(array_map(static fn ($v) => trim((string) $v), $selectedBillcds), static fn ($v) => $v !== ''));
