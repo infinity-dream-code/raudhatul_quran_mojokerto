@@ -30,6 +30,155 @@ class AmalFatimahApiService
         return str_contains($message, 'Kelas sumber tidak ditemukan');
     }
 
+    public function isWsConfigured(): bool
+    {
+        return $this->wsReady();
+    }
+
+    protected function wsReady(): bool
+    {
+        $url = trim((string) config('services.ws_amal_fatimah.url', ''));
+        $key = trim((string) config('services.ws_amal_fatimah.jwt_key', ''));
+
+        return $url !== '' && $key !== '';
+    }
+
+    protected function wsUrl(): string
+    {
+        return (string) config('services.ws_amal_fatimah.url', '');
+    }
+
+    protected function wsTimeout(): int
+    {
+        return max(3, (int) config('services.ws_amal_fatimah.timeout', 8));
+    }
+
+    protected function wsConnectTimeout(): int
+    {
+        return max(1, (int) config('services.ws_amal_fatimah.connect_timeout', 2));
+    }
+
+    protected function wsPost(array $payload, ?int $timeout = null, ?int $connectTimeout = null): ?\Illuminate\Http\Client\Response
+    {
+        if (!$this->wsReady()) {
+            return null;
+        }
+
+        try {
+            return Http::timeout($timeout ?? $this->wsTimeout())
+                ->connectTimeout($connectTimeout ?? $this->wsConnectTimeout())
+                ->post($this->wsUrl(), $payload);
+        } catch (\Throwable $e) {
+            Log::warning('[WS Amal Fatimah] ' . ($payload['method'] ?? '?') . ': ' . $e->getMessage());
+
+            return null;
+        }
+    }
+
+    protected function wsPostForm(array $payload, ?int $timeout = null): ?\Illuminate\Http\Client\Response
+    {
+        if (!$this->wsReady()) {
+            return null;
+        }
+
+        try {
+            return Http::timeout($timeout ?? $this->wsTimeout())
+                ->connectTimeout($this->wsConnectTimeout())
+                ->asForm()
+                ->post($this->wsUrl(), $payload);
+        } catch (\Throwable $e) {
+            Log::warning('[WS Amal Fatimah] ' . ($payload['method'] ?? '?') . ': ' . $e->getMessage());
+
+            return null;
+        }
+    }
+
+    /**
+     * @param  callable(\Illuminate\Http\Client\PendingRequest): \Illuminate\Http\Client\PendingRequest  $configure
+     */
+    protected function wsPostMultipart(array $payload, callable $configure, ?int $timeout = null): ?\Illuminate\Http\Client\Response
+    {
+        if (!$this->wsReady()) {
+            return null;
+        }
+
+        try {
+            $client = Http::timeout($timeout ?? max($this->wsTimeout(), 30))
+                ->connectTimeout($this->wsConnectTimeout());
+
+            return $configure($client)->post($this->wsUrl(), $payload);
+        } catch (\Throwable $e) {
+            Log::warning('[WS Amal Fatimah] ' . ($payload['method'] ?? '?') . ': ' . $e->getMessage());
+
+            return null;
+        }
+    }
+
+    /**
+     * @return array{dashboard: ?array, tagihan: ?array, tagihanDibayarChart: array}
+     */
+    public function fetchDashboardBundle(): array
+    {
+        if (!$this->wsReady()) {
+            return ['dashboard' => null, 'tagihan' => null, 'tagihanDibayarChart' => []];
+        }
+
+        $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
+        $url = $this->wsUrl();
+        $timeout = $this->wsTimeout();
+        $connect = $this->wsConnectTimeout();
+
+        $tokenDashboard = $this->jwt->encode(['sub' => 'dashboard', 'rnd' => uniqid()], $jwtKey);
+        $tokenTagihan = $this->jwt->encode(['sub' => 'tagihandashboard', 'rnd' => uniqid()], $jwtKey);
+        $tokenBayar = $this->jwt->encode(['sub' => 'tagihanbayarDashboard', 'rnd' => uniqid()], $jwtKey);
+
+        try {
+            $responses = Http::pool(function (Pool $pool) use ($url, $timeout, $connect, $tokenDashboard, $tokenTagihan, $tokenBayar) {
+                $pool->as('dashboard')
+                    ->timeout($timeout)->connectTimeout($connect)
+                    ->post($url, ['method' => 'dashboard', 'token' => $tokenDashboard]);
+                $pool->as('tagihan')
+                    ->timeout($timeout)->connectTimeout($connect)
+                    ->post($url, ['method' => 'tagihandashboard', 'token' => $tokenTagihan]);
+                $pool->as('bayar')
+                    ->timeout($timeout)->connectTimeout($connect)
+                    ->post($url, ['method' => 'tagihanbayarDashboard', 'token' => $tokenBayar]);
+            });
+        } catch (\Throwable $e) {
+            Log::error('[WS Amal Fatimah] fetchDashboardBundle: ' . $e->getMessage());
+
+            return ['dashboard' => null, 'tagihan' => null, 'tagihanDibayarChart' => []];
+        }
+
+        $dashboard = null;
+        $rd = $responses['dashboard'] ?? null;
+        if ($rd && $rd->successful()) {
+            $dashboard = $rd->json();
+        }
+
+        $tagihan = null;
+        $rt = $responses['tagihan'] ?? null;
+        if ($rt && $rt->successful()) {
+            $data = $rt->json();
+            $inner = $data['data'] ?? $data;
+            $tagihan = is_array($inner) ? $inner : $data;
+        }
+
+        $tagihanDibayarChart = [];
+        $rb = $responses['bayar'] ?? null;
+        if ($rb && $rb->successful()) {
+            $data = $rb->json();
+            $inner = $data['data'] ?? $data;
+            $tagihanDibayarChart = is_array($inner) ? $inner : [];
+        }
+
+        return [
+            'dashboard' => $dashboard,
+            'tagihan' => $tagihan,
+            'tagihanDibayarChart' => $tagihanDibayarChart,
+        ];
+    }
+
     /**
      * Login user via WS users table.
      *
@@ -37,7 +186,14 @@ class AmalFatimahApiService
      */
     public function loginUser(string $login, string $password): array
     {
-        $url = config('services.ws_amal_fatimah.url');
+        if (!$this->wsReady()) {
+            return [
+                'ok' => false,
+                'message' => 'Layanan SIKEU belum dikonfigurasi (WS_AMAL_FATIMAH_JWT_KEY kosong).',
+                'data' => [],
+            ];
+        }
+
         $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'loginUser', 'rnd' => uniqid()], $jwtKey);
 
@@ -49,11 +205,11 @@ class AmalFatimahApiService
         ];
 
         try {
-            $response = Http::timeout(20)->connectTimeout(10)->post($url, $body);
-            $json = $response->json() ?? [];
+            $response = $this->wsPost($body);
+            $json = $response?->json() ?? [];
             $status = (int) ($json['status'] ?? 0);
             $data = is_array($json['data'] ?? null) ? $json['data'] : [];
-            if (!$response->successful() || $status !== 200) {
+            if (!$response || !$response->successful() || $status !== 200) {
                 return [
                     'ok' => false,
                     'message' => (string) ($json['message'] ?? 'Username/email atau password salah.'),
@@ -91,17 +247,17 @@ class AmalFatimahApiService
         ]);
 
         try {
-            $response = Http::timeout(15)->post($url, $payload);
+            $response = $this->wsPost($payload);
 
             Log::channel('single')->info('[WS Amal Fatimah] Response', [
-                'status' => $response->status(),
+                'status' => $response?->status(),
                 'ok' => $response->successful(),
-                'body_preview' => substr($response->body(), 0, 500),
-                'body_full' => $response->body(),
+                'body_preview' => substr($response?->body(), 0, 500),
+                'body_full' => $response?->body(),
             ]);
 
-            if ($response->successful()) {
-                $data = $response->json();
+            if ($response && $response->successful()) {
+                $data = $response?->json();
                 Log::channel('single')->info('[WS Amal Fatimah] Parsed JSON keys', [
                     'top_keys' => is_array($data) ? array_keys($data) : 'not_array',
                 ]);
@@ -109,8 +265,8 @@ class AmalFatimahApiService
             }
 
             Log::warning('[WS Amal Fatimah] HTTP failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
+                'status' => $response?->status(),
+                'body' => $response?->body(),
             ]);
             return null;
         } catch (\Throwable $e) {
@@ -129,13 +285,13 @@ class AmalFatimahApiService
         $token = $this->jwt->encode(['sub' => 'tagihandashboard', 'rnd' => uniqid()], $jwtKey);
 
         try {
-            $response = Http::timeout(15)->post($url, [
+            $response = $this->wsPost([
                 'method' => 'tagihandashboard',
                 'token' => $token,
             ]);
 
-            if ($response->successful()) {
-                $data = $response->json();
+            if ($response && $response->successful()) {
+                $data = $response?->json();
                 $inner = $data['data'] ?? $data;
                 if (is_array($inner)) {
                     return $inner;
@@ -157,13 +313,13 @@ class AmalFatimahApiService
         $token = $this->jwt->encode(['sub' => 'tagihanbayarDashboard', 'rnd' => uniqid()], $jwtKey);
 
         try {
-            $response = Http::timeout(15)->post($url, [
+            $response = $this->wsPost([
                 'method' => 'tagihanbayarDashboard',
                 'token' => $token,
             ]);
 
-            if ($response->successful()) {
-                $data = $response->json();
+            if ($response && $response->successful()) {
+                $data = $response?->json();
                 $inner = $data['data'] ?? $data;
                 return is_array($inner) ? $inner : [];
             }
@@ -189,17 +345,17 @@ class AmalFatimahApiService
         ], static fn ($value) => !is_null($value) && $value !== '');
 
         try {
-            $response = Http::timeout(15)->post($url, $payload);
+            $response = $this->wsPost($payload);
 
-            if (!$response->successful()) {
+            if (!$response || !$response->successful()) {
                 Log::warning('[WS Amal Fatimah] getKelas HTTP failed', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
+                    'status' => $response?->status(),
+                    'body' => $response?->body(),
                 ]);
                 return [];
             }
 
-            $data = $response->json();
+            $data = $response?->json();
             $inner = $data['data'] ?? $data;
 
             return is_array($inner) ? array_values($inner) : [];
@@ -267,22 +423,22 @@ class AmalFatimahApiService
         $token = $this->jwt->encode(['sub' => 'deleteKelas', 'rnd' => uniqid()], $jwtKey);
 
         try {
-            $response = Http::timeout(15)->post($url, [
+            $response = $this->wsPost([
                 'method' => 'deleteKelas',
                 'token' => $token,
                 'id' => $id,
             ]);
 
-            $data = $response->json();
-            $status = (int) ($data['status'] ?? $response->status());
+            $data = $response?->json();
+            $status = (int) ($data['status'] ?? $response?->status());
 
-            if ($response->successful() && $status === 200) {
+            if ($response && $response->successful() && $status === 200) {
                 return ['ok' => true, 'message' => (string) ($data['message'] ?? 'Kelas berhasil dihapus.')];
             }
 
             Log::warning('[WS Amal Fatimah] deleteKelas failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
+                'status' => $response?->status(),
+                'body' => $response?->body(),
             ]);
 
             return [
@@ -312,10 +468,10 @@ class AmalFatimahApiService
         ];
 
         try {
-            $response = Http::timeout(15)->post($url, $body);
-            $json = $response->json();
+            $response = $this->wsPost($body);
+            $json = $response?->json();
 
-            if ($response->successful() && (int) ($json['status'] ?? 0) === 201) {
+            if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 201) {
                 return [
                     'ok' => true,
                     'message' => (string) ($json['message'] ?? 'Kelas berhasil ditambahkan'),
@@ -324,8 +480,8 @@ class AmalFatimahApiService
             }
 
             Log::warning('[WS Amal Fatimah] createKelas failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
+                'status' => $response?->status(),
+                'body' => $response?->body(),
             ]);
 
             return [
@@ -357,17 +513,17 @@ class AmalFatimahApiService
         ], static fn ($value) => !is_null($value) && $value !== '');
 
         try {
-            $response = Http::timeout(15)->post($url, $payload);
+            $response = $this->wsPost($payload);
 
-            if (!$response->successful()) {
+            if (!$response || !$response->successful()) {
                 Log::warning('[WS Amal Fatimah] getSekolah HTTP failed', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
+                    'status' => $response?->status(),
+                    'body' => $response?->body(),
                 ]);
                 return [];
             }
 
-            $data = $response->json();
+            $data = $response?->json();
             $inner = $data['data'] ?? $data;
             if (!is_array($inner)) {
                 return [];
@@ -393,15 +549,15 @@ class AmalFatimahApiService
         $token = $this->jwt->encode(['sub' => 'getSekolahByid', 'rnd' => uniqid()], $jwtKey);
 
         try {
-            $response = Http::timeout(15)->post($url, [
+            $response = $this->wsPost([
                 'method' => 'getSekolahByid',
                 'token' => $token,
                 'id' => $id,
             ]);
-            $json = $response->json();
+            $json = $response?->json();
             $inner = $json['data'] ?? [];
 
-            if (!$response->successful() || !is_array($inner)) {
+            if (!$response || !$response->successful() || !is_array($inner)) {
                 return [];
             }
 
@@ -428,10 +584,10 @@ class AmalFatimahApiService
         ];
 
         try {
-            $response = Http::timeout(15)->post($url, $body);
-            $json = $response->json();
+            $response = $this->wsPost($body);
+            $json = $response?->json();
 
-            if ($response->successful() && (int) ($json['status'] ?? 0) === 201) {
+            if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 201) {
                 return [
                     'ok' => true,
                     'message' => (string) ($json['message'] ?? 'Sekolah berhasil ditambahkan'),
@@ -440,8 +596,8 @@ class AmalFatimahApiService
             }
 
             Log::warning('[WS Amal Fatimah] createSekolah failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
+                'status' => $response?->status(),
+                'body' => $response?->body(),
             ]);
 
             return [
@@ -476,10 +632,10 @@ class AmalFatimahApiService
         ];
 
         try {
-            $response = Http::timeout(15)->post($url, $body);
-            $json = $response->json();
+            $response = $this->wsPost($body);
+            $json = $response?->json();
 
-            if ($response->successful() && (int) ($json['status'] ?? 0) === 200) {
+            if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 200) {
                 return [
                     'ok' => true,
                     'message' => (string) ($json['message'] ?? 'Sekolah berhasil diupdate'),
@@ -488,8 +644,8 @@ class AmalFatimahApiService
             }
 
             Log::warning('[WS Amal Fatimah] updateSekolah failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
+                'status' => $response?->status(),
+                'body' => $response?->body(),
             ]);
 
             return [
@@ -514,21 +670,21 @@ class AmalFatimahApiService
         $token = $this->jwt->encode(['sub' => 'deleteSekolah', 'rnd' => uniqid()], $jwtKey);
 
         try {
-            $response = Http::timeout(15)->post($url, [
+            $response = $this->wsPost([
                 'method' => 'deleteSekolah',
                 'token' => $token,
                 'id' => $id,
             ]);
 
-            if (!$response->successful()) {
+            if (!$response || !$response->successful()) {
                 Log::warning('[WS Amal Fatimah] deleteSekolah HTTP failed', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
+                    'status' => $response?->status(),
+                    'body' => $response?->body(),
                 ]);
                 return false;
             }
 
-            $data = $response->json();
+            $data = $response?->json();
             $status = (int) ($data['status'] ?? 0);
 
             return $status === 200;
@@ -552,17 +708,17 @@ class AmalFatimahApiService
         ], static fn ($value) => !is_null($value) && $value !== '');
 
         try {
-            $response = Http::timeout(15)->post($url, $payload);
+            $response = $this->wsPost($payload);
 
-            if (!$response->successful()) {
+            if (!$response || !$response->successful()) {
                 Log::warning('[WS Amal Fatimah] getAkun HTTP failed', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
+                    'status' => $response?->status(),
+                    'body' => $response?->body(),
                 ]);
                 return [];
             }
 
-            $data = $response->json();
+            $data = $response?->json();
             $inner = $data['data'] ?? $data;
             if (!is_array($inner)) {
                 return [];
@@ -587,7 +743,7 @@ class AmalFatimahApiService
         $token = $this->jwt->encode(['sub' => 'createAkun', 'rnd' => uniqid()], $jwtKey);
 
         try {
-            $response = Http::timeout(15)->post($url, [
+            $response = $this->wsPost([
                 'method' => 'createAkun',
                 'token' => $token,
                 'KodeAkun' => trim((string) ($payload['kodeakun'] ?? '')),
@@ -595,9 +751,9 @@ class AmalFatimahApiService
                 'NoRek' => trim((string) ($payload['norek'] ?? '')),
             ]);
 
-            $json = $response->json();
+            $json = $response?->json();
 
-            if ($response->successful() && (int) ($json['status'] ?? 0) === 201) {
+            if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 201) {
                 return [
                     'ok' => true,
                     'message' => (string) ($json['message'] ?? 'Akun berhasil ditambahkan'),
@@ -606,8 +762,8 @@ class AmalFatimahApiService
             }
 
             Log::warning('[WS Amal Fatimah] createAkun failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
+                'status' => $response?->status(),
+                'body' => $response?->body(),
             ]);
 
             return [
@@ -638,17 +794,17 @@ class AmalFatimahApiService
         ], static fn ($value) => !is_null($value) && $value !== '');
 
         try {
-            $response = Http::timeout(15)->post($url, $payload);
+            $response = $this->wsPost($payload);
 
-            if (!$response->successful()) {
+            if (!$response || !$response->successful()) {
                 Log::warning('[WS Amal Fatimah] getThnAka HTTP failed', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
+                    'status' => $response?->status(),
+                    'body' => $response?->body(),
                 ]);
                 return [];
             }
 
-            $data = $response->json();
+            $data = $response?->json();
             $inner = $data['data'] ?? $data;
             if (!is_array($inner)) {
                 return [];
@@ -683,15 +839,15 @@ class AmalFatimahApiService
         $token = $this->jwt->encode(['sub' => 'createThnAka', 'rnd' => uniqid()], $jwtKey);
 
         try {
-            $response = Http::timeout(15)->post($url, [
+            $response = $this->wsPost([
                 'method' => 'createThnAka',
                 'token' => $token,
                 'thn_aka' => trim($thnAka),
             ]);
 
-            $json = $response->json();
+            $json = $response?->json();
 
-            if ($response->successful() && (int) ($json['status'] ?? 0) === 201) {
+            if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 201) {
                 return [
                     'ok' => true,
                     'message' => (string) ($json['message'] ?? 'Tahun akademik berhasil ditambahkan'),
@@ -700,8 +856,8 @@ class AmalFatimahApiService
             }
 
             Log::warning('[WS Amal Fatimah] createThnAka failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
+                'status' => $response?->status(),
+                'body' => $response?->body(),
             ]);
 
             return [
@@ -726,20 +882,20 @@ class AmalFatimahApiService
         $token = $this->jwt->encode(['sub' => 'getFilterSiswa', 'rnd' => uniqid()], $jwtKey);
 
         try {
-            $response = Http::timeout(20)->post($url, [
+            $response = $this->wsPost([
                 'method' => 'getFilterSiswa',
                 'token' => $token,
             ]);
 
-            if (!$response->successful()) {
+            if (!$response || !$response->successful()) {
                 Log::warning('[WS Amal Fatimah] getFilterSiswa HTTP failed', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
+                    'status' => $response?->status(),
+                    'body' => $response?->body(),
                 ]);
                 return ['angkatan' => [], 'sekolah' => [], 'kelas' => []];
             }
 
-            $data = $response->json();
+            $data = $response?->json();
             $inner = $data['data'] ?? [];
 
             return is_array($inner) ? $inner : ['angkatan' => [], 'sekolah' => [], 'kelas' => []];
@@ -767,11 +923,11 @@ class AmalFatimahApiService
         ], static fn ($v) => !is_null($v) && $v !== '');
 
         try {
-            $response = Http::timeout(20)->post($url, $body);
-            if (!$response->successful()) {
+            $response = $this->wsPost($body);
+            if (!$response || !$response->successful()) {
                 return 0;
             }
-            $json = $response->json();
+            $json = $response?->json();
             $inner = $json['data'] ?? [];
             if (is_array($inner) && isset($inner['total'])) {
                 return (int) $inner['total'];
@@ -812,15 +968,15 @@ class AmalFatimahApiService
         }, ARRAY_FILTER_USE_BOTH);
 
         try {
-            $response = Http::timeout(30)->post($url, $body);
-            if (!$response->successful()) {
+            $response = $this->wsPost($body);
+            if (!$response || !$response->successful()) {
                 Log::warning('[WS Amal Fatimah] getSiswa HTTP failed', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
+                    'status' => $response?->status(),
+                    'body' => $response?->body(),
                 ]);
                 return [];
             }
-            $data = $response->json();
+            $data = $response?->json();
             $inner = $data['data'] ?? $data;
             if (!is_array($inner)) {
                 return [];
@@ -865,10 +1021,10 @@ class AmalFatimahApiService
         }, ARRAY_FILTER_USE_BOTH);
 
         try {
-            $response = Http::timeout(20)->post($url, $body);
-            $json = $response->json();
+            $response = $this->wsPost($body);
+            $json = $response?->json();
 
-            if ($response->successful() && (int) ($json['status'] ?? 0) === 201) {
+            if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 201) {
                 return [
                     'ok' => true,
                     'message' => (string) ($json['message'] ?? 'Data siswa berhasil ditambahkan'),
@@ -877,8 +1033,8 @@ class AmalFatimahApiService
             }
 
             Log::warning('[WS Amal Fatimah] createSiswa failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
+                'status' => $response?->status(),
+                'body' => $response?->body(),
             ]);
 
             return [
@@ -903,20 +1059,20 @@ class AmalFatimahApiService
         $token = $this->jwt->encode(['sub' => 'getFilterBebanPost', 'rnd' => uniqid()], $jwtKey);
 
         try {
-            $response = Http::timeout(20)->post($url, [
+            $response = $this->wsPost([
                 'method' => 'getFilterBebanPost',
                 'token' => $token,
             ]);
 
-            if (!$response->successful()) {
+            if (!$response || !$response->successful()) {
                 Log::warning('[WS Amal Fatimah] getFilterBebanPost HTTP failed', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
+                    'status' => $response?->status(),
+                    'body' => $response?->body(),
                 ]);
                 return ['thn_masuk' => [], 'kelas' => [], 'akun' => []];
             }
 
-            $json = $response->json();
+            $json = $response?->json();
             $inner = $json['data'] ?? [];
             if (!is_array($inner)) {
                 return ['thn_masuk' => [], 'kelas' => [], 'akun' => []];
@@ -978,16 +1134,16 @@ class AmalFatimahApiService
         }, ARRAY_FILTER_USE_BOTH);
 
         try {
-            $response = Http::timeout(20)->post($url, $body);
-            if (!$response->successful()) {
+            $response = $this->wsPost($body);
+            if (!$response || !$response->successful()) {
                 Log::warning('[WS Amal Fatimah] getBebanPost HTTP failed', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
+                    'status' => $response?->status(),
+                    'body' => $response?->body(),
                 ]);
                 return [];
             }
 
-            $json = $response->json();
+            $json = $response?->json();
             $inner = $json['data'] ?? $json;
             if (!is_array($inner)) {
                 return [];
@@ -1033,13 +1189,13 @@ class AmalFatimahApiService
                 ],
             ]);
 
-            $response = Http::timeout(20)->post($url, $requestBody);
+            $response = $this->wsPost($requestBody);
 
-            $json = $response->json();
-            if ($response->successful() && (int) ($json['status'] ?? 0) === 201) {
+            $json = $response?->json();
+            if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 201) {
                 Log::info('[WS Amal Fatimah] createBebanPost success', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
+                    'status' => $response?->status(),
+                    'body' => $response?->body(),
                 ]);
                 return [
                     'ok' => true,
@@ -1049,8 +1205,8 @@ class AmalFatimahApiService
             }
 
             Log::warning('[WS Amal Fatimah] createBebanPost failed response', [
-                'status' => $response->status(),
-                'body' => $response->body(),
+                'status' => $response?->status(),
+                'body' => $response?->body(),
             ]);
 
             return [
@@ -1084,12 +1240,12 @@ class AmalFatimahApiService
         ], static fn ($v) => !is_null($v) && $v !== '');
 
         try {
-            $response = Http::timeout(60)->asForm()->post($url, $body);
+            $response = $this->wsPostForm($body, 60);
 
-            if (!$response->successful()) {
+            if (!$response || !$response->successful()) {
                 Log::warning('[WS Amal Fatimah] exportSiswa HTTP failed', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
+                    'status' => $response?->status(),
+                    'body' => $response?->body(),
                 ]);
                 return [
                     'ok' => false,
@@ -1100,7 +1256,7 @@ class AmalFatimahApiService
                 ];
             }
 
-            $disposition = (string) $response->header('content-disposition', '');
+            $disposition = (string) $response?->header('content-disposition', '');
             $filename = 'export_siswa_' . now()->format('Ymd_His') . '.csv';
             if (preg_match('/filename="?([^"]+)"?/i', $disposition, $matches) === 1) {
                 $detected = trim((string) ($matches[1] ?? ''));
@@ -1113,8 +1269,8 @@ class AmalFatimahApiService
                 'ok' => true,
                 'message' => 'Export berhasil',
                 'filename' => $filename,
-                'content' => $response->body(),
-                'content_type' => (string) $response->header('content-type', 'text/csv; charset=utf-8'),
+                'content' => $response?->body(),
+                'content_type' => (string) $response?->header('content-type', 'text/csv; charset=utf-8'),
             ];
         } catch (\Throwable $e) {
             Log::error('[WS Amal Fatimah] exportSiswa: ' . $e->getMessage());
@@ -1149,16 +1305,18 @@ class AmalFatimahApiService
                 ];
             }
 
-            $response = Http::timeout(120)
-                ->attach('file', $content, $originalName)
-                ->post($url, [
+            $response = $this->wsPostMultipart(
+                [
                     'method' => 'importSiswa',
                     'token' => $token,
-                ]);
+                ],
+                fn ($client) => $client->attach('file', $content, $originalName),
+                120
+            );
 
-            $json = $response->json();
+            $json = $response ? ($response?->json() ?? []) : [];
 
-            if ($response->successful() && (int) ($json['status'] ?? 0) === 200) {
+            if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 200) {
                 return [
                     'ok' => true,
                     'message' => (string) ($json['message'] ?? 'Import selesai'),
@@ -1167,8 +1325,8 @@ class AmalFatimahApiService
             }
 
             Log::warning('[WS Amal Fatimah] importSiswa failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
+                'status' => $response?->status(),
+                'body' => $response?->body(),
             ]);
 
             return [
@@ -1206,16 +1364,16 @@ class AmalFatimahApiService
         }, ARRAY_FILTER_USE_BOTH);
 
         try {
-            $response = Http::timeout(30)->post($url, $body);
-            if (!$response->successful()) {
+            $response = $this->wsPost($body);
+            if (!$response || !$response->successful()) {
                 Log::warning('[WS Amal Fatimah] getSettingAtributSiswa failed', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
+                    'status' => $response?->status(),
+                    'body' => $response?->body(),
                 ]);
                 return [];
             }
 
-            $json = $response->json();
+            $json = $response?->json();
             $inner = $json['data'] ?? [];
             if (!is_array($inner)) {
                 return [];
@@ -1249,15 +1407,17 @@ class AmalFatimahApiService
                 ];
             }
 
-            $response = Http::timeout(120)
-                ->attach('file', $content, $originalName)
-                ->post($url, [
+            $response = $this->wsPostMultipart(
+                [
                     'method' => 'importSettingAtributSiswa',
                     'token' => $token,
-                ]);
+                ],
+                fn ($client) => $client->attach('file', $content, $originalName),
+                120
+            );
 
-            $json = $response->json();
-            if ($response->successful() && (int) ($json['status'] ?? 0) === 200) {
+            $json = $response ? ($response?->json() ?? []) : [];
+            if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 200) {
                 return [
                     'ok' => true,
                     'message' => (string) ($json['message'] ?? 'Import atribut selesai'),
@@ -1266,8 +1426,8 @@ class AmalFatimahApiService
             }
 
             Log::warning('[WS Amal Fatimah] importSettingAtributSiswa failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
+                'status' => $response?->status(),
+                'body' => $response?->body(),
             ]);
 
             return [
@@ -1309,9 +1469,9 @@ class AmalFatimahApiService
         }
 
         try {
-            $response = Http::timeout(30)->post($url, $body);
-            $json = $response->json();
-            if (!$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
+            $response = $this->wsPost($body);
+            $json = $response?->json();
+            if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
                 $message = (string) ($json['message'] ?? 'Gagal mengambil data siswa');
                 if ($this->shouldFallbackPindahKelasWs($message, $kelasSumber)) {
                     return $this->sikeuPindahKelas->getSiswaByKelas($kelasSumber, $search, $limit, $offset);
@@ -1371,9 +1531,9 @@ class AmalFatimahApiService
         }
 
         try {
-            $response = Http::timeout(40)->post($url, $body);
-            $json = $response->json();
-            if ($response->successful() && (int) ($json['status'] ?? 0) === 200) {
+            $response = $this->wsPost($body);
+            $json = $response?->json();
+            if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 200) {
                 return ['ok' => true, 'message' => (string) ($json['message'] ?? 'Pemindahan kelas berhasil'), 'data' => $json['data'] ?? []];
             }
             $message = (string) ($json['message'] ?? 'Gagal memindahkan kelas');
@@ -1395,15 +1555,15 @@ class AmalFatimahApiService
         $token = $this->jwt->encode(['sub' => 'getFilterBuatTagihan', 'rnd' => uniqid()], $jwtKey);
 
         try {
-            $response = Http::timeout(30)->post($url, [
+            $response = $this->wsPost([
                 'method' => 'getFilterBuatTagihan',
                 'token' => $token,
             ]);
-            if (!$response->successful()) {
+            if (!$response || !$response->successful()) {
                 return ['thn_akademik' => [], 'thn_angkatan' => [], 'kelas' => [], 'tagihan' => []];
             }
 
-            $json = $response->json();
+            $json = $response?->json();
             $inner = is_array($json['data'] ?? null) ? $json['data'] : [];
             return [
                 'thn_akademik' => is_array($inner['thn_akademik'] ?? null) ? array_values($inner['thn_akademik']) : [],
@@ -1446,9 +1606,9 @@ class AmalFatimahApiService
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             try {
-                $response = Http::timeout(30)->post($url, $body);
-                $json = $response->json();
-                if ($response->successful() && (int) ($json['status'] ?? 0) === 200) {
+                $response = $this->wsPost($body);
+                $json = $response?->json();
+                if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 200) {
                     Log::info('[WS Amal Fatimah] getBuatTagihan success', [
                         'request' => $body,
                         'attempt' => $attempt,
@@ -1461,9 +1621,9 @@ class AmalFatimahApiService
 
                 $lastMessage = (string) ($json['message'] ?? 'Gagal memuat data');
                 Log::warning('[WS Amal Fatimah] getBuatTagihan failed', [
-                    'status' => $response->status(),
+                    'status' => $response?->status(),
                     'attempt' => $attempt,
-                    'body' => $response->body(),
+                    'body' => $response?->body(),
                     'request' => $body,
                 ]);
             } catch (\Throwable $e) {
@@ -1502,14 +1662,14 @@ class AmalFatimahApiService
         ];
 
         try {
-            $response = Http::timeout(60)->post($url, $body);
-            $json = $response->json();
-            if ($response->successful() && (int) ($json['status'] ?? 0) === 201) {
+            $response = $this->wsPost($body);
+            $json = $response?->json();
+            if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 201) {
                 return ['ok' => true, 'message' => (string) ($json['message'] ?? 'Tagihan berhasil disimpan'), 'data' => $json['data'] ?? []];
             }
             Log::warning('[WS Amal Fatimah] createBuatTagihan failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
+                'status' => $response?->status(),
+                'body' => $response?->body(),
                 'request' => [
                     'thn_akademik' => $body['thn_akademik'],
                     'thn_angkatan' => $body['thn_angkatan'],
@@ -1541,12 +1701,12 @@ class AmalFatimahApiService
         ];
 
         try {
-            $response = Http::timeout(20)->post($url, $body);
-            $json = $response->json();
-            if (!$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
+            $response = $this->wsPost($body);
+            $json = $response?->json();
+            if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
                 Log::warning('[WS Amal Fatimah] getFungsiBuatTagihan failed', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
+                    'status' => $response?->status(),
+                    'body' => $response?->body(),
                     'request' => $body,
                 ]);
                 return ['ok' => false, 'fungsi' => '', 'source' => ''];
@@ -1586,12 +1746,12 @@ class AmalFatimahApiService
         ];
 
         try {
-            $response = Http::timeout(45)->post($url, $body);
-            $json = $response->json();
-            if (!$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
+            $response = $this->wsPost($body);
+            $json = $response?->json();
+            if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
                 Log::warning('[WS Amal Fatimah] enrichTagihanExcelRows failed', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
+                    'status' => $response?->status(),
+                    'body' => $response?->body(),
                 ]);
 
                 return ['ok' => false, 'rows' => []];
@@ -1634,9 +1794,9 @@ class AmalFatimahApiService
         ];
 
         try {
-            $response = Http::timeout(120)->post($url, $body);
-            $json = $response->json();
-            if ($response->successful() && (int) ($json['status'] ?? 0) === 201) {
+            $response = $this->wsPost($body);
+            $json = $response?->json();
+            if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 201) {
                 return [
                     'ok' => true,
                     'message' => (string) ($json['message'] ?? 'Berhasil'),
@@ -1714,12 +1874,12 @@ class AmalFatimahApiService
         $timeout = ($forExport || $rekapCetak) ? 300 : 45;
 
         try {
-            $response = Http::timeout($timeout)->post($url, $body);
-            $json = $response->json();
-            if (!$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
+            $response = $this->wsPost($body, $timeout, 15);
+            $json = $response?->json();
+            if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
                 Log::warning('[WS Amal Fatimah] getDataTagihan failed', [
-                    'status' => $response->status(),
-                    'body' => substr($response->body(), 0, 500),
+                    'status' => $response?->status(),
+                    'body' => substr($response?->body(), 0, 500),
                 ]);
 
                 return [
@@ -1785,9 +1945,9 @@ class AmalFatimahApiService
         ], static fn ($v) => $v !== ''));
 
         try {
-            $response = Http::timeout(300)->post($url, $body);
-            $json = $response->json();
-            if (!$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
+            $response = $this->wsPost($body);
+            $json = $response?->json();
+            if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
                 return [
                     'ok' => false,
                     'message' => (string) ($json['message'] ?? 'Gagal memuat data rekap tagihan'),
@@ -1843,9 +2003,9 @@ class AmalFatimahApiService
         ], static fn ($v) => $v !== ''));
 
         try {
-            $response = Http::timeout(300)->post($url, $body);
-            $json = $response->json();
-            if (!$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
+            $response = $this->wsPost($body);
+            $json = $response?->json();
+            if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
                 return [
                     'ok' => false,
                     'message' => (string) ($json['message'] ?? 'Gagal memuat data matrix rekap tagihan'),
@@ -1917,9 +2077,9 @@ class AmalFatimahApiService
         }
 
         try {
-            $response = Http::timeout(90)->post($url, $body);
-            $json = $response->json();
-            if (!$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
+            $response = $this->wsPost($body);
+            $json = $response?->json();
+            if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
                 return [
                     'ok' => false,
                     'message' => (string) ($json['message'] ?? 'Gagal memuat tagihan kartu siswa'),
@@ -1979,14 +2139,12 @@ class AmalFatimahApiService
         ], static fn ($v) => $v !== ''));
 
         try {
-            $response = Http::timeout(180)
-                ->connectTimeout(25)
-                ->post($url, $body);
-            $json = $response->json();
-            if (!$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
+            $response = $this->wsPost($body, 180, 25);
+            $json = $response?->json();
+            if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
                 Log::warning('[WS Amal Fatimah] getDataPenerimaan failed', [
-                    'status' => $response->status(),
-                    'body' => substr($response->body(), 0, 500),
+                    'status' => $response?->status(),
+                    'body' => substr($response?->body(), 0, 500),
                 ]);
 
                 return [
@@ -2057,9 +2215,9 @@ class AmalFatimahApiService
         ], static fn ($v) => $v !== ''));
 
         try {
-            $response = Http::timeout(120)->connectTimeout(25)->post($url, $body);
-            $json = $response->json();
-            if (!$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
+            $response = $this->wsPost($body);
+            $json = $response?->json();
+            if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
                 return [
                     'ok' => false,
                     'message' => (string) ($json['message'] ?? 'Gagal memuat data tagihan'),
@@ -2115,9 +2273,9 @@ class AmalFatimahApiService
         ], static fn ($v) => $v !== ''));
 
         try {
-            $response = Http::timeout(120)->connectTimeout(25)->post($url, $body);
-            $json = $response->json();
-            if (!$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
+            $response = $this->wsPost($body);
+            $json = $response?->json();
+            if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
                 return [
                     'ok' => false,
                     'message' => (string) ($json['message'] ?? 'Gagal memuat data cek pelunasan'),
@@ -2179,9 +2337,9 @@ class AmalFatimahApiService
         ], static fn ($v) => $v !== ''));
 
         try {
-            $response = Http::timeout(120)->connectTimeout(25)->post($url, $body);
-            $json = $response->json() ?? [];
-            if (!$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
+            $response = $this->wsPost($body);
+            $json = $response?->json() ?? [];
+            if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
                 return [
                     'ok' => false,
                     'message' => (string) ($json['message'] ?? 'Gagal memuat data kartu siswa'),
@@ -2226,8 +2384,8 @@ class AmalFatimahApiService
         ];
 
         try {
-            $response = Http::timeout(120)->connectTimeout(25)->post($url, $body);
-            $json = $response->json() ?? [];
+            $response = $this->wsPost($body);
+            $json = $response?->json() ?? [];
             $st = (int) ($json['status'] ?? 0);
             $data = is_array($json['data'] ?? null) ? $json['data'] : [];
 
@@ -2278,11 +2436,11 @@ class AmalFatimahApiService
         ];
 
         try {
-            $response = Http::timeout(45)->connectTimeout(15)->post($url, $body);
-            $json = $response->json() ?? [];
+            $response = $this->wsPost($body);
+            $json = $response?->json() ?? [];
             $data = is_array($json['data'] ?? null) ? $json['data'] : [];
 
-            if (!$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
+            if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
                 return [
                     'error' => (string) ($json['message'] ?? $data['error'] ?? 'Gagal memuat tagihan'),
                     'unpaid' => [],
@@ -2318,11 +2476,11 @@ class AmalFatimahApiService
         ];
 
         try {
-            $response = Http::timeout(45)->connectTimeout(15)->post($url, $body);
-            $json = $response->json() ?? [];
+            $response = $this->wsPost($body);
+            $json = $response?->json() ?? [];
             $data = is_array($json['data'] ?? null) ? $json['data'] : [];
 
-            if (!$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
+            if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
                 return [
                     'error' => (string) ($json['message'] ?? $data['error'] ?? 'Gagal memuat detail tagihan'),
                 ];
@@ -2359,8 +2517,8 @@ class AmalFatimahApiService
         ];
 
         try {
-            $response = Http::timeout(120)->connectTimeout(25)->post($url, $body);
-            $json = $response->json() ?? [];
+            $response = $this->wsPost($body);
+            $json = $response?->json() ?? [];
             $st = (int) ($json['status'] ?? 0);
             $data = is_array($json['data'] ?? null) ? $json['data'] : [];
             $ok = $st === 200 && !empty($data['ok']);
@@ -2407,9 +2565,9 @@ class AmalFatimahApiService
         ], static fn ($v) => $v !== ''));
 
         try {
-            $response = Http::timeout(120)->connectTimeout(25)->post($url, $body);
-            $json = $response->json();
-            if (!$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
+            $response = $this->wsPost($body);
+            $json = $response?->json();
+            if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
                 return [
                     'ok' => false,
                     'message' => (string) ($json['message'] ?? 'Gagal memuat saldo VA'),
@@ -2457,8 +2615,8 @@ class AmalFatimahApiService
         ], static fn ($v) => $v !== ''));
 
         try {
-            $response = Http::timeout(120)->connectTimeout(25)->post($url, $body);
-            $json = $response->json() ?? [];
+            $response = $this->wsPost($body);
+            $json = $response?->json() ?? [];
             $st = (int) ($json['status'] ?? 0);
             $data = is_array($json['data'] ?? null) ? $json['data'] : [];
 
@@ -2518,9 +2676,9 @@ class AmalFatimahApiService
         }
 
         try {
-            $response = Http::timeout($forExport ? 300 : 180)->connectTimeout(25)->post($url, $body);
-            $json = $response->json();
-            if (!$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
+            $response = $this->wsPost($body, $forExport ? 300 : 180, 25);
+            $json = $response?->json();
+            if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
                 return [
                     'ok' => false,
                     'message' => (string) ($json['message'] ?? 'Gagal memuat data transaksi'),
@@ -2615,9 +2773,9 @@ class AmalFatimahApiService
         ], static fn ($v) => $v !== ''));
 
         try {
-            $response = Http::timeout(120)->connectTimeout(25)->post($url, $body);
-            $json = $response->json();
-            if (!$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
+            $response = $this->wsPost($body);
+            $json = $response?->json();
+            if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
                 return [
                     'ok' => false,
                     'message' => (string) ($json['message'] ?? 'Gagal memuat data biaya admin'),
@@ -2677,11 +2835,9 @@ class AmalFatimahApiService
         ], static fn ($v) => $v !== ''));
 
         try {
-            $response = Http::timeout(180)
-                ->connectTimeout(25)
-                ->post($url, $body);
-            $json = $response->json();
-            if (!$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
+            $response = $this->wsPost($body, 180, 25);
+            $json = $response?->json();
+            if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
                 return [
                     'ok' => false,
                     'message' => (string) ($json['message'] ?? 'Gagal memuat matrix rekap penerimaan'),
@@ -2745,11 +2901,9 @@ class AmalFatimahApiService
         ], static fn ($v) => $v !== ''));
 
         try {
-            $response = Http::timeout(180)
-                ->connectTimeout(25)
-                ->post($url, $body);
-            $json = $response->json();
-            if (!$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
+            $response = $this->wsPost($body, 180, 25);
+            $json = $response?->json();
+            if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
                 return [
                     'ok' => false,
                     'message' => (string) ($json['message'] ?? 'Gagal memuat data untuk PDF'),
@@ -2836,9 +2990,9 @@ class AmalFatimahApiService
         }
 
         try {
-            $response = Http::timeout(120)->connectTimeout(25)->post($url, $body);
-            $json = $response->json();
-            if (!$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
+            $response = $this->wsPost($body);
+            $json = $response?->json();
+            if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
                 return [
                     'ok' => false,
                     'message' => (string) ($json['message'] ?? 'Gagal mengambil data kartu siswa'),
@@ -2876,6 +3030,13 @@ class AmalFatimahApiService
      */
     public function loadPenerimaanFilterShell(): array
     {
+        if (!$this->wsReady()) {
+            return [
+                'filterOptions' => ['thn_akademik' => [], 'thn_angkatan' => [], 'kelas' => [], 'tagihan' => []],
+                'bankOptions' => [],
+            ];
+        }
+
         $url = config('services.ws_amal_fatimah.url');
         $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
 
@@ -2954,11 +3115,11 @@ class AmalFatimahApiService
         $token = $this->jwt->encode(['sub' => 'getRekapPenerimaanFilterShell', 'rnd' => uniqid()], $jwtKey);
 
         try {
-            $res = Http::timeout(30)->post($url, [
+            $res = $this->wsPost([
                 'method' => 'getRekapPenerimaanFilterShell',
                 'token' => $token,
             ]);
-            if ($res->successful()) {
+            if ($res && $res->successful()) {
                 $json = $res->json();
                 $inner = is_array($json['data'] ?? null) ? $json['data'] : [];
                 $filterOptions = [
@@ -3007,6 +3168,18 @@ class AmalFatimahApiService
      */
     public function loadPenerimaanIndexData(array $filters, int $limit, int $offset): array
     {
+        if (!$this->wsReady()) {
+            return [
+                'filterOptions' => ['thn_akademik' => [], 'thn_angkatan' => [], 'kelas' => [], 'tagihan' => []],
+                'bankOptions' => [],
+                'penerimaan' => [
+                    'ok' => false,
+                    'message' => 'Web service SIKEU belum dikonfigurasi',
+                    'data' => ['rows' => [], 'total' => 0, 'meta' => ['sort_by_aa' => false, 'exact_total' => true]],
+                ],
+            ];
+        }
+
         $url = config('services.ws_amal_fatimah.url');
         $jwtKey = config('services.ws_amal_fatimah.jwt_key') ?? '';
 
@@ -3171,12 +3344,12 @@ class AmalFatimahApiService
         ], static fn ($v) => $v !== ''));
 
         try {
-            $response = Http::timeout(45)->post($url, $body);
-            $json = $response->json();
-            if (!$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
+            $response = $this->wsPost($body);
+            $json = $response?->json();
+            if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
                 Log::warning('[WS Amal Fatimah] getDataPembayaranPerNis failed', [
-                    'status' => $response->status(),
-                    'body' => substr($response->body(), 0, 500),
+                    'status' => $response?->status(),
+                    'body' => substr($response?->body(), 0, 500),
                 ]);
 
                 return [
@@ -3227,9 +3400,9 @@ class AmalFatimahApiService
         }
 
         try {
-            $response = Http::timeout(20)->post($url, $body);
-            $json = $response->json();
-            if ($response->successful() && (int) ($json['status'] ?? 0) === 200) {
+            $response = $this->wsPost($body);
+            $json = $response?->json();
+            if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 200) {
                 return [
                     'ok' => true,
                     'message' => 'Urutan diperbarui',
@@ -3266,9 +3439,9 @@ class AmalFatimahApiService
         ];
 
         try {
-            $response = Http::timeout(20)->post($url, $body);
-            $json = $response->json();
-            if ($response->successful() && (int) ($json['status'] ?? 0) === 200) {
+            $response = $this->wsPost($body);
+            $json = $response?->json();
+            if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 200) {
                 return [
                     'ok' => true,
                     'message' => (string) ($json['message'] ?? 'Terhapus'),
@@ -3307,9 +3480,9 @@ class AmalFatimahApiService
         ], trim($thnAka) !== '' ? ['thn_aka' => trim($thnAka)] : []);
 
         try {
-            $response = Http::timeout(20)->post($url, $body);
-            $json = $response->json();
-            if ($response->successful() && (int) ($json['status'] ?? 0) === 200) {
+            $response = $this->wsPost($body);
+            $json = $response?->json();
+            if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 200) {
                 return [
                     'ok' => true,
                     'message' => '',
@@ -3338,14 +3511,14 @@ class AmalFatimahApiService
         $token = $this->jwt->encode(['sub' => 'getManualPembayaranBankOptions', 'rnd' => uniqid()], $jwtKey);
 
         try {
-            $response = Http::timeout(20)->post($url, [
+            $response = $this->wsPost([
                 'method' => 'getManualPembayaranBankOptions',
                 'token' => $token,
             ]);
-            if (!$response->successful()) {
+            if (!$response || !$response->successful()) {
                 return [];
             }
-            $json = $response->json();
+            $json = $response?->json();
             $rows = $json['data'] ?? [];
             if (!is_array($rows)) {
                 return [];
@@ -3388,9 +3561,9 @@ class AmalFatimahApiService
         ];
 
         try {
-            $response = Http::timeout(30)->post($url, $body);
-            $json = $response->json();
-            if ($response->successful() && (int) ($json['status'] ?? 0) === 201) {
+            $response = $this->wsPost($body);
+            $json = $response?->json();
+            if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 201) {
                 return [
                     'ok' => true,
                     'message' => (string) ($json['message'] ?? 'Pembayaran manual berhasil'),

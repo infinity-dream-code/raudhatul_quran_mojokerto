@@ -20,6 +20,15 @@
         <li class="breadcrumb-item active">Beranda</li>
     </ul>
 
+    @if (empty($wsConfigured))
+        <div class="alert alert-warning d-flex align-items-center" role="alert">
+            <i class="ri-error-warning-line me-2"></i>
+            <div>
+                Data SIKEU belum aktif: isi <code>WS_AMAL_FATIMAH_JWT_KEY</code> di file <code>.env</code> agar menu keuangan menampilkan data dari web service.
+            </div>
+        </div>
+    @endif
+
     <div class="row">
         <div class="col-12 col-lg-8">
             <div class="row row-cols-2 row-cols-md-3 g-4 mb-4">

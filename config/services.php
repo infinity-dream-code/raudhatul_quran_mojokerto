@@ -34,6 +34,8 @@ return [
     'ws_amal_fatimah' => [
         'url' => env('WS_AMAL_FATIMAH_URL', 'http://103.23.103.43/ws_CLIENT/raudhatul_quran_mojokerto/index.php'),
         'jwt_key' => env('WS_AMAL_FATIMAH_JWT_KEY'),
+        'timeout' => (int) env('WS_AMAL_FATIMAH_TIMEOUT', 8),
+        'connect_timeout' => (int) env('WS_AMAL_FATIMAH_CONNECT_TIMEOUT', 2),
         /** true = pindah kelas selalu lewat DB lokal (SIKEU_DB_*), bukan WS remote */
         'local_pindah_kelas' => (bool) env('WS_AMAL_FATIMAH_LOCAL_PINDAH_KELAS', false),
     ],

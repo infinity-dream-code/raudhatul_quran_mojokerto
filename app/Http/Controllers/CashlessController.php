@@ -11,9 +11,18 @@ class CashlessController extends Controller
 {
     public function index(): View
     {
+        $latestRows = collect();
+        if ($this->tableExists('cashless_transactions')) {
+            $latestRows = DB::table('cashless_transactions')
+                ->orderByDesc('id')
+                ->limit(50)
+                ->get();
+        }
+
         return view('cashless.index', [
             'userName' => session('auth_name', session('auth_username', 'Pengguna')),
             'stats' => $this->getStats(),
+            'rows' => $latestRows,
         ]);
     }
 
@@ -113,6 +122,9 @@ class CashlessController extends Controller
         $totalBalance = 0;
         $todayTopup = 0;
         $totalTx = 0;
+        $successTx = 0;
+        $failedTx = 0;
+        $refundTx = 0;
 
         if ($this->tableExists('cashless_wallets')) {
             $totalWallet = (int) DB::table('cashless_wallets')->count();
@@ -125,6 +137,10 @@ class CashlessController extends Controller
                 ->whereDate('created_at', now()->toDateString())
                 ->where('type', 'topup')
                 ->sum('amount');
+
+            $successTx = (int) DB::table('cashless_transactions')->where('status', 'sukses')->count();
+            $failedTx = (int) DB::table('cashless_transactions')->where('status', 'gagal')->count();
+            $refundTx = (int) DB::table('cashless_transactions')->where('status', 'refund')->count();
         }
 
         return [
@@ -132,6 +148,9 @@ class CashlessController extends Controller
             'total_balance' => $totalBalance,
             'today_topup' => $todayTopup,
             'transaction_count' => $totalTx,
+            'success_count' => $successTx,
+            'failed_count' => $failedTx,
+            'refund_count' => $refundTx,
         ];
     }
 

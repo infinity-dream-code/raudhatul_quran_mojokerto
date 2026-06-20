@@ -3,15 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Services\AmalFatimahApiService;
-use Illuminate\Support\Facades\Log;
 
 class DashboardController extends Controller
 {
     public function __invoke(AmalFatimahApiService $api)
     {
-        $response = $api->dashboard();
-        $tagihanResponse = $api->tagihandashboard();
-        $tagihanDibayarChart = $api->tagihanbayarDashboard();
+        $bundle = $api->fetchDashboardBundle();
+        $response = $bundle['dashboard'];
+        $tagihanResponse = $bundle['tagihan'];
+        $tagihanDibayarChart = $bundle['tagihanDibayarChart'];
         $pembayaranBaru = [];
         $tagihan = null;
 
@@ -37,6 +37,7 @@ class DashboardController extends Controller
             'pembayaranBaru' => $pembayaranBaru,
             'tagihan' => $tagihan,
             'tagihanDibayarChart' => is_array($tagihanDibayarChart) ? $tagihanDibayarChart : [],
+            'wsConfigured' => $api->isWsConfigured(),
         ]);
     }
 }

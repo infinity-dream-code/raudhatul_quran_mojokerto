@@ -1,10 +1,10 @@
-<div class="portal-actions" style="margin-top:0;margin-bottom:16px;">
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <a href="{{ route('cashless.index') }}" class="btn-link" @if(request()->routeIs('cashless.index')) style="font-weight:700;" @endif>Dashboard</a>
-        <a href="{{ route('cashless.saldo') }}" class="btn-link" @if(request()->routeIs('cashless.saldo')) style="font-weight:700;" @endif>Saldo</a>
-        <a href="{{ route('cashless.topup') }}" class="btn-link" @if(request()->routeIs('cashless.topup')) style="font-weight:700;" @endif>Topup</a>
-        <a href="{{ route('cashless.transactions') }}" class="btn-link" @if(request()->routeIs('cashless.transactions')) style="font-weight:700;" @endif>Transaksi</a>
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <div class="nav nav-pills gap-2">
+        <a href="{{ route('cashless.index') }}" class="nav-link {{ request()->routeIs('cashless.index') ? 'active' : '' }}">Dashboard</a>
+        <a href="{{ route('cashless.saldo') }}" class="nav-link {{ request()->routeIs('cashless.saldo') ? 'active' : '' }}">Saldo</a>
+        <a href="{{ route('cashless.topup') }}" class="nav-link {{ request()->routeIs('cashless.topup') ? 'active' : '' }}">Topup</a>
+        <a href="{{ route('cashless.transactions') }}" class="nav-link {{ request()->routeIs('cashless.transactions') ? 'active' : '' }}">Transaksi</a>
     </div>
-    <a href="{{ route('portal.switch') }}" class="btn-link">Ganti Modul</a>
+    <a href="{{ route('portal.switch') }}" class="btn btn-outline-secondary btn-sm">Ganti Modul</a>
 </div>
 

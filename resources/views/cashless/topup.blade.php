@@ -1,19 +1,19 @@
-@extends('layouts.portal')
+@extends('layouts.app')
 
 @section('title', 'Topup Cashless')
 
 @section('content')
-<div class="portal-page">
-    <div class="portal-card wide">
-        <div class="brand">
-            <img src="{{ asset('logo.png') }}" alt="Logo">
-            <div class="brand-name">{{ config('app.name') }}</div>
-        </div>
+    <h3 class="page-heading d-flex text-gray-900 fw-bold flex-column justify-content-center my-0">Cashless</h3>
+    <ul class="breadcrumb breadcrumb-style2">
+        <li class="breadcrumb-item">Cashless</li>
+        <li class="breadcrumb-item active">Topup</li>
+    </ul>
 
-        @include('cashless._nav')
+    @include('cashless._nav')
 
-        <h1 class="portal-title" style="font-size:1.4rem;">Topup Cashless</h1>
-        <p class="portal-sub">Input topup saldo siswa.</p>
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;">
+        <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:6px;">Topup Cashless</h1>
+        <p style="color:#6b7280;margin-bottom:12px;">Input topup saldo siswa.</p>
 
         @error('topup')
             <div class="alert alert-error" style="margin-bottom:10px;">{{ $message }}</div>
@@ -47,9 +47,8 @@
                 </div>
             </div>
 
-            <button type="submit" class="btn-primary">Simpan Topup</button>
+            <button type="submit" class="btn btn-primary">Simpan Topup</button>
         </form>
     </div>
-</div>
 @endsection
 

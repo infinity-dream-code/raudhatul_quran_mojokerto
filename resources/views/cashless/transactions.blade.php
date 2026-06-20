@@ -1,25 +1,24 @@
-@extends('layouts.portal')
+@extends('layouts.app')
 
 @section('title', 'Transaksi Cashless')
 
 @section('content')
-<div class="portal-page">
-    <div class="portal-card wide">
-        <div class="brand">
-            <img src="{{ asset('logo.png') }}" alt="Logo">
-            <div class="brand-name">{{ config('app.name') }}</div>
-        </div>
+    <h3 class="page-heading d-flex text-gray-900 fw-bold flex-column justify-content-center my-0">Cashless</h3>
+    <ul class="breadcrumb breadcrumb-style2">
+        <li class="breadcrumb-item">Cashless</li>
+        <li class="breadcrumb-item active">Transaksi</li>
+    </ul>
 
-        @include('cashless._nav')
+    @include('cashless._nav')
 
-        <h1 class="portal-title" style="font-size:1.4rem;">Riwayat Transaksi</h1>
-        <p class="portal-sub">100 transaksi terakhir cashless.</p>
+    <h1 style="font-size:1.4rem;font-weight:700;margin-bottom:6px;">Riwayat Transaksi</h1>
+    <p style="color:#6b7280;margin-bottom:12px;">100 transaksi terakhir cashless.</p>
 
         @if(session('status'))
             <div class="alert alert-info" style="margin-bottom:10px;">{{ session('status') }}</div>
         @endif
 
-        <div style="overflow:auto;border:1px solid #d1e7d8;border-radius:12px;">
+        <div style="overflow:auto;border:1px solid #d1e7d8;border-radius:12px;background:#fff;">
             <table style="width:100%;border-collapse:collapse;background:#fff;">
                 <thead style="background:#f6fbf8;">
                     <tr>
@@ -49,7 +48,5 @@
                 </tbody>
             </table>
         </div>
-    </div>
-</div>
 @endsection
 
