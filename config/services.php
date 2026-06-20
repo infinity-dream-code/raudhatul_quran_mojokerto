@@ -32,12 +32,13 @@ return [
     ],
 
     'ws_raudhatul_quran' => [
-        'url' => env('WS_RAUDHATUL_QURAN_URL', 'http://103.23.103.43/ws_CLIENT/Raudhatul_Quran/index.php'),
-        'jwt_key' => env('JWT_KEY'),
-        'timeout' => (int) env('WS_RAUDHATUL_QURAN_TIMEOUT', 8),
-        'connect_timeout' => (int) env('WS_RAUDHATUL_QURAN_CONNECT_TIMEOUT', 2),
+        'url' => env('WS_RAUDHATUL_QURAN_URL')
+            ?: env('WS_AMAL_FATIMAH_URL', 'http://103.23.103.43/ws_CLIENT/Raudhatul_Quran/index.php'),
+        'jwt_key' => env('JWT_KEY') ?: env('WS_AMAL_FATIMAH_JWT_KEY'),
+        'timeout' => (int) (env('WS_RAUDHATUL_QURAN_TIMEOUT') ?: env('WS_AMAL_FATIMAH_TIMEOUT', 8)),
+        'connect_timeout' => (int) (env('WS_RAUDHATUL_QURAN_CONNECT_TIMEOUT') ?: env('WS_AMAL_FATIMAH_CONNECT_TIMEOUT', 2)),
         /** true = pindah kelas selalu lewat DB lokal (SIKEU_DB_*), bukan WS remote */
-        'local_pindah_kelas' => (bool) env('WS_RAUDHATUL_QURAN_LOCAL_PINDAH_KELAS', false),
+        'local_pindah_kelas' => (bool) (env('WS_RAUDHATUL_QURAN_LOCAL_PINDAH_KELAS') ?: env('WS_AMAL_FATIMAH_LOCAL_PINDAH_KELAS', false)),
     ],
 
     'turnstile' => [

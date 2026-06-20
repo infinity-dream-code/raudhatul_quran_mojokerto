@@ -189,7 +189,7 @@ class AmalFatimahApiService
         if (!$this->wsReady()) {
             return [
                 'ok' => false,
-                'message' => 'Layanan SIKEU belum dikonfigurasi (JWT_KEY kosong).',
+                'message' => 'Layanan SIKEU belum dikonfigurasi (JWT_KEY / WS_AMAL_FATIMAH_JWT_KEY kosong).',
                 'data' => [],
             ];
         }
