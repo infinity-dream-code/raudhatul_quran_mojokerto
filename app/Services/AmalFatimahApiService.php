@@ -403,6 +403,78 @@ class AmalFatimahApiService
         }
     }
 
+    /**
+     * @return array{ok: bool, message: string, data: array<string, mixed>}
+     */
+    protected function createKelasLocal(array $payload): array
+    {
+        $unit = trim((string) ($payload['unit'] ?? ''));
+        $jenjang = trim((string) ($payload['kelas'] ?? $payload['jenjang'] ?? ''));
+        $kelas = trim((string) ($payload['kelompok'] ?? ''));
+
+        if ($unit === '' || $jenjang === '' || $kelas === '') {
+            return ['ok' => false, 'message' => 'Unit, kelas, dan kelompok wajib diisi.', 'data' => []];
+        }
+
+        try {
+            $exists = DB::table('mst_kelas')
+                ->where('unit', $unit)
+                ->where('kelas', $kelas)
+                ->exists();
+
+            if ($exists) {
+                return ['ok' => false, 'message' => 'Kelas sudah ada pada unit tersebut.', 'data' => []];
+            }
+
+            $id = DB::table('mst_kelas')->insertGetId([
+                'unit' => $unit,
+                'jenjang' => $jenjang,
+                'kelas' => $kelas,
+                'kelompok' => $kelas,
+            ]);
+
+            return [
+                'ok' => true,
+                'message' => 'Kelas berhasil ditambahkan',
+                'data' => [
+                    'id' => $id,
+                    'unit' => $unit,
+                    'jenjang' => $jenjang,
+                    'kelas' => $kelas,
+                    'kelompok' => $kelas,
+                ],
+            ];
+        } catch (\Throwable $e) {
+            Log::warning('[SIKEU DB] createKelas local: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => 'Gagal menyimpan ke database.', 'data' => []];
+        }
+    }
+
+    /**
+     * @return array{ok: bool, message: string}
+     */
+    protected function deleteKelasLocal(int $id): array
+    {
+        if ($id <= 0) {
+            return ['ok' => false, 'message' => 'ID kelas tidak valid.'];
+        }
+
+        try {
+            $deleted = DB::table('mst_kelas')->where('id', $id)->delete();
+
+            if ($deleted === 0) {
+                return ['ok' => false, 'message' => 'Data kelas tidak ditemukan.'];
+            }
+
+            return ['ok' => true, 'message' => 'Kelas berhasil dihapus.'];
+        } catch (\Throwable $e) {
+            Log::warning('[SIKEU DB] deleteKelas local: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => 'Gagal menghapus dari database.'];
+        }
+    }
+
     public function getKelasUnits(): array
     {
         $rows = $this->getKelas();
@@ -479,14 +551,11 @@ class AmalFatimahApiService
                 'body' => $response?->body(),
             ]);
 
-            return [
-                'ok' => false,
-                'message' => (string) ($data['message'] ?? 'Gagal menghapus data kelas.'),
-            ];
+            return $this->deleteKelasLocal($id);
         } catch (\Throwable $e) {
             Log::error('[WS Amal Fatimah] deleteKelas: ' . $e->getMessage());
 
-            return ['ok' => false, 'message' => 'Terjadi kesalahan saat menghubungi layanan.'];
+            return $this->deleteKelasLocal($id);
         }
     }
 
@@ -522,18 +591,11 @@ class AmalFatimahApiService
                 'body' => $response?->body(),
             ]);
 
-            return [
-                'ok' => false,
-                'message' => (string) ($json['message'] ?? 'Gagal menambahkan data kelas'),
-                'data' => [],
-            ];
+            return $this->createKelasLocal($payload);
         } catch (\Throwable $e) {
             Log::error('[WS Amal Fatimah] createKelas: ' . $e->getMessage());
-            return [
-                'ok' => false,
-                'message' => 'Terjadi kesalahan saat menghubungi web service',
-                'data' => [],
-            ];
+
+            return $this->createKelasLocal($payload);
         }
     }
 

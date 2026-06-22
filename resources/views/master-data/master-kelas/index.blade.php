@@ -225,7 +225,7 @@
 
     <div class="page-heading">
         <h2>Master Kelas</h2>
-        <p>Data master kelas dari web service (fallback ke database jika WS gagal).</p>
+        <p>Data master kelas.</p>
     </div>
 
     <div class="mk-card">
@@ -325,7 +325,7 @@
 
     <form method="POST" action="{{ route('master.kelas.store') }}" id="form-create-kelas">
         @csrf
-        <div class="modal fade" id="modal-create-kelas" tabindex="-1" aria-labelledby="modal-create-kelas-label" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal modal-blur fade" id="modal-create-kelas" tabindex="-1" aria-labelledby="modal-create-kelas-label" aria-hidden="true" data-bs-backdrop="static">
             <div class="modal-dialog modal-lg modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-header">
@@ -350,7 +350,6 @@
                                 <label class="form-label required" for="kelompok">Kelompok</label>
                                 <input type="text" class="form-control" id="kelompok" name="kelompok" value="{{ old('kelompok') }}" placeholder="Kelompok" required autocomplete="off">
                             </div>
-                            <input type="hidden" name="jenjang" id="jenjang" value="{{ old('jenjang') }}">
                         </fieldset>
                     </div>
                     <div class="modal-footer">
@@ -375,19 +374,6 @@
             var modalEl = document.getElementById('modal-create-kelas');
             if (!modalEl) return;
 
-            var kelasInput = document.getElementById('kelas');
-            var jenjangInput = document.getElementById('jenjang');
-            var syncJenjang = function () {
-                if (kelasInput && jenjangInput) {
-                    jenjangInput.value = (kelasInput.value || '').trim();
-                }
-            };
-
-            if (kelasInput) {
-                kelasInput.addEventListener('input', syncJenjang);
-                syncJenjang();
-            }
-
             @if (session('openCreateModal') || $errors->any())
                 bootstrap.Modal.getOrCreateInstance(modalEl).show();
             @endif
@@ -395,7 +381,6 @@
             modalEl.addEventListener('hidden.bs.modal', function () {
                 var form = document.getElementById('form-create-kelas');
                 if (form) form.reset();
-                syncJenjang();
             });
         })();
     </script>

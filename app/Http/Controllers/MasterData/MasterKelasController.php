@@ -79,16 +79,10 @@ class MasterKelasController extends Controller
             'kelompok.required' => 'Kelompok wajib diisi.',
         ]);
 
-        $jenjang = trim((string) $request->input('jenjang', $validated['kelas']));
-        if ($jenjang === '') {
-            $jenjang = $validated['kelas'];
-        }
-
         $result = $api->createKelas([
             'unit' => $validated['unit'],
             'kelas' => $validated['kelas'],
             'kelompok' => $validated['kelompok'],
-            'jenjang' => $jenjang,
         ]);
 
         if (!($result['ok'] ?? false)) {
