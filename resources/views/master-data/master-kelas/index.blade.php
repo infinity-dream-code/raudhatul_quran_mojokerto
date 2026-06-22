@@ -30,12 +30,13 @@
             gap: 8px;
             background: #4f6ef7;
             color: #fff;
-            border: 1px solid #4f6ef7;
+            border: 0;
             border-radius: 8px;
             padding: 8px 14px;
             font-size: 13px;
             font-weight: 700;
             text-decoration: none;
+            cursor: pointer;
         }
 
         .mk-toolbar {
@@ -199,17 +200,40 @@
             background: #fef2f2;
             color: #b91c1c;
         }
+
+        #modal-create-kelas .form-label.required::after {
+            content: ' *';
+            color: #ef4444;
+        }
+
+        #modal-create-kelas .form-fieldset {
+            border: 1px solid #eef2f7;
+            border-radius: 10px;
+            padding: 16px;
+            background: #fafbfd;
+        }
+
+        #modal-create-kelas .modal-error {
+            margin-bottom: 12px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: #fef2f2;
+            color: #b91c1c;
+            font-size: 13px;
+        }
     </style>
 
     <div class="page-heading">
         <h2>Master Kelas</h2>
-        <p>Data master kelas dari web service.</p>
+        <p>Data master kelas dari web service (fallback ke database jika WS gagal).</p>
     </div>
 
     <div class="mk-card">
         <div class="mk-card-head">
             <div class="mk-title">Master Kelas</div>
-            <a class="mk-btn-create" href="{{ route('master.kelas.create') }}">+ Buat Data</a>
+            <button type="button" class="mk-btn-create" data-bs-toggle="modal" data-bs-target="#modal-create-kelas">
+                + Buat Data
+            </button>
         </div>
 
         @if (session('status'))
@@ -298,5 +322,82 @@
             </div>
         @endif
     </div>
+
+    <form method="POST" action="{{ route('master.kelas.store') }}" id="form-create-kelas">
+        @csrf
+        <div class="modal fade" id="modal-create-kelas" tabindex="-1" aria-labelledby="modal-create-kelas-label" aria-hidden="true" data-bs-backdrop="static">
+            <div class="modal-dialog modal-lg modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modal-create-kelas-label">Tambah Data Master Kelas</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                    </div>
+                    <div class="modal-body py-4">
+                        @if ($errors->any())
+                            <div class="modal-error">{{ $errors->first() }}</div>
+                        @endif
+
+                        <fieldset class="form-fieldset">
+                            <div class="mb-3">
+                                <label class="form-label required" for="unit">Unit</label>
+                                <input type="text" class="form-control" id="unit" name="unit" value="{{ old('unit') }}" placeholder="Unit" required autocomplete="off">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label required" for="kelas">Kelas</label>
+                                <input type="text" class="form-control" id="kelas" name="kelas" value="{{ old('kelas') }}" placeholder="Kelas" required autocomplete="off">
+                            </div>
+                            <div class="mb-0">
+                                <label class="form-label required" for="kelompok">Kelompok</label>
+                                <input type="text" class="form-control" id="kelompok" name="kelompok" value="{{ old('kelompok') }}" placeholder="Kelompok" required autocomplete="off">
+                            </div>
+                            <input type="hidden" name="jenjang" id="jenjang" value="{{ old('jenjang') }}">
+                        </fieldset>
+                    </div>
+                    <div class="modal-footer">
+                        <div class="w-100">
+                            <div class="row g-2">
+                                <div class="col">
+                                    <button type="button" class="btn btn-outline-secondary w-100" data-bs-dismiss="modal">Batal</button>
+                                </div>
+                                <div class="col">
+                                    <button type="submit" class="btn btn-primary w-100">Simpan Data</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <script>
+        (function () {
+            var modalEl = document.getElementById('modal-create-kelas');
+            if (!modalEl) return;
+
+            var kelasInput = document.getElementById('kelas');
+            var jenjangInput = document.getElementById('jenjang');
+            var syncJenjang = function () {
+                if (kelasInput && jenjangInput) {
+                    jenjangInput.value = (kelasInput.value || '').trim();
+                }
+            };
+
+            if (kelasInput) {
+                kelasInput.addEventListener('input', syncJenjang);
+                syncJenjang();
+            }
+
+            @if (session('openCreateModal') || $errors->any())
+                bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            @endif
+
+            modalEl.addEventListener('hidden.bs.modal', function () {
+                var form = document.getElementById('form-create-kelas');
+                if (form) form.reset();
+                syncJenjang();
+            });
+        })();
+    </script>
 @endsection
 

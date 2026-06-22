@@ -62,14 +62,9 @@ class MasterKelasController extends Controller
         ]);
     }
 
-    public function create(AmalFatimahApiService $api): View
+    public function create(): RedirectResponse
     {
-        $unitOptions = $api->getKelasUnitOptions();
-
-        return view('master-data.master-kelas.create', [
-            'pageTitle' => 'Tambah Master Kelas',
-            'unitOptions' => $unitOptions,
-        ]);
+        return redirect()->route('master.kelas')->with('openCreateModal', true);
     }
 
     public function store(Request $request, AmalFatimahApiService $api): RedirectResponse
@@ -97,8 +92,10 @@ class MasterKelasController extends Controller
         ]);
 
         if (!($result['ok'] ?? false)) {
-            return back()
+            return redirect()
+                ->route('master.kelas')
                 ->withInput()
+                ->with('openCreateModal', true)
                 ->withErrors(['api' => $result['message'] ?? 'Gagal menambahkan data kelas.']);
         }
 

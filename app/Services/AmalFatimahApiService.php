@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -347,20 +348,57 @@ class AmalFatimahApiService
         try {
             $response = $this->wsPost($payload);
 
-            if (!$response || !$response->successful()) {
+            if ($response && $response->successful()) {
+                $data = $response?->json();
+                $inner = $data['data'] ?? $data;
+
+                if (is_array($inner)) {
+                    return array_values($inner);
+                }
+            }
+
+            if ($response) {
                 Log::warning('[WS Amal Fatimah] getKelas HTTP failed', [
                     'status' => $response?->status(),
                     'body' => $response?->body(),
                 ]);
-                return [];
             }
-
-            $data = $response?->json();
-            $inner = $data['data'] ?? $data;
-
-            return is_array($inner) ? array_values($inner) : [];
         } catch (\Throwable $e) {
             Log::error('[WS Amal Fatimah] getKelas: ' . $e->getMessage());
+        }
+
+        return $this->getKelasFromLocalDatabase($filters);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    protected function getKelasFromLocalDatabase(array $filters = []): array
+    {
+        try {
+            $query = DB::table('mst_kelas')
+                ->select('id', 'kelas', 'jenjang', 'unit', 'kelompok');
+
+            if (!empty($filters['jenjang'])) {
+                $query->where('jenjang', $filters['jenjang']);
+            }
+            if (!empty($filters['unit'])) {
+                $query->where('unit', $filters['unit']);
+            }
+            if (!empty($filters['kelompok'])) {
+                $query->where('kelompok', $filters['kelompok']);
+            }
+
+            return $query
+                ->orderBy('jenjang')
+                ->orderBy('kelas')
+                ->get()
+                ->map(static fn ($row) => (array) $row)
+                ->values()
+                ->all();
+        } catch (\Throwable $e) {
+            Log::warning('[SIKEU DB] getKelas local fallback: ' . $e->getMessage());
+
             return [];
         }
     }
