@@ -127,8 +127,8 @@
                             <li class="list-group-item">Kolom wajib: <strong>NIS</strong>. Opsional: NODAF, NAMA, UNIT, KELAS, KELOMPOK, ANGKATAN, GENDER, ALAMAT, WALI.</li>
                             <li class="list-group-item">
                                 Contoh file:
-                                <a href="{{ asset('format_import_data_siswa.csv') }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary ms-1">
-                                    <i class="ri-file-line me-1"></i> format_import_data_siswa.csv
+                                <a href="{{ asset('format.xlsx') }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary ms-1">
+                                    <i class="ri-file-line me-1"></i> format.xlsx
                                 </a>
                             </li>
                         </ul>
