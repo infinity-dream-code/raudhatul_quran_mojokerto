@@ -1674,7 +1674,55 @@ function mapMstKelasRow(array $row): array
 }
 
 /**
- * Import: kolom KELAS boleh id numerik atau nama (jenjang/kelas di mst_kelas).
+ * @return list<array{id: int|string, jenjang: string, kelas: string, unit: string}>
+ */
+function fetchMstKelasForImport(
+    PDO $pdo,
+    ?string $jenjang,
+    ?string $kelompokExcel,
+    ?string $unit,
+    bool $requireKelompok = true,
+    bool $requireUnit = true
+): array {
+    $where = [];
+    $params = [];
+
+    if ($jenjang !== null && $jenjang !== '') {
+        $where[] = 'TRIM(jenjang) = :jenjang';
+        $params[':jenjang'] = $jenjang;
+    }
+
+    if ($requireKelompok && $kelompokExcel !== null && $kelompokExcel !== '') {
+        $where[] = '(TRIM(kelas) = :kelompok OR TRIM(COALESCE(kelompok, "")) = :kelompok2)';
+        $params[':kelompok'] = $kelompokExcel;
+        $params[':kelompok2'] = $kelompokExcel;
+    }
+
+    if ($requireUnit && $unit !== null && $unit !== '') {
+        $where[] = '(TRIM(unit) = :unit OR TRIM(unit) LIKE :unit_like)';
+        $params[':unit'] = $unit;
+        $params[':unit_like'] = '%' . $unit . '%';
+    }
+
+    if ($where === []) {
+        return [];
+    }
+
+    $sql = '
+        SELECT id, jenjang, kelas, unit
+        FROM mst_kelas
+        WHERE ' . implode(' AND ', $where) . '
+        ORDER BY id ASC
+        LIMIT 5
+    ';
+    $st = $pdo->prepare($sql);
+    $st->execute($params);
+
+    return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
+/**
+ * Import: kolom KELAS = jenjang (atau id jika ada di mst_kelas), KELOMPOK = kelas/kelompok.
  *
  * @return array{id: int, jenjang: string, kelas: string, unit: string}|null
  */
@@ -1688,62 +1736,78 @@ function resolveKelasForSiswaImport(PDO $pdo, string $unit, string $kelasInput, 
         return null;
     }
 
-    $candidates = [];
-
     if ($kelasInput !== '' && preg_match('/^\d+$/', $kelasInput)) {
-        // Prioritas 1: jika angka cocok dengan ID mst_kelas.
         $st = $pdo->prepare('SELECT id, jenjang, kelas, unit FROM mst_kelas WHERE id = :id LIMIT 1');
         $st->execute([':id' => (int) $kelasInput]);
         $byId = $st->fetch(PDO::FETCH_ASSOC);
         if ($byId) {
             return mapMstKelasRow($byId);
         }
-        // Jika tidak ada ID tsb, lanjut fallback sebagai nama jenjang (misal "1", "2", dst).
     }
 
-    if ($kelasInput !== '') {
-        $sql = "
-            SELECT id, jenjang, kelas, unit
-            FROM mst_kelas
-            WHERE TRIM(jenjang) = :nama OR TRIM(kelas) = :nama2
-        ";
-        $params = [':nama' => $kelasInput, ':nama2' => $kelasInput];
-        if ($kelompok !== '') {
-            $sql .= ' AND TRIM(kelas) = :kelompok';
-            $params[':kelompok'] = $kelompok;
+    $jenjang = $kelasInput;
+    $attempts = [
+        ['jenjang' => $jenjang, 'kelompok' => $kelompok, 'unit' => $unit, 'reqKelompok' => true, 'reqUnit' => true],
+        ['jenjang' => $jenjang, 'kelompok' => $kelompok, 'unit' => $unit, 'reqKelompok' => true, 'reqUnit' => false],
+        ['jenjang' => $jenjang, 'kelompok' => null, 'unit' => $unit, 'reqKelompok' => false, 'reqUnit' => true],
+        ['jenjang' => $jenjang, 'kelompok' => null, 'unit' => null, 'reqKelompok' => false, 'reqUnit' => false],
+    ];
+
+    foreach ($attempts as $attempt) {
+        if (($attempt['jenjang'] ?? '') === '') {
+            continue;
         }
-        if ($unit !== '') {
-            $sql .= ' AND (TRIM(unit) = :unit OR TRIM(unit) LIKE :unit_like)';
-            $params[':unit'] = $unit;
-            $params[':unit_like'] = '%' . $unit . '%';
+        $rows = fetchMstKelasForImport(
+            $pdo,
+            $attempt['jenjang'],
+            $attempt['kelompok'],
+            $attempt['unit'],
+            $attempt['reqKelompok'],
+            $attempt['reqUnit']
+        );
+        if ($rows === []) {
+            continue;
         }
-        $sql .= ' ORDER BY (TRIM(jenjang) = :nama_ord) DESC, id ASC LIMIT 5';
-        $params[':nama_ord'] = $kelasInput;
-        $st = $pdo->prepare($sql);
-        $st->execute($params);
-        $candidates = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
-    } elseif ($kelompok !== '' && $unit !== '') {
+        $jenjangOnly = !$attempt['reqKelompok'] && !$attempt['reqUnit']
+            && ($attempt['kelompok'] ?? null) === null
+            && ($attempt['unit'] ?? null) === null;
+        if ($jenjangOnly && count($rows) !== 1) {
+            continue;
+        }
+        return mapMstKelasRow($rows[0]);
+    }
+
+    if ($kelasInput !== '' && !preg_match('/^\d+$/', $kelasInput)) {
         $st = $pdo->prepare("
             SELECT id, jenjang, kelas, unit
             FROM mst_kelas
-            WHERE TRIM(kelas) = :kelompok
-              AND (TRIM(unit) = :unit OR TRIM(unit) LIKE :unit_like)
-            ORDER BY id ASC
-            LIMIT 5
+            WHERE TRIM(jenjang) = :nama OR TRIM(kelas) = :nama2
+            ORDER BY (TRIM(jenjang) = :nama_ord) DESC, id ASC
+            LIMIT 1
         ");
         $st->execute([
-            ':kelompok' => $kelompok,
-            ':unit' => $unit,
-            ':unit_like' => '%' . $unit . '%',
+            ':nama' => $kelasInput,
+            ':nama2' => $kelasInput,
+            ':nama_ord' => $kelasInput,
         ]);
-        $candidates = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        $byName = $st->fetch(PDO::FETCH_ASSOC);
+        if ($byName) {
+            return mapMstKelasRow($byName);
+        }
     }
 
-    if ($candidates === []) {
-        return null;
+    if ($kelompok !== '' && $unit !== '') {
+        $rows = fetchMstKelasForImport($pdo, null, $kelompok, $unit, true, true);
+        if ($rows !== []) {
+            return mapMstKelasRow($rows[0]);
+        }
+        $rows = fetchMstKelasForImport($pdo, null, $kelompok, $unit, true, false);
+        if (count($rows) === 1) {
+            return mapMstKelasRow($rows[0]);
+        }
     }
 
-    return mapMstKelasRow($candidates[0]);
+    return null;
 }
 
 function resolveKelasForSiswaImportMessage(string $kelasInput, string $kelompok, ?array $row): string

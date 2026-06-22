@@ -136,10 +136,13 @@ class ExportImportDataController extends Controller
         $data = is_array($result['data'] ?? null) ? $result['data'] : [];
         $errorRows = is_array($data['errors'] ?? null) ? $data['errors'] : [];
         $errorCount = count($errorRows);
+        $inserted = (int) ($data['inserted'] ?? 0);
+        $updated = (int) ($data['updated'] ?? 0);
+        $saved = $inserted + $updated;
         $summary = sprintf(
             'Simpan data selesai. Insert: %d, Update: %d, Skip: %d, Error: %d.',
-            (int) ($data['inserted'] ?? 0),
-            (int) ($data['updated'] ?? 0),
+            $inserted,
+            $updated,
             (int) ($data['skipped'] ?? 0),
             $errorCount
         );
@@ -148,8 +151,8 @@ class ExportImportDataController extends Controller
             $sampleErrors = array_slice($errorRows, 0, 3);
             Log::warning('[Import Siswa] WS mengembalikan error per baris', [
                 'file' => $originalName,
-                'inserted' => (int) ($data['inserted'] ?? 0),
-                'updated' => (int) ($data['updated'] ?? 0),
+                'inserted' => $inserted,
+                'updated' => $updated,
                 'skipped' => (int) ($data['skipped'] ?? 0),
                 'error_count' => $errorCount,
                 'sample_errors' => $sampleErrors,
@@ -163,6 +166,18 @@ class ExportImportDataController extends Controller
 
         Storage::delete($storedPath);
         session()->forget(['import_preview_rows', 'import_preview_file', 'import_preview_filename']);
+
+        if ($saved === 0 && $errorCount > 0) {
+            return redirect()
+                ->route('master.export_import')
+                ->with('error', 'Gagal simpan data. ' . $summary);
+        }
+
+        if ($errorCount > 0) {
+            return redirect()
+                ->route('master.export_import')
+                ->with('status', 'Simpan sebagian berhasil. ' . $summary);
+        }
 
         return redirect()
             ->route('master.export_import')
