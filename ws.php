@@ -1688,15 +1688,18 @@ function resolveKelasForSiswaImport(PDO $pdo, string $unit, string $kelasInput, 
         return null;
     }
 
+    $candidates = [];
+
     if ($kelasInput !== '' && preg_match('/^\d+$/', $kelasInput)) {
+        // Prioritas 1: jika angka cocok dengan ID mst_kelas.
         $st = $pdo->prepare('SELECT id, jenjang, kelas, unit FROM mst_kelas WHERE id = :id LIMIT 1');
         $st->execute([':id' => (int) $kelasInput]);
         $byId = $st->fetch(PDO::FETCH_ASSOC);
-
-        return $byId ? mapMstKelasRow($byId) : null;
+        if ($byId) {
+            return mapMstKelasRow($byId);
+        }
+        // Jika tidak ada ID tsb, lanjut fallback sebagai nama jenjang (misal "1", "2", dst).
     }
-
-    $candidates = [];
 
     if ($kelasInput !== '') {
         $sql = "
@@ -1750,11 +1753,8 @@ function resolveKelasForSiswaImportMessage(string $kelasInput, string $kelompok,
     if ($row !== null) {
         return '';
     }
-    if ($kelasInput !== '' && preg_match('/^\d+$/', $kelasInput)) {
-        return "ID kelas '{$kelasInput}' tidak ditemukan di Master Kelas.";
-    }
     if ($kelasInput !== '') {
-        return "Nama kelas '{$kelasInput}' tidak ditemukan di Master Kelas"
+        return "Kelas '{$kelasInput}' tidak ditemukan di Master Kelas"
             . ($kelompok !== '' ? " (kelompok: {$kelompok})" : '')
             . '.';
     }
