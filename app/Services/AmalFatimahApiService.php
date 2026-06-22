@@ -430,7 +430,7 @@ class AmalFatimahApiService
                 'unit' => $unit,
                 'jenjang' => $jenjang,
                 'kelas' => $kelas,
-                'kelompok' => $kelas,
+                'kelompok' => null,
             ]);
 
             return [
@@ -441,7 +441,7 @@ class AmalFatimahApiService
                     'unit' => $unit,
                     'jenjang' => $jenjang,
                     'kelas' => $kelas,
-                    'kelompok' => $kelas,
+                    'kelompok' => null,
                 ],
             ];
         } catch (\Throwable $e) {

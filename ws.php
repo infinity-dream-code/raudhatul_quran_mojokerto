@@ -322,11 +322,11 @@ function getKelasByid(array $req): array
 
 function createKelas(array $req): array
 {
-    // Raudhatul Quran — tanpa field Sekolah; langsung dari input form:
+    // Raudhatul Quran — tanpa field Sekolah:
     // - mst_kelas.jenjang <- input "Kelas"
     // - mst_kelas.kelas   <- input "Kelompok"
     // - mst_kelas.unit    <- input "Unit"
-    // - mst_kelas.kelompok <- input "Kelompok" (teks yang sama)
+    // - mst_kelas.kelompok <- dikosongkan (NULL)
     $jenjang = trim((string) ($req["kelas"] ?? $req["jenjang"] ?? ""));
     $kelas = trim((string) ($req["kelompok"] ?? ""));
     $unit = trim((string) ($req["unit"] ?? ""));
@@ -341,7 +341,6 @@ function createKelas(array $req): array
     }
 
     $pdo = dbConnectPdo();
-    $kelompok = $kelas;
 
     $check = $pdo->prepare("SELECT id FROM mst_kelas WHERE kelas = :kelas AND unit = :unit");
     $check->execute([":kelas" => $kelas, ":unit" => $unit]);
@@ -357,14 +356,13 @@ function createKelas(array $req): array
 
     $stmt = $pdo->prepare("
         INSERT INTO mst_kelas (kelas, jenjang, unit, kelompok)
-        VALUES (:kelas, :jenjang, :unit, :kelompok)
+        VALUES (:kelas, :jenjang, :unit, NULL)
     ");
 
     $stmt->execute([
         ":kelas"    => $kelas,
         ":jenjang"  => $jenjang,
         ":unit"     => $unit,
-        ":kelompok" => $kelompok,
     ]);
 
     $newId = (int) $pdo->lastInsertId();
@@ -374,7 +372,7 @@ function createKelas(array $req): array
         "kelas"    => $kelas,
         "jenjang"  => $jenjang,
         "unit"     => $unit,
-        "kelompok" => $kelompok,
+        "kelompok" => null,
     ];
 }
 
