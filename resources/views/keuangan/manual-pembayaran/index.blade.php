@@ -52,6 +52,18 @@
             @endif
 
             <style>
+                .mp-layout { max-width: 1020px; margin: 0 auto; }
+                .mp-form-grid { display:grid; gap:14px; }
+                .mp-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+                .mp-actions { display:flex; justify-content:flex-end; }
+                .mp-field-label { font-weight:700; margin-bottom:6px; }
+                .mp-field-control { width:100%; padding:10px; border:1px solid var(--border); border-radius:10px; }
+                .mp-field-control[readonly] { background:#f9fafb; }
+                @media (max-width: 900px) {
+                    .mp-layout { max-width: 100%; }
+                    .mp-grid-2 { grid-template-columns:1fr; }
+                }
+
                 .mp-tagihan-table { width:100%; border-collapse:separate; border-spacing:0; min-width:960px; font-size:14px; }
                 .mp-tagihan-table thead th {
                     background:#f3f4f6; color:#374151; font-weight:600; text-align:left;
@@ -82,8 +94,9 @@
                 }
             </style>
 
+            <div class="mp-layout">
             <form method="GET" action="{{ route($mpGetRoute) }}">
-                <div style="display:grid;gap:12px;">
+                <div class="mp-form-grid">
                     <div>
                         <div style="font-weight:700;margin-bottom:6px;">Siswa</div>
                         <div id="siswaAutoWrap" style="position:relative;">
@@ -102,10 +115,10 @@
                         <input type="hidden" id="custidHidden" name="custid" value="{{ (int) ($selectedCustid ?? 0) }}">
                     </div>
 
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div class="mp-grid-2">
                         <div>
-                            <div style="font-weight:700;margin-bottom:6px;">Tahun Pelajaran</div>
-                            <select name="thn_aka" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;">
+                            <div class="mp-field-label">Tahun Pelajaran</div>
+                            <select name="thn_aka" class="mp-field-control">
                                 <option value="">Semua</option>
                                 @foreach (($tahunAjaranOptions ?? []) as $t)
                                     @php $ta = trim((string) ($t['thn_aka'] ?? '')); @endphp
@@ -116,25 +129,25 @@
                         <div></div>
                     </div>
 
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div class="mp-grid-2">
                         <div>
-                            <div style="font-weight:700;margin-bottom:6px;">Saldo</div>
-                            <input type="text" readonly value="Rp. {{ number_format((int) ($saldoVa ?? 0), 0, ',', '.') }}" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;background:#f9fafb;">
+                            <div class="mp-field-label">Saldo</div>
+                            <input type="text" class="mp-field-control" readonly value="Rp. {{ number_format((int) ($saldoVa ?? 0), 0, ',', '.') }}">
                         </div>
                         <div>
-                            <div style="font-weight:700;margin-bottom:6px;">Total Tagihan</div>
-                            <input id="totalTagihanBox" type="text" readonly value="Rp. {{ number_format((int) ($totalTagihan ?? 0), 0, ',', '.') }}" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;background:#f9fafb;">
+                            <div class="mp-field-label">Total Tagihan</div>
+                            <input id="totalTagihanBox" type="text" class="mp-field-control" readonly value="Rp. {{ number_format((int) ($totalTagihan ?? 0), 0, ',', '.') }}">
                         </div>
                     </div>
 
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div class="mp-grid-2">
                         <div>
-                            <div style="font-weight:700;margin-bottom:6px;">Tanggal Bayar</div>
-                            <input name="tanggal_bayar" value="{{ $filters['tanggal_bayar'] ?? '' }}" placeholder="tanggal/bulan/tahun" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;">
+                            <div class="mp-field-label">Tanggal Bayar</div>
+                            <input name="tanggal_bayar" class="mp-field-control" value="{{ $filters['tanggal_bayar'] ?? '' }}" placeholder="tanggal/bulan/tahun">
                         </div>
                         <div>
-                            <div style="font-weight:700;margin-bottom:6px;">Bank</div>
-                            <select id="mpBankSelect" name="fidbank" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;">
+                            <div class="mp-field-label">Bank</div>
+                            <select id="mpBankSelect" name="fidbank" class="mp-field-control">
                                 @foreach (($bankOptions ?? []) as $b)
                                     <option value="{{ $b['fidbank'] }}" {{ ($filters['fidbank'] ?? '') === $b['fidbank'] ? 'selected' : '' }}>{{ $b['label'] }}</option>
                                 @endforeach
@@ -142,7 +155,7 @@
                         </div>
                     </div>
 
-                    <div style="display:flex;justify-content:flex-end;">
+                    <div class="mp-actions">
                         <button class="btn btn-primary" type="submit">Cari Tagihan</button>
                     </div>
 
@@ -224,6 +237,7 @@
                     <button class="btn btn-primary" type="submit">Bayar</button>
                 </div>
             </form>
+            </div>
         </div>
     </div>
 
