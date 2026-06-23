@@ -52,19 +52,29 @@
             @endif
 
             <style>
-                .mp-layout { width: 100%; max-width: none; margin: 0; }
+                .mp-layout {
+                    width: 100%;
+                    max-width: 980px;
+                    margin: 0 auto;
+                    padding: 6px 6px 2px;
+                }
                 .mp-form-grid {
                     display:grid;
-                    gap:16px;
-                    padding: 4px 2px 0;
+                    gap:18px;
+                    padding: 6px 4px 4px;
                 }
+                .mp-grid-1 { display:grid; grid-template-columns:1fr; gap:16px; }
                 .mp-grid-2 {
                     display:grid;
                     grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr);
-                    gap:16px;
+                    gap:18px;
                     align-items:end;
                 }
-                .mp-actions { display:flex; justify-content:flex-end; }
+                .mp-actions {
+                    display:flex;
+                    justify-content:flex-end;
+                    padding-top: 2px;
+                }
                 .mp-field-label { font-weight:700; margin-bottom:6px; }
                 .mp-field-control {
                     width:100%;
@@ -83,14 +93,19 @@
                     border-radius:10px;
                     background:#fff;
                 }
-                .mp-form-grid > div > div:first-child {
-                    font-weight:700;
-                    margin-bottom:6px;
+                .mp-form-grid > div {
+                    margin: 0;
                 }
                 .mp-form-grid .btn.btn-primary {
                     min-width: 120px;
                 }
                 #formManualBayar { margin-top:16px !important; }
+                #formManualBayar > div:first-of-type {
+                    margin-top: 2px;
+                }
+                #formManualBayar .btn-row {
+                    margin-top: 14px !important;
+                }
                 @media (max-width: 900px) {
                     .mp-layout { max-width: 100%; }
                     .mp-grid-2 { grid-template-columns:1fr; }
@@ -130,9 +145,9 @@
             <form method="GET" action="{{ route($mpGetRoute) }}">
                 <div class="mp-form-grid">
                     <div>
-                        <div style="font-weight:700;margin-bottom:6px;">Siswa</div>
+                        <div class="mp-field-label">Siswa</div>
                         <div id="siswaAutoWrap" style="position:relative;">
-                            <input id="siswaSearchInput" autocomplete="off" name="siswa_search" value="{{ $selectedSiswaLabel !== '' ? $selectedSiswaLabel : ($filters['siswa_search'] ?? '') }}" placeholder="@if ($mpIsNis) NIS / Nama @elseif ($mpIsNonSiswa) No. Pendaftaran / Nama @else NIS / No. Pendaftaran / Nama @endif" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;">
+                            <input id="siswaSearchInput" autocomplete="off" name="siswa_search" value="{{ $selectedSiswaLabel !== '' ? $selectedSiswaLabel : ($filters['siswa_search'] ?? '') }}" placeholder="@if ($mpIsNis) NIS / Nama @elseif ($mpIsNonSiswa) No. Pendaftaran / Nama @else NIS / No. Pendaftaran / Nama @endif">
                             <div id="siswaAutoList" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:50;background:#fff;border:1px solid #d1d5db;border-radius:10px;max-height:220px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,.12);"></div>
                         </div>
                         <div style="margin-top:6px;color:#6b7280;font-size:12px;">
@@ -147,7 +162,7 @@
                         <input type="hidden" id="custidHidden" name="custid" value="{{ (int) ($selectedCustid ?? 0) }}">
                     </div>
 
-                    <div class="mp-grid-2">
+                    <div class="mp-grid-1">
                         <div>
                             <div class="mp-field-label">Tahun Pelajaran</div>
                             <select name="thn_aka" class="mp-field-control">
@@ -158,7 +173,6 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div></div>
                     </div>
 
                     <div class="mp-grid-2">

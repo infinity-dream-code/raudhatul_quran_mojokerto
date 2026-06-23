@@ -197,14 +197,15 @@ class PenerimaanSiswaController extends Controller
             return redirect()->back()->with('export_error', 'Tidak ada data kuitansi untuk siswa terpilih.');
         }
 
-        $dengan2000 = $request->boolean('dengan_2000');
+        // Permintaan terbaru: cetak kuitansi Data Penerimaan tanpa tambahan 2.000.
+        $dengan2000 = false;
 
         $pdf = Pdf::loadView('keuangan.penerimaan-siswa.kuitansi-pdf', [
             'cards' => $cards,
             'dengan_2000' => $dengan2000,
         ])->setPaper('a4', 'portrait');
 
-        $suffix = $dengan2000 ? '-2000' : '';
+        $suffix = '';
 
         return $pdf->stream('kuitansi-penerimaan' . $suffix . '-' . date('Ymd-His') . '.pdf');
     }
