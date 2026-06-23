@@ -166,7 +166,6 @@
                 <div class="dp-actions-top">
                     <button type="button" class="dp-btn dp-btn-print" id="dpBtnKartu" title="Centang siswa di tabel lalu klik">Cetak Kartu Siswa</button>
                     <button type="button" class="dp-btn dp-btn-print" id="dpBtnKuitansi" title="Centang siswa di tabel lalu klik">Cetak Kuitansi</button>
-                    <button type="button" class="dp-btn dp-btn-print" id="dpBtnKuitansi2k" title="Sama + baris tambahan Rp 2.000">Cetak Kuitansi Dengan 2000</button>
                     <button type="button" class="dp-btn dp-btn-print-pdf" id="dpBtnRekapPdf" title="PDF rekap sesuai filter (tanggal opsional; maks. 8.000 baris)">Cetak PDF</button>
                 </div>
 
@@ -381,7 +380,6 @@
             }
 
             var dpBtnKuitansi = document.getElementById('dpBtnKuitansi');
-            var dpBtnKuitansi2k = document.getElementById('dpBtnKuitansi2k');
             var dpFormKuitansi = document.getElementById('dpFormKuitansi');
             function dpSubmitKuitansi(dengan2k) {
                 if (!dpFormKuitansi) {
@@ -402,9 +400,6 @@
             }
             if (dpBtnKuitansi) {
                 dpBtnKuitansi.addEventListener('click', function () { dpSubmitKuitansi(false); });
-            }
-            if (dpBtnKuitansi2k) {
-                dpBtnKuitansi2k.addEventListener('click', function () { dpSubmitKuitansi(true); });
             }
 
             var dpBtnRekapPdf = document.getElementById('dpBtnRekapPdf');

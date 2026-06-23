@@ -52,18 +52,13 @@
             @endif
 
             <style>
-                .mp-layout {
-                    width: 100%;
-                    max-width: 980px;
-                    margin: 0 auto;
-                    padding: 6px 6px 2px;
-                }
+                .mp-layout { width: 100%; max-width: none; margin: 0; }
                 .mp-form-grid {
                     display:grid;
-                    gap:18px;
-                    padding: 6px 4px 4px;
+                    gap:20px;
+                    padding: 8px 12px 10px;
                 }
-                .mp-grid-1 { display:grid; grid-template-columns:1fr; gap:16px; }
+                .mp-grid-1 { display:grid; grid-template-columns:1fr; gap:18px; }
                 .mp-grid-2 {
                     display:grid;
                     grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr);
@@ -73,53 +68,63 @@
                 .mp-actions {
                     display:flex;
                     justify-content:flex-end;
-                    padding-top: 2px;
+                    padding-top: 4px;
                 }
-                .mp-field-label { font-weight:700; margin-bottom:6px; }
+                .mp-field-label { font-weight:700; font-size:13px; color:#374151; margin-bottom:7px; }
                 .mp-field-control {
                     width:100%;
-                    height: 42px;
-                    padding:10px 12px;
-                    border:1px solid var(--border);
-                    border-radius:10px;
+                    height: 40px;
+                    padding:9px 11px;
+                    border:1px solid #d1d5db;
+                    border-radius:8px;
                     background:#fff;
+                    font-size:13px;
                 }
                 .mp-field-control[readonly] { background:#f9fafb; }
                 #siswaSearchInput {
                     width:100%;
-                    height: 42px;
-                    padding:10px 12px;
-                    border:1px solid var(--border);
-                    border-radius:10px;
+                    height: 40px;
+                    padding:9px 11px;
+                    border:1px solid #d1d5db;
+                    border-radius:8px;
                     background:#fff;
+                    font-size:13px;
                 }
                 .mp-form-grid > div {
                     margin: 0;
                 }
+                .mp-form-grid > div:first-child { margin-bottom: 2px; }
                 .mp-form-grid .btn.btn-primary {
                     min-width: 120px;
                 }
-                #formManualBayar { margin-top:16px !important; }
+                #formManualBayar {
+                    margin-top: 18px !important;
+                    padding: 0 12px 8px;
+                }
                 #formManualBayar > div:first-of-type {
                     margin-top: 2px;
+                    border: 1px solid #e5e7eb !important;
+                    border-radius: 10px !important;
+                    background: #fff;
                 }
                 #formManualBayar .btn-row {
                     margin-top: 14px !important;
+                    padding-bottom: 2px;
                 }
                 @media (max-width: 900px) {
                     .mp-layout { max-width: 100%; }
                     .mp-grid-2 { grid-template-columns:1fr; }
                 }
 
-                .mp-tagihan-table { width:100%; border-collapse:separate; border-spacing:0; min-width:960px; font-size:14px; }
+                .mp-tagihan-table { width:100%; border-collapse:separate; border-spacing:0; min-width:960px; font-size:13px; }
                 .mp-tagihan-table thead th {
                     background:#f3f4f6; color:#374151; font-weight:600; text-align:left;
-                    padding:10px 12px; border-bottom:1px solid #e5e7eb; white-space:nowrap;
+                    padding:9px 12px; border-bottom:1px solid #e5e7eb; white-space:nowrap;
                 }
                 .mp-tagihan-table tbody td {
-                    padding:10px 12px; border-bottom:1px solid #f3f4f6; vertical-align:middle;
+                    padding:10px 12px; border-bottom:1px solid #eef2f7; vertical-align:middle;
                 }
-                .mp-tagihan-table tbody tr:nth-child(even) { background:#fafafa; }
+                .mp-tagihan-table tbody tr:nth-child(even) { background:#fcfcfd; }
                 .mp-tagihan-table tbody tr:hover { background:#f0fdf4; }
                 .mp-tagihan-table .mp-th-check { width:44px; text-align:center; }
                 .mp-tagihan-table .mp-col-tagihan {
