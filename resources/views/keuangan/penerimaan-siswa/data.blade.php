@@ -416,16 +416,34 @@
                     headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     credentials: 'same-origin'
                 })
-                    .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+                    .then(function (r) {
+                        return r.text().then(function (txt) {
+                            var parsed = null;
+                            try { parsed = JSON.parse(txt); } catch (e) { parsed = null; }
+                            return { ok: r.ok, status: r.status, j: parsed, raw: txt || '' };
+                        });
+                    })
                     .then(function (pack) {
                         var j = pack.j || {};
                         if (!pack.ok || !j.ok) {
+                            var msg = (j && j.message) ? j.message : '';
+                            if (!msg) {
+                                if (pack.status === 401 || pack.status === 419) {
+                                    msg = 'Sesi login habis. Silakan refresh/login ulang.';
+                                } else if (pack.status >= 500) {
+                                    msg = 'Server internal error (' + pack.status + ').';
+                                } else if (pack.status > 0) {
+                                    msg = 'Request gagal (HTTP ' + pack.status + ').';
+                                } else {
+                                    msg = 'Gagal memuat data.';
+                                }
+                            }
                             if (errEl) {
                                 errEl.style.display = 'block';
-                                errEl.textContent = j.message || 'Gagal memuat data.';
+                                errEl.textContent = msg;
                             }
                             tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:#b91c1c;padding:20px;">' +
-                                esc(j.message || 'Gagal memuat data.') + '</td></tr>';
+                                esc(msg) + '</td></tr>';
                             if (footerInfo) footerInfo.innerHTML = '';
                             return;
                         }
