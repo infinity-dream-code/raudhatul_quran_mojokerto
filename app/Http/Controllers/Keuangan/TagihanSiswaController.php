@@ -810,7 +810,7 @@ XML);
             ], 422);
         }
 
-        $data = $api->getDataTagihanTransaksiDetail($custid, $billcd);
+        $data = $api->getEditManualBillDetailRows($custid, $billcd);
         if (!empty($data['error'])) {
             return response()->json([
                 'ok' => false,
@@ -820,7 +820,8 @@ XML);
 
         return response()->json([
             'ok' => true,
-            'rows' => $data['rows'] ?? [],
+            'paidst' => (int) ($data['paidst'] ?? 0),
+            'lines' => $data['lines'] ?? [],
         ]);
     }
 

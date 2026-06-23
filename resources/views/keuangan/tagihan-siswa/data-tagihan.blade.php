@@ -346,7 +346,7 @@
                             <tr data-dt-row="{{ $custid }}|{{ e($billcd) }}">
                                 <td class="dt-expand-col">
                                     @if ($custid > 0 && $billcd !== '')
-                                        <button type="button" class="dt-expand-btn" data-custid="{{ $custid }}" data-billcd="{{ e($billcd) }}" aria-expanded="false" title="Detail transaksi">+</button>
+                                        <button type="button" class="dt-expand-btn" data-custid="{{ $custid }}" data-billcd="{{ e($billcd) }}" aria-expanded="false" title="Detail tagihan">+</button>
                                     @else
                                         —
                                     @endif
@@ -552,27 +552,21 @@
                     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 }
 
-                function renderDetailPanel(panel, rows) {
+                function renderDetailPanel(panel, lines) {
                     if (!panel) return;
-                    if (!rows || rows.length === 0) {
-                        panel.innerHTML = '<div class="dt-detail-empty">Belum ada transaksi untuk tagihan ini.</div>';
+                    if (!lines || lines.length === 0) {
+                        panel.innerHTML = '<div class="dt-detail-empty">Tidak ada detail.</div>';
                         return;
                     }
-                    var html = '<div class="dt-detail-title">Detail transaksi (sccttran)</div>'
+                    var html = '<div class="dt-detail-title">Detail tagihan</div>'
                         + '<table class="dt-detail-table"><thead><tr>'
-                        + '<th>Tanggal</th><th>Metode</th><th class="dt-num">Debet</th><th class="dt-num">Kredit</th>'
-                        + '<th>No. Ref</th><th>Keterangan</th><th>Bank</th><th>No. Trans</th>'
+                        + '<th>Kode Post</th><th>Nama Akun</th><th class="dt-num">Nominal</th>'
                         + '</tr></thead><tbody>';
-                    rows.forEach(function (row) {
+                    lines.forEach(function (ln) {
                         html += '<tr>'
-                            + '<td>' + esc(row.trxdate || '—') + '</td>'
-                            + '<td>' + esc(row.metode || '—') + '</td>'
-                            + '<td class="dt-num">' + fmtRp(row.debet || 0) + '</td>'
-                            + '<td class="dt-num">' + fmtRp(row.kredit || 0) + '</td>'
-                            + '<td>' + esc(row.noreff || '—') + '</td>'
-                            + '<td>' + esc(row.helpdesk || '—') + '</td>'
-                            + '<td>' + esc(row.fidbank || '—') + '</td>'
-                            + '<td>' + esc(row.transno || '—') + '</td>'
+                            + '<td>' + esc(ln.kode_post || '—') + '</td>'
+                            + '<td>' + esc(ln.nama_akun || ln.kode_post || '—') + '</td>'
+                            + '<td class="dt-num">' + fmtRp(ln.billam || 0) + '</td>'
                             + '</tr>';
                     });
                     html += '</tbody></table>';
@@ -611,7 +605,7 @@
                         }
 
                         if (panel) {
-                            panel.innerHTML = '<div class="dt-detail-loading">Memuat detail transaksi…</div>';
+                            panel.innerHTML = '<div class="dt-detail-loading">Memuat detail…</div>';
                         }
                         btn.disabled = true;
 
@@ -629,17 +623,17 @@
                                 var j = pack.j || {};
                                 if (!pack.okHttp || !j.ok) {
                                     if (panel) {
-                                        panel.innerHTML = '<div class="dt-detail-empty">' + esc(j.message || 'Gagal memuat detail transaksi') + '</div>';
+                                        panel.innerHTML = '<div class="dt-detail-empty">' + esc(j.message || 'Gagal memuat detail') + '</div>';
                                     }
                                     return;
                                 }
                                 detailRow.setAttribute('data-dt-loaded', '1');
-                                renderDetailPanel(panel, j.rows || []);
+                                renderDetailPanel(panel, j.lines || []);
                             })
                             .catch(function () {
                                 btn.disabled = false;
                                 if (panel) {
-                                    panel.innerHTML = '<div class="dt-detail-empty">Gagal memuat detail transaksi.</div>';
+                                    panel.innerHTML = '<div class="dt-detail-empty">Gagal memuat detail.</div>';
                                 }
                             });
                     });
