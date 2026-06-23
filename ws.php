@@ -6421,8 +6421,8 @@ function nextUrutanForCustid(PDO $pdo, int $custid): int
 }
 
 /**
- * Naik/turun urutan tagihan — hanya CALL prosedur DB (sama nurhidayah).
- * Naik (angka 1→2) = UpdateUrutDOWN; Turun (2→1) = UpdateUrutUP.
+ * Naik/turun urutan tagihan — CALL prosedur DB.
+ * NAIK = UpdateUrutUP; TURUN = UpdateUrutDOWN.
  */
 function updateDataTagihanUrutan(array $req): array
 {
@@ -6456,7 +6456,7 @@ function updateDataTagihanUrutan(array $req): array
         exit;
     }
 
-    $proc = $direction === 'up' ? 'UpdateUrutDOWN' : 'UpdateUrutUP';
+    $proc = $direction === 'up' ? 'UpdateUrutUP' : 'UpdateUrutDOWN';
 
     $stBefore = $pdo->prepare('
         SELECT COALESCE(furutan, 0) AS u, TRIM(BILLCD) AS billcd

@@ -788,8 +788,8 @@ XML);
         $message = (string) ($res['message'] ?? '');
         if ($res['ok'] && array_key_exists('changed', $data) && $data['changed'] === false) {
             $message = $direction === 'up'
-                ? 'Urutan tidak berubah (sudah urutan terbesar untuk siswa ini).'
-                : 'Urutan tidak berubah (sudah urutan 1 untuk siswa ini).';
+                ? 'Urutan tidak berubah (sudah urutan 1 untuk siswa ini).'
+                : 'Urutan tidak berubah (sudah urutan terbesar untuk siswa ini).';
         }
 
         return response()->json([

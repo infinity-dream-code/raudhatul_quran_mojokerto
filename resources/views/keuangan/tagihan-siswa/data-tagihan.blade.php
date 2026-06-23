@@ -365,14 +365,14 @@
                                 <td>{{ $r['tahun_aka'] ?? '-' }}</td>
                                 <td>
                                     @if ($custid > 0 && $aa !== '')
-                                        <button type="button" class="dt-bill-act" data-act="up" data-custid="{{ $custid }}" data-billcd="{{ e($billcd) }}" data-aa="{{ e($aa) }}" @if($furutan >= $maxFurutan) disabled title="Sudah urutan terbesar" @endif>NAIK</button>
+                                        <button type="button" class="dt-bill-act" data-act="up" data-custid="{{ $custid }}" data-billcd="{{ e($billcd) }}" data-aa="{{ e($aa) }}" @if($furutan <= 1) disabled title="Sudah urutan 1" @endif>NAIK</button>
                                     @else
                                         —
                                     @endif
                                 </td>
                                 <td>
                                     @if ($custid > 0 && $aa !== '')
-                                        <button type="button" class="dt-bill-act" data-act="down" data-custid="{{ $custid }}" data-billcd="{{ e($billcd) }}" data-aa="{{ e($aa) }}" @if($furutan <= 1) disabled title="Sudah urutan 1" @endif>TURUN</button>
+                                        <button type="button" class="dt-bill-act" data-act="down" data-custid="{{ $custid }}" data-billcd="{{ e($billcd) }}" data-aa="{{ e($aa) }}" @if($furutan >= $maxFurutan) disabled title="Sudah urutan terbesar" @endif>TURUN</button>
                                     @else
                                         —
                                     @endif
