@@ -2673,6 +2673,42 @@ class AmalFatimahApiService
     }
 
     /**
+     * @return array{rows?: list<array<string,mixed>>, error?: string}
+     */
+    public function getDataTagihanTransaksiDetail(int $custid, string $billcd): array
+    {
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
+        $token = $this->jwt->encode(['sub' => 'getDataTagihanTransaksiDetail', 'rnd' => uniqid()], $jwtKey);
+
+        $body = [
+            'method' => 'getDataTagihanTransaksiDetail',
+            'token' => $token,
+            'custid' => $custid,
+            'billcd' => trim($billcd),
+        ];
+
+        try {
+            $response = $this->wsPost($body);
+            $json = $response?->json() ?? [];
+            $data = is_array($json['data'] ?? null) ? $json['data'] : [];
+
+            if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
+                return [
+                    'error' => (string) ($json['message'] ?? $data['error'] ?? 'Gagal memuat detail transaksi'),
+                ];
+            }
+
+            return [
+                'rows' => is_array($data['rows'] ?? null) ? array_values($data['rows']) : [],
+            ];
+        } catch (\Throwable $e) {
+            Log::error('[WS Amal Fatimah] getDataTagihanTransaksiDetail: ' . $e->getMessage());
+
+            return ['error' => 'Terjadi kesalahan saat menghubungi layanan'];
+        }
+    }
+
+    /**
      * @param list<array{kode_post?: string, billam?: int}> $lines
      * @return array{ok: bool, message: string, billam?: int}
      */

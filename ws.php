@@ -5486,6 +5486,79 @@ function getEditManualBillDetailRows(array $req): array
 }
 
 /**
+ * Detail transaksi pembayaran tagihan dari sccttran (filter CUSTID + NOREFF/HELPDESK terkait BILLCD).
+ *
+ * @return array{rows?: list<array<string,mixed>>, error?: string}
+ */
+function getDataTagihanTransaksiDetail(array $req): array
+{
+    $custid = (int) ($req['custid'] ?? 0);
+    $billcd = trim((string) ($req['billcd'] ?? ''));
+    if ($custid <= 0 || $billcd === '') {
+        return ['error' => 'custid dan billcd wajib diisi'];
+    }
+
+    $pdo = dbConnectPdo();
+    $billcdLike = '%' . $billcd . '%';
+
+    $sql = "
+        SELECT
+            TRIM(COALESCE(t.METODE, '')) AS metode,
+            t.TRXDATE AS trxdate,
+            CAST(COALESCE(t.DEBET, 0) AS SIGNED) AS debet,
+            CAST(COALESCE(t.KREDIT, 0) AS SIGNED) AS kredit,
+            TRIM(COALESCE(t.NOREFF, '')) AS noreff,
+            TRIM(COALESCE(t.HELPDESK, '')) AS helpdesk,
+            TRIM(COALESCE(t.FIDBANK, '')) AS fidbank,
+            TRIM(COALESCE(t.TRANSNO, '')) AS transno
+        FROM sccttran t
+        WHERE t.CUSTID = :custid
+          AND (
+            TRIM(COALESCE(t.NOREFF, '')) = :billcd
+            OR FIND_IN_SET(:billcd_csv, REPLACE(TRIM(COALESCE(t.NOREFF, '')), ' ', '')) > 0
+            OR TRIM(COALESCE(t.NOREFF, '')) LIKE :billcd_like
+            OR TRIM(COALESCE(t.HELPDESK, '')) LIKE :billcd_like2
+          )
+        ORDER BY t.TRXDATE DESC
+        LIMIT 100
+    ";
+    $st = $pdo->prepare($sql);
+    $st->execute([
+        ':custid' => $custid,
+        ':billcd' => $billcd,
+        ':billcd_csv' => $billcd,
+        ':billcd_like' => $billcdLike,
+        ':billcd_like2' => $billcdLike,
+    ]);
+
+    $rows = [];
+    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $trxdate = '';
+        $rawDate = $r['trxdate'] ?? '';
+        if ($rawDate !== '' && $rawDate !== null) {
+            try {
+                $trxdate = (new DateTimeImmutable((string) $rawDate))->format('d/m/Y H:i:s');
+            } catch (Throwable) {
+                $trxdate = (string) $rawDate;
+            }
+        }
+
+        $rows[] = [
+            'metode' => trim((string) ($r['metode'] ?? '')),
+            'trxdate' => $trxdate,
+            'debet' => (int) ($r['debet'] ?? 0),
+            'kredit' => (int) ($r['kredit'] ?? 0),
+            'noreff' => trim((string) ($r['noreff'] ?? '')),
+            'helpdesk' => trim((string) ($r['helpdesk'] ?? '')),
+            'fidbank' => trim((string) ($r['fidbank'] ?? '')),
+            'transno' => trim((string) ($r['transno'] ?? '')),
+        ];
+    }
+
+    return ['rows' => $rows];
+}
+
+/**
  * Simpan ulang detail tagihan (hanya belum lunas): replace detail + update BILLAM.
  *
  * @return array{ok: bool, message?: string, billam?: int}
@@ -7331,6 +7404,19 @@ try {
         echo json_encode([
             'status' => $st,
             'method' => 'getEditManualBillDetailRows',
+            'message' => (string) ($data['error'] ?? ''),
+            'data' => $data,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
+    if ($method === 'getDataTagihanTransaksiDetail') {
+        $data = getDataTagihanTransaksiDetail($req);
+        $st = !empty($data['error']) ? 422 : 200;
+        http_response_code($st);
+        echo json_encode([
+            'status' => $st,
+            'method' => 'getDataTagihanTransaksiDetail',
             'message' => (string) ($data['error'] ?? ''),
             'data' => $data,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

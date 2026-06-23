@@ -799,6 +799,31 @@ XML);
         ], $res['ok'] ? 200 : 422);
     }
 
+    public function dataDetail(Request $request, AmalFatimahApiService $api): JsonResponse
+    {
+        $custid = (int) $request->query('custid', 0);
+        $billcd = trim((string) $request->query('billcd', ''));
+        if ($custid <= 0 || $billcd === '') {
+            return response()->json([
+                'ok' => false,
+                'message' => 'custid dan billcd wajib diisi',
+            ], 422);
+        }
+
+        $data = $api->getDataTagihanTransaksiDetail($custid, $billcd);
+        if (!empty($data['error'])) {
+            return response()->json([
+                'ok' => false,
+                'message' => $data['error'],
+            ], 422);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'rows' => $data['rows'] ?? [],
+        ]);
+    }
+
     public function dataHapus(Request $request, AmalFatimahApiService $api): JsonResponse
     {
         $validated = $request->validate([
