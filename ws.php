@@ -376,6 +376,45 @@ function createKelas(array $req): array
     ];
 }
 
+function countSiswaInKelas(PDO $pdo, array $kelasRow): int
+{
+    $id = (int) ($kelasRow['id'] ?? 0);
+    if ($id <= 0) {
+        return 0;
+    }
+
+    $jenjang = trim((string) ($kelasRow['jenjang'] ?? ''));
+    $kelas = trim((string) ($kelasRow['kelas'] ?? ''));
+    $unit = trim((string) ($kelasRow['unit'] ?? ''));
+
+    $sql = "
+        SELECT COUNT(*) FROM scctcust
+        WHERE (
+            TRIM(CODE03) REGEXP '^[0-9]+$'
+            AND CAST(TRIM(CODE03) AS UNSIGNED) = :id
+        )
+    ";
+    $params = [':id' => $id];
+
+    if ($jenjang !== '' && $kelas !== '' && $unit !== '') {
+        $sql .= "
+            OR (
+                TRIM(DESC02) = :jenjang
+                AND TRIM(DESC03) = :kelas
+                AND TRIM(CODE02) = :unit
+            )
+        ";
+        $params[':jenjang'] = $jenjang;
+        $params[':kelas'] = $kelas;
+        $params[':unit'] = $unit;
+    }
+
+    $st = $pdo->prepare($sql);
+    $st->execute($params);
+
+    return (int) ($st->fetchColumn() ?: 0);
+}
+
 function deleteKelas(array $req): array
 {
     $id = (int) ($req["id"] ?? 0);
@@ -391,9 +430,9 @@ function deleteKelas(array $req): array
 
     $pdo = dbConnectPdo();
 
-    $exist = $pdo->prepare("SELECT id, kelas FROM mst_kelas WHERE id = :id");
+    $exist = $pdo->prepare("SELECT id, kelas, jenjang, unit FROM mst_kelas WHERE id = :id");
     $exist->execute([":id" => $id]);
-    $row = $exist->fetch();
+    $row = $exist->fetch(PDO::FETCH_ASSOC);
 
     if (!$row) {
         http_response_code(404);
@@ -404,13 +443,7 @@ function deleteKelas(array $req): array
         exit;
     }
 
-    $stSiswa = $pdo->prepare("
-        SELECT COUNT(*) FROM scctcust
-        WHERE TRIM(CODE03) REGEXP '^[0-9]+$'
-          AND CAST(TRIM(CODE03) AS UNSIGNED) = :id
-    ");
-    $stSiswa->execute([":id" => $id]);
-    $siswaCount = (int) ($stSiswa->fetchColumn() ?: 0);
+    $siswaCount = countSiswaInKelas($pdo, $row);
     if ($siswaCount > 0) {
         http_response_code(409);
         echo json_encode([

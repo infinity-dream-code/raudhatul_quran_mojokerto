@@ -461,7 +461,33 @@ class AmalFatimahApiService
         }
 
         try {
-            $deleted = DB::table('mst_kelas')->where('id', $id)->delete();
+            $conn = $this->sikeuPindahKelas->isConfigured()
+                ? DB::connection('sikeu')
+                : DB::connection();
+
+            $kelasRow = $conn->table('mst_kelas')
+                ->where('id', $id)
+                ->first(['id', 'jenjang', 'kelas', 'unit']);
+
+            if (!$kelasRow) {
+                return ['ok' => false, 'message' => 'Data kelas tidak ditemukan.'];
+            }
+
+            $siswaCount = $this->countSiswaInKelas($id, $kelasRow, $conn);
+            if ($siswaCount < 0) {
+                return [
+                    'ok' => false,
+                    'message' => 'Kelas tidak dapat dihapus karena data siswa tidak dapat diverifikasi.',
+                ];
+            }
+            if ($siswaCount > 0) {
+                return [
+                    'ok' => false,
+                    'message' => "Kelas tidak dapat dihapus karena masih memiliki {$siswaCount} siswa.",
+                ];
+            }
+
+            $deleted = $conn->table('mst_kelas')->where('id', $id)->delete();
 
             if ($deleted === 0) {
                 return ['ok' => false, 'message' => 'Data kelas tidak ditemukan.'];
@@ -472,6 +498,44 @@ class AmalFatimahApiService
             Log::warning('[SIKEU DB] deleteKelas local: ' . $e->getMessage());
 
             return ['ok' => false, 'message' => 'Gagal menghapus dari database.'];
+        }
+    }
+
+    protected function countSiswaInKelas(int $kelasId, object $kelasRow, ?\Illuminate\Database\Connection $conn = null): int
+    {
+        if ($kelasId <= 0) {
+            return 0;
+        }
+
+        try {
+            $conn ??= $this->sikeuPindahKelas->isConfigured()
+                ? DB::connection('sikeu')
+                : DB::connection();
+
+            $jenjang = trim((string) ($kelasRow->jenjang ?? ''));
+            $kelas = trim((string) ($kelasRow->kelas ?? ''));
+            $unit = trim((string) ($kelasRow->unit ?? ''));
+
+            $query = $conn->table('scctcust')->where(function ($q) use ($kelasId, $jenjang, $kelas, $unit) {
+                $q->where(function ($byId) use ($kelasId) {
+                    $byId->whereRaw('TRIM(CODE03) REGEXP ?', ['^[0-9]+$'])
+                        ->whereRaw('CAST(TRIM(CODE03) AS UNSIGNED) = ?', [$kelasId]);
+                });
+
+                if ($jenjang !== '' && $kelas !== '' && $unit !== '') {
+                    $q->orWhere(function ($byDesc) use ($jenjang, $kelas, $unit) {
+                        $byDesc->whereRaw('TRIM(DESC02) = ?', [$jenjang])
+                            ->whereRaw('TRIM(DESC03) = ?', [$kelas])
+                            ->whereRaw('TRIM(CODE02) = ?', [$unit]);
+                    });
+                }
+            });
+
+            return (int) $query->count();
+        } catch (\Throwable $e) {
+            Log::warning('[SIKEU DB] countSiswaInKelas: ' . $e->getMessage());
+
+            return -1;
         }
     }
 
@@ -528,35 +592,45 @@ class AmalFatimahApiService
      */
     public function deleteKelas(int $id): array
     {
-        $url = config('services.ws_raudhatul_quran.url');
+        if ($id <= 0) {
+            return ['ok' => false, 'message' => 'ID kelas tidak valid.'];
+        }
+
         $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'deleteKelas', 'rnd' => uniqid()], $jwtKey);
 
         try {
-            $response = $this->wsPost([
-                'method' => 'deleteKelas',
-                'token' => $token,
-                'id' => $id,
-            ]);
+            if ($this->wsReady()) {
+                $response = $this->wsPost([
+                    'method' => 'deleteKelas',
+                    'token' => $token,
+                    'id' => $id,
+                ]);
 
-            $data = $response?->json();
-            $status = (int) ($data['status'] ?? $response?->status());
+                $data = is_array($response?->json()) ? $response->json() : [];
+                $status = (int) ($data['status'] ?? $response?->status() ?? 0);
 
-            if ($response && $response->successful() && $status === 200) {
-                return ['ok' => true, 'message' => (string) ($data['message'] ?? 'Kelas berhasil dihapus.')];
+                if ($response && $status === 200) {
+                    return ['ok' => true, 'message' => (string) ($data['message'] ?? 'Kelas berhasil dihapus.')];
+                }
+
+                if ($response && in_array($status, [409, 404, 422], true)) {
+                    return [
+                        'ok' => false,
+                        'message' => (string) ($data['message'] ?? 'Kelas tidak dapat dihapus.'),
+                    ];
+                }
+
+                Log::warning('[WS Amal Fatimah] deleteKelas failed', [
+                    'status' => $response?->status(),
+                    'body' => $response?->body(),
+                ]);
             }
-
-            Log::warning('[WS Amal Fatimah] deleteKelas failed', [
-                'status' => $response?->status(),
-                'body' => $response?->body(),
-            ]);
-
-            return $this->deleteKelasLocal($id);
         } catch (\Throwable $e) {
             Log::error('[WS Amal Fatimah] deleteKelas: ' . $e->getMessage());
-
-            return $this->deleteKelasLocal($id);
         }
+
+        return $this->deleteKelasLocal($id);
     }
 
     public function createKelas(array $payload): array
