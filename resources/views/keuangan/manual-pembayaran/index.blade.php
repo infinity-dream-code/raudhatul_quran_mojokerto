@@ -52,13 +52,45 @@
             @endif
 
             <style>
-                .mp-layout { max-width: 1020px; margin: 0 auto; }
-                .mp-form-grid { display:grid; gap:14px; }
-                .mp-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+                .mp-layout { width: 100%; max-width: none; margin: 0; }
+                .mp-form-grid {
+                    display:grid;
+                    gap:16px;
+                    padding: 4px 2px 0;
+                }
+                .mp-grid-2 {
+                    display:grid;
+                    grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr);
+                    gap:16px;
+                    align-items:end;
+                }
                 .mp-actions { display:flex; justify-content:flex-end; }
                 .mp-field-label { font-weight:700; margin-bottom:6px; }
-                .mp-field-control { width:100%; padding:10px; border:1px solid var(--border); border-radius:10px; }
+                .mp-field-control {
+                    width:100%;
+                    height: 42px;
+                    padding:10px 12px;
+                    border:1px solid var(--border);
+                    border-radius:10px;
+                    background:#fff;
+                }
                 .mp-field-control[readonly] { background:#f9fafb; }
+                #siswaSearchInput {
+                    width:100%;
+                    height: 42px;
+                    padding:10px 12px;
+                    border:1px solid var(--border);
+                    border-radius:10px;
+                    background:#fff;
+                }
+                .mp-form-grid > div > div:first-child {
+                    font-weight:700;
+                    margin-bottom:6px;
+                }
+                .mp-form-grid .btn.btn-primary {
+                    min-width: 120px;
+                }
+                #formManualBayar { margin-top:16px !important; }
                 @media (max-width: 900px) {
                     .mp-layout { max-width: 100%; }
                     .mp-grid-2 { grid-template-columns:1fr; }
