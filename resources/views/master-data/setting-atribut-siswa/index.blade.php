@@ -26,7 +26,7 @@
         .sa-alert { margin:10px 16px 0; border-radius:8px; padding:10px 12px; font-size:13px; font-weight:600; }
         .sa-alert.ok { background:#ecfdf5; color:#047857; }
         .sa-alert.err { background:#fef2f2; color:#b91c1c; }
-        .sa-modal { position:fixed; inset:0; background:rgba(17,24,39,.35); display:none; align-items:center; justify-content:center; z-index:80; padding:14px; }
+        .sa-modal { position:fixed; inset:0; background:rgba(17,24,39,.35); display:none; align-items:center; justify-content:center; padding:14px; }
         .sa-modal.open { display:flex; }
         .sa-modal-box { width:100%; max-width:540px; background:#fff; border-radius:12px; border:1px solid #e5e7eb; box-shadow:0 20px 50px rgba(0,0,0,.2); }
         .sa-modal-h { padding:14px 18px 8px; display:flex; justify-content:space-between; align-items:center; }

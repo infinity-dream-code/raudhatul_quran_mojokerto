@@ -42,7 +42,7 @@
         .eid-alert { margin: 10px 16px 0; border-radius: 8px; padding: 10px 12px; font-size: 13px; font-weight: 600; }
         .eid-alert.ok { background: #ecfdf5; color: #047857; }
         .eid-alert.err { background: #fef2f2; color: #b91c1c; }
-        .eid-modal { position: fixed; inset: 0; background: rgba(17, 24, 39, 0.35); display: none; align-items: center; justify-content: center; z-index: 80; padding: 14px; }
+        .eid-modal { position: fixed; inset: 0; background: rgba(17, 24, 39, 0.35); display: none; align-items: center; justify-content: center; padding: 14px; }
         .eid-modal.open { display: flex; }
         .eid-modal-box { width: 100%; max-width: 540px; background: #fff; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2); }
         .eid-modal-h { padding: 14px 18px 8px; display: flex; justify-content: space-between; align-items: center; }

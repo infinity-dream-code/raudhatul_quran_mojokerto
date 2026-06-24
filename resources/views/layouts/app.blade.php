@@ -179,6 +179,16 @@
             font-weight: 700;
             margin-bottom: 0.25rem;
         }
+
+        /* Modal custom halaman — harus di atas sidebar/navbar template (z-index ~1085) */
+        .eid-modal,
+        .sa-modal {
+            z-index: 1100 !important;
+        }
+
+        body.modal-open {
+            overflow: hidden;
+        }
     </style>
     <!-- Helpers -->
     <script src="{{asset('main/js/helpers.js')}}"></script>
@@ -456,6 +466,20 @@
             window.scrollTo({
                 top: 0,
                 behavior: "smooth"
+            });
+        });
+
+        document.querySelectorAll('.eid-modal, .sa-modal').forEach(function (modal) {
+            if (modal.parentElement !== document.body) {
+                document.body.appendChild(modal);
+            }
+            var syncModalBody = function () {
+                var hasOpen = document.querySelector('.eid-modal.open, .sa-modal.open');
+                document.body.classList.toggle('modal-open', !!hasOpen);
+            };
+            new MutationObserver(syncModalBody).observe(modal, {
+                attributes: true,
+                attributeFilter: ['class']
             });
         });
     })

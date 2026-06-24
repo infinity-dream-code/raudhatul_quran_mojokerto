@@ -115,7 +115,7 @@
         .eid-alert.err { background: #fef2f2; color: #b91c1c; }
         .eid-modal {
             position: fixed; inset: 0; background: rgba(17, 24, 39, 0.35);
-            display: none; align-items: center; justify-content: center; z-index: 80; padding: 14px;
+            display: none; align-items: center; justify-content: center; padding: 14px;
         }
         .eid-modal.open { display: flex; }
         .eid-modal-box {
