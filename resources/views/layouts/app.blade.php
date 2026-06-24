@@ -19,7 +19,8 @@
     <meta name="description" content="Core system ICT "/>
     <meta name="theme-color" content="#282a42">
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="{{asset('favicon.ico')}}"/>
+    <link rel="icon" type="image/png" href="{{ asset('logo.png') }}"/>
+    <link rel="apple-touch-icon" href="{{ asset('logo.png') }}"/>
 
     <!-- Icons -->
 

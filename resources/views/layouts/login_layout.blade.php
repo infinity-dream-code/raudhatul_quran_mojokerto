@@ -18,7 +18,8 @@
     <meta name="description" content=""/>
 
     <!-- Favicon -->
-    <link rel="icon" type="image/x-icon" href="{{asset('favicon.ico')}}"/>
+    <link rel="icon" type="image/png" href="{{ asset('logo.png') }}"/>
+    <link rel="apple-touch-icon" href="{{ asset('logo.png') }}"/>
     <!-- Vendors CSS -->
     <link rel="stylesheet" href="{{asset('main/libs/perfect-scrollbar/perfect-scrollbar.css')}}"/>
     <link rel="stylesheet" href="{{asset('main/libs/sweetalert2/sweetalert2.css')}}"/>
