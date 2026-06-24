@@ -80,6 +80,9 @@
                         <li class="menu-item {{ request()->routeIs('keu.tagihan.buat') ? 'active' : '' }}">
                             <a href="{{ route('keu.tagihan.buat') }}" class="menu-link"><div>Buat Tagihan</div></a>
                         </li>
+                        <li class="menu-item {{ request()->routeIs(['keu.tagihan.upload_excel', 'keu.tagihan.upload_excel.contoh', 'keu.tagihan.upload_excel.import', 'keu.tagihan.upload_excel.save', 'keu.tagihan.upload_excel.clear']) ? 'active' : '' }}">
+                            <a href="{{ route('keu.tagihan.upload_excel') }}" class="menu-link"><div>Buat Tagihan Excel</div></a>
+                        </li>
                         <li class="menu-item {{ request()->routeIs('keu.tagihan.data') ? 'active' : '' }}">
                             <a href="{{ route('keu.tagihan.data') }}" class="menu-link"><div>Data Tagihan</div></a>
                         </li>

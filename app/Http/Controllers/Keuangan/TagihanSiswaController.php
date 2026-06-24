@@ -204,7 +204,7 @@ class TagihanSiswaController extends Controller
         $filterOptions = $api->getFilterBuatTagihan();
 
         return view('keuangan.tagihan-siswa.upload-tagihan-excel', [
-            'pageTitle' => 'Upload Tagihan Excel',
+            'pageTitle' => 'Buat Tagihan Excel',
             'filterOptions' => $filterOptions,
             'importRows' => $this->paginateTagihanExcelPreview($request),
             'keyword' => trim((string) $request->query('q', '')),
@@ -350,9 +350,9 @@ class TagihanSiswaController extends Controller
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
 <sheetData>
-<row r="1"><c r="A1" t="inlineStr"><is><t>NIS</t></is></c><c r="B1" t="inlineStr"><is><t>NOMINAL</t></is></c></row>
-<row r="2"><c r="A2" t="inlineStr"><is><t>3000001107</t></is></c><c r="B2"><v>500000</v></c></row>
-<row r="3"><c r="A3" t="inlineStr"><is><t>3000001108</t></is></c><c r="B3"><v>500000</v></c></row>
+<row r="1"><c r="A1" t="inlineStr"><is><t>NIS</t></is></c><c r="B1" t="inlineStr"><is><t>NAMA</t></is></c><c r="C1" t="inlineStr"><is><t>UNIT</t></is></c><c r="D1" t="inlineStr"><is><t>KELAS</t></is></c><c r="E1" t="inlineStr"><is><t>KELOMPOK</t></is></c><c r="F1" t="inlineStr"><is><t>ANGKATAN</t></is></c><c r="G1" t="inlineStr"><is><t>NOMINAL</t></is></c></row>
+<row r="2"><c r="A2" t="inlineStr"><is><t>3000001107</t></is></c><c r="B2" t="inlineStr"><is><t>Contoh Siswa 1</t></is></c><c r="C2" t="inlineStr"><is><t>MTQ</t></is></c><c r="D2" t="inlineStr"><is><t>1</t></is></c><c r="E2" t="inlineStr"><is><t>A</t></is></c><c r="F2"><v>2024</v></c><c r="G2"><v>500000</v></c></row>
+<row r="3"><c r="A3" t="inlineStr"><is><t>3000001108</t></is></c><c r="B3" t="inlineStr"><is><t>Contoh Siswa 2</t></is></c><c r="C3" t="inlineStr"><is><t>MTQ</t></is></c><c r="D3" t="inlineStr"><is><t>2</t></is></c><c r="E3" t="inlineStr"><is><t>B</t></is></c><c r="F3"><v>2024</v></c><c r="G3"><v>500000</v></c></row>
 </sheetData>
 </worksheet>
 XML;

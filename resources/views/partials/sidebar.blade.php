@@ -43,6 +43,7 @@
             </button>
             <div class="sidebar-subnav {{ request()->routeIs('keu.tagihan.*') ? 'open' : '' }}" id="tagihanSiswaSubnav" style="padding-left:14px;">
                 <a href="{{ route('keu.tagihan.buat') }}" class="{{ request()->routeIs('keu.tagihan.buat') ? 'active' : '' }}">Buat Tagihan</a>
+                <a href="{{ route('keu.tagihan.upload_excel') }}" class="{{ request()->routeIs(['keu.tagihan.upload_excel', 'keu.tagihan.upload_excel.contoh', 'keu.tagihan.upload_excel.import', 'keu.tagihan.upload_excel.save', 'keu.tagihan.upload_excel.clear']) ? 'active' : '' }}">Buat Tagihan Excel</a>
                 <a href="{{ route('keu.tagihan.data') }}" class="{{ request()->routeIs('keu.tagihan.data') ? 'active' : '' }}">Data Tagihan</a>
                 <a href="{{ route('keu.tagihan.rekap') }}" class="{{ request()->routeIs('keu.tagihan.rekap') ? 'active' : '' }}">Rekap Tagihan</a>
             </div>

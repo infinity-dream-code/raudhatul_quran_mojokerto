@@ -146,14 +146,14 @@
     </style>
 
     <div class="page-heading">
-        <h2>Tagihan Siswa — Upload Tagihan Excel</h2>
-        <p>Set filter, impor file excel, pratinjau di tabel, lalu simpan ke tagihan siswa. Pratinjau tetap ada setelah refresh (disimpan di sesi + cache hingga {{ (int) config('session.lifetime', 120) }} menit); klik <strong>Simpan Data</strong> untuk menulis ke database.</p>
+        <h2>Tagihan Siswa — Buat Tagihan Excel</h2>
+        <p>Set filter, impor file excel, pratinjau di tabel, lalu simpan ke tagihan siswa. Kolom wajib: <strong>NIS</strong> dan <strong>NOMINAL</strong> (kolom lain opsional, diisi otomatis dari data siswa). Pratinjau tetap ada setelah refresh (disimpan di sesi + cache hingga {{ (int) config('session.lifetime', 120) }} menit); klik <strong>Simpan Data</strong> untuk menulis ke database.</p>
     </div>
 
     <div class="eid-wrap">
         <div class="eid-card">
             <div class="eid-head">
-                <div class="eid-title">Upload Tagihan Excel</div>
+                <div class="eid-title">Buat Tagihan Excel</div>
                 <div class="eid-sub">Periode diisi otomatis dari <strong>billac</strong> (sama logika <strong>fungsi</strong> pada menu Buat Tagihan). Nominal per siswa diambil dari file excel.</div>
             </div>
 
@@ -317,8 +317,9 @@
                 <ul class="eid-rules">
                     <li>File harus berformat <b>XLS / XLSX</b>.</li>
                     <li>Ukuran file tidak boleh lebih dari <b>1024 KB / 1 MB</b>.</li>
-                    <li><b>Format sederhana:</b> kolom <b>NIS</b> + <b>NOMINAL</b> (atau <b>TAGIHAN</b>). Opsional: <b>IDCUST</b>/<b>CUSTID</b>, <b>KontakWali</b>.</li>
-                    <li><b>Format ekspor Data Tagihan:</b> header seperti <b>NIS</b>, <b>NO DAFT</b>, <b>NO VA</b>, <b>TAGIHAN</b> (boleh <b>Rp. …</b>), dll. Jika <b>NIS</b> kosong, sistem memakai <b>NO DAFT</b> / <b>NO VA</b> (7510050…) untuk cocokkan <b>NUM2ND</b>/<b>NOCUST</b>.</li>
+                    <li>Kolom <b>wajib</b>: <b>NIS</b> dan <b>NOMINAL</b> (atau <b>TAGIHAN</b>).</li>
+                    <li><b>Format Bintang Juara:</b> <b>NIS</b>, <b>NAMA</b>, <b>UNIT</b>, <b>KELAS</b> (jenjang), <b>KELOMPOK</b>, <b>ANGKATAN</b>, <b>NOMINAL</b> — kolom selain NIS/NOMINAL hanya referensi; data siswa diambil dari database.</li>
+                    <li><b>Format ekspor Data Tagihan:</b> header seperti <b>NIS</b>, <b>NO DAFT</b>, <b>NO VA</b>, <b>TAGIHAN</b> (boleh <b>Rp. …</b>). Jika <b>NIS</b> kosong, sistem memakai <b>NO DAFT</b> / <b>NO VA</b> (7510050…) untuk cocokkan <b>NUM2ND</b>/<b>NOCUST</b>.</li>
                 </ul>
                 <div class="eid-example">
                     <a href="{{ route('keu.tagihan.upload_excel.contoh') }}" target="_blank" rel="noopener">Contoh file (tagihan_excel.xlsx)</a>
