@@ -1,13 +1,17 @@
+@php
+    $isCashlessContext = request()->routeIs('cashless.*') || session('auth_module') === 'cashless';
+@endphp
+
 <aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
     <div class="app-brand pt-2">
-        <a href="{{ route('dashboard') }}" class="app-brand-link">
+        <a href="{{ $isCashlessContext ? route('cashless.index') : route('dashboard') }}" class="app-brand-link">
             <span class="app-brand-logo">
                 <span style="color: var(--bs-primary)">
                     <img width="50" height="50" src="{{ asset('mojokerto.png') }}" alt="logo">
                 </span>
             </span>
             <span class="app-brand-text demo menu-text fw-bold ms-2">
-                SIKEU
+                {{ $isCashlessContext ? 'CASHLESS' : 'SIKEU' }}
                 @if(session('auth_sekolah_nama'))
                     <div class="pt-1 small fw-normal">{{ session('auth_sekolah_nama') }}</div>
                 @endif
@@ -24,6 +28,38 @@
     <div class="menu-inner-shadow"></div>
 
     <ul class="menu-inner py-1">
+        @if($isCashlessContext)
+            <li class="menu-item {{ request()->routeIs('cashless.index') ? 'active' : '' }}">
+                <a href="{{ route('cashless.index') }}" class="menu-link">
+                    <i class="menu-icon ri-dashboard-line"></i>
+                    <div>Dashboard</div>
+                </a>
+            </li>
+            <li class="menu-item {{ request()->routeIs('cashless.saldo') ? 'active' : '' }}">
+                <a href="{{ route('cashless.saldo') }}" class="menu-link">
+                    <i class="menu-icon ri-wallet-3-line"></i>
+                    <div>Saldo</div>
+                </a>
+            </li>
+            <li class="menu-item {{ request()->routeIs('cashless.topup') ? 'active' : '' }}">
+                <a href="{{ route('cashless.topup') }}" class="menu-link">
+                    <i class="menu-icon ri-coins-line"></i>
+                    <div>Topup</div>
+                </a>
+            </li>
+            <li class="menu-item {{ request()->routeIs('cashless.transactions') ? 'active' : '' }}">
+                <a href="{{ route('cashless.transactions') }}" class="menu-link">
+                    <i class="menu-icon ri-exchange-funds-line"></i>
+                    <div>Transaksi</div>
+                </a>
+            </li>
+            <li class="menu-item">
+                <a href="{{ route('portal.switch') }}" class="menu-link">
+                    <i class="menu-icon ri-apps-line"></i>
+                    <div>Ganti Modul</div>
+                </a>
+            </li>
+        @else
         <li class="menu-item {{ request()->routeIs('dashboard') ? 'active' : '' }}">
             <a href="{{ route('dashboard') }}" class="menu-link">
                 <i class="menu-icon ri-home-5-line"></i>
@@ -149,6 +185,7 @@
                 </li>
             </ul>
         </li>
+        @endif
 
         <li class="menu-item mt-auto pb-2">
             <a href="{{ route('logout') }}" class="menu-link btn-danger text-white" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
