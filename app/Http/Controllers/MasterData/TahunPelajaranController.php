@@ -16,7 +16,10 @@ class TahunPelajaranController extends Controller
         $keyword = trim((string) $request->query('q', ''));
         $rows = $api->getThnAka($keyword !== '' ? $keyword : null);
 
-        $perPage = 10;
+        $perPage = (int) $request->query('per_page', 10);
+        if (!in_array($perPage, [10, 25, 50], true)) {
+            $perPage = 10;
+        }
         $currentPage = max(1, (int) $request->query('page', 1));
         $total = count($rows);
         $offset = ($currentPage - 1) * $perPage;
@@ -37,6 +40,7 @@ class TahunPelajaranController extends Controller
             'pageTitle' => 'Tahun Pelajaran',
             'tahunRows' => $tahunRows,
             'keyword' => $keyword,
+            'perPage' => $perPage,
         ]);
     }
 

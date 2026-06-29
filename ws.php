@@ -342,14 +342,18 @@ function createKelas(array $req): array
 
     $pdo = dbConnectPdo();
 
-    $check = $pdo->prepare("SELECT id FROM mst_kelas WHERE kelas = :kelas AND unit = :unit");
-    $check->execute([":kelas" => $kelas, ":unit" => $unit]);
+    $check = $pdo->prepare("SELECT id FROM mst_kelas WHERE unit = :unit AND jenjang = :jenjang AND kelas = :kelas");
+    $check->execute([
+        ":unit"    => $unit,
+        ":jenjang" => $jenjang,
+        ":kelas"   => $kelas,
+    ]);
 
     if ($check->fetch()) {
         http_response_code(409);
         echo json_encode([
             "status" => 409,
-            "message" => "Kelas sudah ada pada unit tersebut"
+            "message" => "Kombinasi unit, kelas, dan kelompok sudah terdaftar"
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }

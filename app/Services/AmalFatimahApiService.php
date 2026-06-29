@@ -419,11 +419,12 @@ class AmalFatimahApiService
         try {
             $exists = DB::table('mst_kelas')
                 ->where('unit', $unit)
+                ->where('jenjang', $jenjang)
                 ->where('kelas', $kelas)
                 ->exists();
 
             if ($exists) {
-                return ['ok' => false, 'message' => 'Kelas sudah ada pada unit tersebut.', 'data' => []];
+                return ['ok' => false, 'message' => 'Kombinasi unit, kelas, dan kelompok sudah terdaftar.', 'data' => []];
             }
 
             $id = DB::table('mst_kelas')->insertGetId([

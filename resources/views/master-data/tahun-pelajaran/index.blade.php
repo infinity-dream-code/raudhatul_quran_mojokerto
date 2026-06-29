@@ -30,12 +30,20 @@
             font-weight: 700;
             text-decoration: none;
         }
-        .tp-toolbar { padding: 8px 18px 14px; display: flex; justify-content: flex-end; }
+        .tp-toolbar { padding: 8px 18px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .tp-left, .tp-right { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #6b7280; }
+        .tp-select {
+            height: 34px; border: 1px solid #e5e7eb; border-radius: 7px; padding: 0 10px; font-size: 12px; background: #fff;
+        }
         .tp-search { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #6b7280; }
         .tp-search input {
             width: 220px; height: 34px; border: 1px solid #e5e7eb; border-radius: 7px; padding: 0 10px; outline: none; font-size: 12px;
         }
         .tp-search input:focus { border-color: #4f6ef7; }
+        .tp-btn-search {
+            height: 34px; border: 1px solid #e5e7eb; border-radius: 7px; padding: 0 12px;
+            font-size: 12px; font-weight: 700; background: #fff; color: #374151; cursor: pointer;
+        }
         .tp-table-wrap { overflow-x: auto; border-top: 1px solid #eef2f7; }
         .tp-table { width: 100%; border-collapse: collapse; min-width: 500px; }
         .tp-table th, .tp-table td {
@@ -92,9 +100,23 @@
         @endif
 
         <div class="tp-toolbar">
-            <form method="GET" action="{{ route('master.tahun_pelajaran') }}" class="tp-search">
+            <form method="GET" action="{{ route('master.tahun_pelajaran') }}" class="tp-left">
+                <span>Tampilkan</span>
+                <select class="tp-select" name="per_page" onchange="this.form.submit()">
+                    <option value="10" {{ (int) ($perPage ?? 10) === 10 ? 'selected' : '' }}>10</option>
+                    <option value="25" {{ (int) ($perPage ?? 10) === 25 ? 'selected' : '' }}>25</option>
+                    <option value="50" {{ (int) ($perPage ?? 10) === 50 ? 'selected' : '' }}>50</option>
+                </select>
+                @if (($keyword ?? '') !== '')
+                    <input type="hidden" name="q" value="{{ $keyword }}">
+                @endif
+                <span>entri</span>
+            </form>
+            <form method="GET" action="{{ route('master.tahun_pelajaran') }}" class="tp-right">
+                <input type="hidden" name="per_page" value="{{ (int) ($perPage ?? 10) }}">
                 <span>Cari:</span>
                 <input type="text" name="q" value="{{ $keyword ?? '' }}" placeholder="kata kunci pencarian">
+                <button type="submit" class="tp-btn-search">Cari</button>
             </form>
         </div>
 
@@ -121,12 +143,12 @@
             </table>
         </div>
 
-        @if (isset($tahunRows) && method_exists($tahunRows, 'hasPages') && $tahunRows->hasPages())
-            <div class="tp-pagination-wrap">
-                <div class="tp-pagination-info">
-                    Showing {{ $tahunRows->firstItem() }} to {{ $tahunRows->lastItem() }} of {{ $tahunRows->total() }} results
-                </div>
-                <div class="tp-pagination">
+        <div class="tp-pagination-wrap">
+            <div class="tp-pagination-info">
+                Menampilkan {{ $tahunRows->firstItem() ?? 0 }} sampai {{ $tahunRows->lastItem() ?? 0 }} dari {{ $tahunRows->total() ?? 0 }} entri
+            </div>
+            @if (isset($tahunRows) && method_exists($tahunRows, 'hasPages') && $tahunRows->hasPages())
+            <div class="tp-pagination">
                     @php
                         $current = $tahunRows->currentPage();
                         $last = $tahunRows->lastPage();
@@ -134,9 +156,9 @@
                         $end = min($last, $current + 2);
                     @endphp
                     @if ($tahunRows->onFirstPage())
-                        <span class="tp-page-link disabled">Prev</span>
+                        <span class="tp-page-link disabled">Sebelumnya</span>
                     @else
-                        <a class="tp-page-link" href="{{ $tahunRows->appends(request()->query())->url($current - 1) }}">Prev</a>
+                        <a class="tp-page-link" href="{{ $tahunRows->appends(request()->query())->url($current - 1) }}">Sebelumnya</a>
                     @endif
 
                     @for ($page = $start; $page <= $end; $page++)
@@ -148,13 +170,13 @@
                     @endfor
 
                     @if ($tahunRows->hasMorePages())
-                        <a class="tp-page-link" href="{{ $tahunRows->appends(request()->query())->url($current + 1) }}">Next</a>
+                        <a class="tp-page-link" href="{{ $tahunRows->appends(request()->query())->url($current + 1) }}">Selanjutnya</a>
                     @else
-                        <span class="tp-page-link disabled">Next</span>
+                        <span class="tp-page-link disabled">Selanjutnya</span>
                     @endif
                 </div>
-            </div>
-        @endif
+            @endif
+        </div>
     </div>
 @endsection
 
