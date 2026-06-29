@@ -1055,7 +1055,7 @@ function getSiswa(array $req): array
         $sql .= " WHERE " . implode(" AND ", $where);
     }
 
-    $sql .= " ORDER BY c.NMCUST ASC";
+    $sql .= " ORDER BY TRIM(c.NOCUST) ASC";
 
     $limit = (int) ($req["limit"] ?? 50);
     $offset = (int) ($req["offset"] ?? 0);

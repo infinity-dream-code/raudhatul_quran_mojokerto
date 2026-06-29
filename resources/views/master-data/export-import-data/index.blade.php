@@ -170,13 +170,18 @@
                                 <label class="form-label required" for="save-sekolah">Sekolah</label>
                                 <select class="form-select" id="save-sekolah" name="sekolah" required>
                                     <option value="" {{ old('sekolah') ? '' : 'selected' }}>Pilih Sekolah</option>
-                                    @foreach (($sekolahList ?? []) as $sk)
+                                    @foreach (($sekolahList ?? []) as $opt)
                                         @php
-                                            $code = is_array($sk) ? trim((string) ($sk['code01'] ?? $sk['CODE01'] ?? '')) : '';
-                                            $name = is_array($sk) ? trim((string) ($sk['desc01'] ?? $sk['DESC01'] ?? '')) : '';
-                                            $label = $name !== '' ? $name : $code;
-                                            if ($code !== '' && $name !== '' && !str_contains($name, $code)) {
-                                                $label = $code . ' - ' . $name;
+                                            if (is_array($opt)) {
+                                                $code = trim((string) ($opt['code01'] ?? $opt['CODE01'] ?? ''));
+                                                $label = trim((string) ($opt['label'] ?? $opt['LABEL'] ?? ''));
+                                                if ($label === '' && $code !== '') {
+                                                    $name = trim((string) ($opt['desc01'] ?? $opt['DESC01'] ?? ''));
+                                                    $label = $name !== '' ? $code . ' - ' . $name : $code;
+                                                }
+                                            } else {
+                                                $code = trim((string) $opt);
+                                                $label = $code;
                                             }
                                         @endphp
                                         @if ($code !== '')
@@ -184,11 +189,6 @@
                                         @endif
                                     @endforeach
                                 </select>
-                                @if (count($sekolahList ?? []) === 0)
-                                    <div class="form-text text-danger" id="save-sekolah-empty">Data sekolah belum dimuat. Buka ulang modal atau periksa koneksi database SIKEU.</div>
-                                @else
-                                    <div class="form-text text-danger" id="save-sekolah-empty" style="display:none;">Data sekolah tidak ditemukan. Periksa Master Sekolah / koneksi database.</div>
-                                @endif
                             </div>
                             <div class="mb-0">
                                 <label class="form-label required" for="save-metode">Metode Penyimpanan</label>
@@ -236,31 +236,30 @@
 
             var metodeEl = document.getElementById('save-metode');
             var sekolahEl = document.getElementById('save-sekolah');
-            var sekolahEmptyEl = document.getElementById('save-sekolah-empty');
+
+            function sekolahOptionLabel(sk) {
+                var label = String((sk && (sk.label || sk.LABEL)) || '').trim();
+                if (label) return label;
+                var code = String((sk && (sk.code01 || sk.CODE01)) || '').trim();
+                var name = String((sk && (sk.desc01 || sk.DESC01)) || '').trim();
+                if (!code) return name || '';
+                if (!name || name.indexOf(code) !== -1) return name || code;
+                return code + ' - ' + name;
+            }
 
             function fillSekolahOptions(rows) {
                 if (!sekolahEl) return;
                 var cur = sekolahEl.value || '';
                 sekolahEl.innerHTML = '<option value="">Pilih Sekolah</option>';
-                var n = 0;
                 (rows || []).forEach(function (sk) {
                     var code = String((sk && (sk.code01 || sk.CODE01)) || '').trim();
-                    var name = String((sk && (sk.desc01 || sk.DESC01)) || '').trim();
                     if (!code) return;
-                    n++;
-                    var label = name || code;
-                    if (name && name.indexOf(code) === -1) {
-                        label = code + ' - ' + name;
-                    }
                     var opt = document.createElement('option');
                     opt.value = code;
-                    opt.textContent = label;
+                    opt.textContent = sekolahOptionLabel(sk);
                     if (code === cur) opt.selected = true;
                     sekolahEl.appendChild(opt);
                 });
-                if (sekolahEmptyEl) {
-                    sekolahEmptyEl.style.display = n === 0 ? '' : 'none';
-                }
             }
 
             function loadSekolahOptions() {
@@ -276,7 +275,6 @@
                         syncSekolahRequired();
                     })
                     .catch(function () {
-                        if (sekolahEmptyEl) sekolahEmptyEl.style.display = '';
                         syncSekolahRequired();
                     });
             }

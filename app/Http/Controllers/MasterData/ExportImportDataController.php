@@ -84,6 +84,12 @@ class ExportImportDataController extends Controller
      */
     private function loadSekolahList(AmalFatimahApiService $api): array
     {
+        $filters = $api->getFilterSiswa();
+        $sekolah = is_array($filters['sekolah'] ?? null) ? array_values($filters['sekolah']) : [];
+        if ($sekolah !== []) {
+            return $sekolah;
+        }
+
         return $api->getSekolah();
     }
 

@@ -15,17 +15,17 @@ class DataSiswaController extends Controller
 {
     public function index(Request $request, AmalFatimahApiService $api): View
     {
-        $perPage = 10;
+        $perPage = (int) $request->query('per_page', 10);
+        if (!in_array($perPage, [10, 25, 50, 100], true)) {
+            $perPage = 10;
+        }
         $page = max(1, (int) $request->query('page', 1));
         $ui = $this->extractUiFilters($request);
         $filters = $this->toWsFilters($ui);
 
-        // Fallback aman: ambil dataset hasil filter lalu paginate di Laravel.
-        // Ini menghindari kasus total count dari WS tidak tersedia.
-        $allRows = $api->getSiswa($filters, 200, 0);
-        $total = count($allRows);
+        $total = $api->getSiswaCount($filters);
         $offset = ($page - 1) * $perPage;
-        $rows = array_slice($allRows, $offset, $perPage);
+        $rows = $api->getSiswa($filters, $perPage, $offset);
 
         $siswaRows = new LengthAwarePaginator(
             $rows,
@@ -49,6 +49,7 @@ class DataSiswaController extends Controller
             'kelas' => $ui['kelas'],
             'siswa' => $ui['siswa'],
             'keyword' => $ui['q'],
+            'perPage' => $perPage,
         ]);
     }
 

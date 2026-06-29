@@ -301,6 +301,9 @@
                 @if (($keyword ?? '') !== '')
                     <input type="hidden" name="q" value="{{ $keyword }}">
                 @endif
+                @if (($perPage ?? 10) !== 10)
+                    <input type="hidden" name="per_page" value="{{ (int) ($perPage ?? 10) }}">
+                @endif
                 <div class="ds-filter-grid">
                     <div class="ds-fld">
                         <label for="angkatan">Angkatan Siswa</label>
@@ -377,11 +380,26 @@
                     </div>
                     </div>
                 </div>
+                <form method="GET" action="{{ route('master.data_siswa') }}" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0;">
+                    @if (($angkatan ?? '') !== '')<input type="hidden" name="angkatan" value="{{ $angkatan }}">@endif
+                    @if (($sekolah ?? '') !== '')<input type="hidden" name="sekolah" value="{{ $sekolah }}">@endif
+                    @if (($kelas ?? '') !== '')<input type="hidden" name="kelas" value="{{ $kelas }}">@endif
+                    @if (($siswa ?? '') !== '')<input type="hidden" name="siswa" value="{{ $siswa }}">@endif
+                    @if (($keyword ?? '') !== '')<input type="hidden" name="q" value="{{ $keyword }}">@endif
+                    <span>Tampilkan</span>
+                    <select name="per_page" onchange="this.form.submit()" style="height:34px;border:1px solid #d1d5db;border-radius:8px;padding:0 8px;font-size:12px;">
+                        @foreach ([10, 25, 50, 100] as $pp)
+                            <option value="{{ $pp }}" {{ (int) ($perPage ?? 10) === $pp ? 'selected' : '' }}>{{ $pp }}</option>
+                        @endforeach
+                    </select>
+                    <span>entri</span>
+                </form>
                 <form method="GET" action="{{ route('master.data_siswa') }}" class="ds-search">
                     @if (($angkatan ?? '') !== '')<input type="hidden" name="angkatan" value="{{ $angkatan }}">@endif
                     @if (($sekolah ?? '') !== '')<input type="hidden" name="sekolah" value="{{ $sekolah }}">@endif
                     @if (($kelas ?? '') !== '')<input type="hidden" name="kelas" value="{{ $kelas }}">@endif
                     @if (($siswa ?? '') !== '')<input type="hidden" name="siswa" value="{{ $siswa }}">@endif
+                    <input type="hidden" name="per_page" value="{{ (int) ($perPage ?? 10) }}">
                     <span>Cari:</span>
                     <input type="text" name="q" value="{{ $keyword ?? '' }}" placeholder="kata kunci pencarian">
                 </form>
@@ -463,7 +481,7 @@
                 </table>
             </div>
 
-            @if (isset($siswaRows) && method_exists($siswaRows, 'hasPages') && $siswaRows->hasPages())
+            @if (isset($siswaRows) && ($siswaRows->total() ?? 0) > 0)
                 <div class="ds-pagination-wrap">
                     <div class="ds-pagination-info">
                         Showing {{ $siswaRows->firstItem() }} to {{ $siswaRows->lastItem() }} of {{ $siswaRows->total() }} results
