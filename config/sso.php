@@ -9,8 +9,8 @@ return [
 
     'modules' => [
         'presensi' => [
-            'enabled' => (bool) env('SSO_MODULE_PRESENSI_ENABLED', false),
-            'url' => env('SSO_MODULE_PRESENSI_URL', ''),
+            'enabled' => (bool) env('SSO_MODULE_PRESENSI_ENABLED', true),
+            'url' => env('SSO_MODULE_PRESENSI_URL', 'https://presensi-raudhatulquran.smartpayment.co.id/login.php'),
             'label' => 'Presensi',
             'use_signed_token' => (bool) env('SSO_MODULE_PRESENSI_USE_SIGNED_TOKEN', true),
         ],

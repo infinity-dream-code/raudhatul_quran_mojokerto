@@ -309,6 +309,15 @@
                     <p>Sistem presensi digital.</p>
                     <span class="go">Buka aplikasi &rarr;</span>
                 </a>
+            @else
+                <div class="card" style="--accent:#94a3b8; opacity:.7; cursor:not-allowed;">
+                    <div class="card-top">
+                        <div class="icon" style="background:#94a3b8;">🧾</div>
+                    </div>
+                    <h3>Absensi</h3>
+                    <p>Modul absensi belum aktif.</p>
+                    <span class="go">Belum tersedia</span>
+                </div>
             @endif
         </div>
     </main>
