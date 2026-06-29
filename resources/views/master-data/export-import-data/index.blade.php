@@ -169,14 +169,18 @@
                             <div class="mb-3">
                                 <label class="form-label required" for="save-sekolah">Sekolah</label>
                                 <select class="form-select" id="save-sekolah" name="sekolah" required>
-                                    <option value="" disabled {{ old('sekolah') ? '' : 'selected' }}>Pilih Sekolah</option>
+                                    <option value="" {{ old('sekolah') ? '' : 'selected' }}>Pilih Sekolah</option>
                                     @foreach (($sekolahList ?? []) as $sk)
                                         @php
                                             $code = is_array($sk) ? trim((string) ($sk['code01'] ?? $sk['CODE01'] ?? '')) : '';
-                                            $name = is_array($sk) ? trim((string) ($sk['desc01'] ?? $sk['DESC01'] ?? $code)) : '';
+                                            $name = is_array($sk) ? trim((string) ($sk['desc01'] ?? $sk['DESC01'] ?? '')) : '';
+                                            $label = $name !== '' ? $name : $code;
+                                            if ($code !== '' && $name !== '' && !str_contains($name, $code)) {
+                                                $label = $code . ' - ' . $name;
+                                            }
                                         @endphp
                                         @if ($code !== '')
-                                            <option value="{{ $code }}" {{ old('sekolah') === $code ? 'selected' : '' }}>{{ $name }}</option>
+                                            <option value="{{ $code }}" {{ old('sekolah') === $code ? 'selected' : '' }}>{{ $label }}</option>
                                         @endif
                                     @endforeach
                                 </select>
@@ -234,10 +238,16 @@
                 var need = ['1', '2'].indexOf(metodeEl.value) >= 0;
                 sekolahEl.required = need;
                 sekolahEl.disabled = !need;
+                if (!need) {
+                    sekolahEl.value = '';
+                }
             }
             if (metodeEl) {
                 metodeEl.addEventListener('change', syncSekolahRequired);
                 syncSekolahRequired();
+            }
+            if (saveModal) {
+                saveModal.addEventListener('shown.bs.modal', syncSekolahRequired);
             }
 
             fileInput.addEventListener('change', function (event) {

@@ -734,7 +734,6 @@ class AmalFatimahApiService
 
     public function getSekolah(array $filters = []): array
     {
-        $url = config('services.ws_raudhatul_quran.url');
         $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getSekolah', 'rnd' => uniqid()], $jwtKey);
 
@@ -748,29 +747,62 @@ class AmalFatimahApiService
         try {
             $response = $this->wsPost($payload);
 
-            if (!$response || !$response->successful()) {
+            if ($response && $response->successful()) {
+                $data = $response->json();
+                $inner = $data['data'] ?? null;
+                if (is_array($inner) && $inner !== []) {
+                    $list = array_is_list($inner) ? $inner : [$inner];
+                    $rows = array_values(array_filter(array_map(static function ($row) {
+                        if (is_array($row)) {
+                            return array_change_key_case($row, CASE_LOWER);
+                        }
+
+                        return is_object($row) ? array_change_key_case((array) $row, CASE_LOWER) : [];
+                    }, $list), static fn ($row) => is_array($row) && $row !== []));
+
+                    if ($rows !== []) {
+                        return $rows;
+                    }
+                }
+            } else {
                 Log::warning('[WS Amal Fatimah] getSekolah HTTP failed', [
                     'status' => $response?->status(),
                     'body' => $response?->body(),
                 ]);
-                return [];
             }
-
-            $data = $response?->json();
-            $inner = $data['data'] ?? $data;
-            if (!is_array($inner)) {
-                return [];
-            }
-
-            return array_map(static function ($row) {
-                if (is_array($row)) {
-                    return array_change_key_case($row, CASE_LOWER);
-                }
-
-                return is_object($row) ? array_change_key_case((array) $row, CASE_LOWER) : [];
-            }, array_values($inner));
         } catch (\Throwable $e) {
             Log::error('[WS Amal Fatimah] getSekolah: ' . $e->getMessage());
+        }
+
+        return $this->getSekolahFromLocalDatabase($filters);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    protected function getSekolahFromLocalDatabase(array $filters = []): array
+    {
+        try {
+            $query = $this->sikeuDb()->table('mst_sekolah')
+                ->selectRaw('id, TRIM(CODE01) AS code01, TRIM(DESC01) AS desc01, TRIM(CODE02) AS code02, TRIM(DESC02) AS desc02');
+
+            if (!empty($filters['code01'])) {
+                $query->whereRaw('TRIM(CODE01) = ?', [trim((string) $filters['code01'])]);
+            }
+            if (!empty($filters['desc01'])) {
+                $query->whereRaw('TRIM(DESC01) LIKE ?', ['%' . trim((string) $filters['desc01']) . '%']);
+            }
+
+            return $query
+                ->orderByRaw('CAST(TRIM(CODE01) AS UNSIGNED) DESC')
+                ->orderByRaw('TRIM(CODE01) DESC')
+                ->get()
+                ->map(static fn ($row) => (array) $row)
+                ->values()
+                ->all();
+        } catch (\Throwable $e) {
+            Log::warning('[SIKEU DB] getSekolah local fallback: ' . $e->getMessage());
+
             return [];
         }
     }
