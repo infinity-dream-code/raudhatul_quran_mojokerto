@@ -4,6 +4,7 @@ namespace App\Http\Controllers\MasterData;
 
 use App\Http\Controllers\Controller;
 use App\Services\AmalFatimahApiService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -64,8 +65,26 @@ class ExportImportDataController extends Controller
             'importRows' => $importRows,
             'keyword' => $keyword,
             'perPage' => $perPage,
-            'sekolahList' => $api->getSekolah(),
+            'sekolahList' => $this->loadSekolahList($api),
         ]);
+    }
+
+    public function sekolahOptions(AmalFatimahApiService $api): JsonResponse
+    {
+        $rows = $this->loadSekolahList($api);
+
+        return response()->json([
+            'ok' => true,
+            'rows' => $rows,
+        ]);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function loadSekolahList(AmalFatimahApiService $api): array
+    {
+        return $api->getSekolah();
     }
 
     public function export(Request $request, AmalFatimahApiService $api): RedirectResponse

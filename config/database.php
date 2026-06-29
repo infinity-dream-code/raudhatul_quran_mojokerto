@@ -117,7 +117,7 @@ return [
             'driver' => 'mysql',
             'host' => env('SIKEU_DB_HOST', env('DB_HOST', '127.0.0.1')),
             'port' => env('SIKEU_DB_PORT', env('DB_PORT', '3306')),
-            'database' => env('SIKEU_DB_DATABASE', ''),
+            'database' => env('SIKEU_DB_DATABASE', env('DB_DATABASE', '')),
             'username' => env('SIKEU_DB_USERNAME', env('DB_USERNAME', 'root')),
             'password' => env('SIKEU_DB_PASSWORD', env('DB_PASSWORD', '')),
             'charset' => 'utf8mb4',

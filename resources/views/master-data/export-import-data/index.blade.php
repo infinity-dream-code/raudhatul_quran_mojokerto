@@ -185,7 +185,9 @@
                                     @endforeach
                                 </select>
                                 @if (count($sekolahList ?? []) === 0)
-                                    <div class="form-text text-danger">Data sekolah kosong. Tambahkan dulu di Master Sekolah.</div>
+                                    <div class="form-text text-danger" id="save-sekolah-empty">Data sekolah belum dimuat. Buka ulang modal atau periksa koneksi database SIKEU.</div>
+                                @else
+                                    <div class="form-text text-danger" id="save-sekolah-empty" style="display:none;">Data sekolah tidak ditemukan. Periksa Master Sekolah / koneksi database.</div>
                                 @endif
                             </div>
                             <div class="mb-0">
@@ -227,12 +229,58 @@
             @endif
 
             var saveModal = document.getElementById('modal-save-siswa');
+            var sekolahUrl = @json(route('master.export_import.sekolah_options'));
             @if ($errors->has('sekolah') || $errors->has('metode'))
                 if (saveModal) bootstrap.Modal.getOrCreateInstance(saveModal).show();
             @endif
 
             var metodeEl = document.getElementById('save-metode');
             var sekolahEl = document.getElementById('save-sekolah');
+            var sekolahEmptyEl = document.getElementById('save-sekolah-empty');
+
+            function fillSekolahOptions(rows) {
+                if (!sekolahEl) return;
+                var cur = sekolahEl.value || '';
+                sekolahEl.innerHTML = '<option value="">Pilih Sekolah</option>';
+                var n = 0;
+                (rows || []).forEach(function (sk) {
+                    var code = String((sk && (sk.code01 || sk.CODE01)) || '').trim();
+                    var name = String((sk && (sk.desc01 || sk.DESC01)) || '').trim();
+                    if (!code) return;
+                    n++;
+                    var label = name || code;
+                    if (name && name.indexOf(code) === -1) {
+                        label = code + ' - ' + name;
+                    }
+                    var opt = document.createElement('option');
+                    opt.value = code;
+                    opt.textContent = label;
+                    if (code === cur) opt.selected = true;
+                    sekolahEl.appendChild(opt);
+                });
+                if (sekolahEmptyEl) {
+                    sekolahEmptyEl.style.display = n === 0 ? '' : 'none';
+                }
+            }
+
+            function loadSekolahOptions() {
+                fetch(sekolahUrl, {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin'
+                })
+                    .then(function (r) { return r.json(); })
+                    .then(function (j) {
+                        if (j && j.ok && Array.isArray(j.rows)) {
+                            fillSekolahOptions(j.rows);
+                        }
+                        syncSekolahRequired();
+                    })
+                    .catch(function () {
+                        if (sekolahEmptyEl) sekolahEmptyEl.style.display = '';
+                        syncSekolahRequired();
+                    });
+            }
+
             function syncSekolahRequired() {
                 if (!metodeEl || !sekolahEl) return;
                 var need = ['1', '2'].indexOf(metodeEl.value) >= 0;
@@ -247,7 +295,9 @@
                 syncSekolahRequired();
             }
             if (saveModal) {
-                saveModal.addEventListener('shown.bs.modal', syncSekolahRequired);
+                saveModal.addEventListener('shown.bs.modal', function () {
+                    loadSekolahOptions();
+                });
             }
 
             fileInput.addEventListener('change', function (event) {

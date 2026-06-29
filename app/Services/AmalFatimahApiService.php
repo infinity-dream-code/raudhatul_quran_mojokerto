@@ -60,12 +60,32 @@ class AmalFatimahApiService
         return max(1, (int) config('services.ws_raudhatul_quran.connect_timeout', 2));
     }
 
-    /** Koneksi DB SIKEU (sama seperti Pindah Kelas / hapus kelas). */
+    /** Koneksi DB SIKEU (scctcust, mst_kelas, mst_sekolah, …). */
     protected function sikeuDb()
     {
-        return $this->sikeuPindahKelas->isConfigured()
-            ? DB::connection('sikeu')
-            : DB::connection();
+        $sikeuDb = trim((string) config('database.connections.sikeu.database', ''));
+        if ($sikeuDb !== '') {
+            return DB::connection('sikeu');
+        }
+
+        return DB::connection();
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function sikeuConnectionCandidates(): array
+    {
+        $candidates = [];
+        if (trim((string) config('database.connections.sikeu.database', '')) !== '') {
+            $candidates[] = 'sikeu';
+        }
+        $default = (string) config('database.default', 'mysql');
+        if (!in_array($default, $candidates, true)) {
+            $candidates[] = $default;
+        }
+
+        return $candidates;
     }
 
     protected function wsPost(array $payload, ?int $timeout = null, ?int $connectTimeout = null): ?\Illuminate\Http\Client\Response
@@ -782,29 +802,40 @@ class AmalFatimahApiService
      */
     protected function getSekolahFromLocalDatabase(array $filters = []): array
     {
-        try {
-            $query = $this->sikeuDb()->table('mst_sekolah')
-                ->selectRaw('id, TRIM(CODE01) AS code01, TRIM(DESC01) AS desc01, TRIM(CODE02) AS code02, TRIM(DESC02) AS desc02');
+        foreach ($this->sikeuConnectionCandidates() as $connName) {
+            try {
+                $conn = DB::connection($connName);
+                if (!\Illuminate\Support\Facades\Schema::connection($connName)->hasTable('mst_sekolah')) {
+                    continue;
+                }
 
-            if (!empty($filters['code01'])) {
-                $query->whereRaw('TRIM(CODE01) = ?', [trim((string) $filters['code01'])]);
+                $query = $conn->table('mst_sekolah')
+                    ->selectRaw('id, TRIM(CODE01) AS code01, TRIM(DESC01) AS desc01, TRIM(CODE02) AS code02, TRIM(DESC02) AS desc02');
+
+                if (!empty($filters['code01'])) {
+                    $query->whereRaw('TRIM(CODE01) = ?', [trim((string) $filters['code01'])]);
+                }
+                if (!empty($filters['desc01'])) {
+                    $query->whereRaw('TRIM(DESC01) LIKE ?', ['%' . trim((string) $filters['desc01']) . '%']);
+                }
+
+                $rows = $query
+                    ->orderByRaw('CAST(TRIM(CODE01) AS UNSIGNED) DESC')
+                    ->orderByRaw('TRIM(CODE01) DESC')
+                    ->get()
+                    ->map(static fn ($row) => (array) $row)
+                    ->values()
+                    ->all();
+
+                if ($rows !== []) {
+                    return $rows;
+                }
+            } catch (\Throwable $e) {
+                Log::warning('[SIKEU DB] getSekolah local fallback (' . $connName . '): ' . $e->getMessage());
             }
-            if (!empty($filters['desc01'])) {
-                $query->whereRaw('TRIM(DESC01) LIKE ?', ['%' . trim((string) $filters['desc01']) . '%']);
-            }
-
-            return $query
-                ->orderByRaw('CAST(TRIM(CODE01) AS UNSIGNED) DESC')
-                ->orderByRaw('TRIM(CODE01) DESC')
-                ->get()
-                ->map(static fn ($row) => (array) $row)
-                ->values()
-                ->all();
-        } catch (\Throwable $e) {
-            Log::warning('[SIKEU DB] getSekolah local fallback: ' . $e->getMessage());
-
-            return [];
         }
+
+        return [];
     }
 
     public function getSekolahById(int $id): array

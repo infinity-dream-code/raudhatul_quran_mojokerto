@@ -93,6 +93,7 @@ Route::middleware(['web', 'dummy.auth'])->group(function () {
 
         // Export Import Data
         Route::get('/export-import-data', [ExportImportDataController::class, 'index'])->name('export_import');
+        Route::get('/export-import-data/sekolah-options', [ExportImportDataController::class, 'sekolahOptions'])->name('export_import.sekolah_options');
         Route::get('/export-import-data/export', [ExportImportDataController::class, 'export'])->name('export_import.export');
         Route::post('/export-import-data/import', [ExportImportDataController::class, 'import'])->name('export_import.import');
         Route::post('/export-import-data/save', [ExportImportDataController::class, 'save'])->name('export_import.save');
