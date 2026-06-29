@@ -147,14 +147,14 @@
 
     <div class="page-heading">
         <h2>Tagihan Siswa — Buat Tagihan Excel</h2>
-        <p>Set filter, impor file excel, pratinjau di tabel, lalu simpan ke tagihan siswa. Kolom wajib: <strong>NIS</strong> dan <strong>NOMINAL</strong> (kolom lain opsional, diisi otomatis dari data siswa). Pratinjau tetap ada setelah refresh (disimpan di sesi + cache hingga {{ (int) config('session.lifetime', 120) }} menit); klik <strong>Simpan Data</strong> untuk menulis ke database.</p>
+        <p>Pilih tahun pelajaran dan tagihan, lalu unggah file Excel. File wajib memuat kolom <strong>NIS</strong> dan <strong>NOMINAL</strong>; data siswa lainnya dilengkapi otomatis. Periksa hasil di tabel pratinjau — data import tetap tersimpan saat halaman di-refresh. Klik <strong>Simpan Data</strong> untuk menyimpan tagihan.</p>
     </div>
 
     <div class="eid-wrap">
         <div class="eid-card">
             <div class="eid-head">
                 <div class="eid-title">Buat Tagihan Excel</div>
-                <div class="eid-sub">Periode dan <strong>Kode Post</strong> diisi otomatis dari tagihan yang dipilih (kolom <strong>kode</strong> di Master Tagihan). Excel cukup berisi <strong>NIS</strong> dan <strong>NOMINAL</strong>; detail tagihan (<code>scctbill_detail</code>) dibuat otomatis saat simpan.</div>
+                <div class="eid-sub">Periode dan kode post mengikuti tagihan yang dipilih. Di Excel cukup isi <strong>NIS</strong> dan <strong>NOMINAL</strong>; rincian tagihan per pos dibuat otomatis saat Anda menyimpan.</div>
             </div>
 
             @if (session('status'))
@@ -196,7 +196,7 @@
                     </select>
                 </div>
                 <div class="eid-fld">
-                    <label>Periode (billac)</label>
+                    <label>Periode</label>
                     <input type="text" id="filter-periode" value="{{ $selPeriode }}" placeholder="Otomatis" readonly>
                 </div>
                 <div class="eid-fld">
@@ -327,8 +327,8 @@
                     <li>File harus berformat <b>XLS / XLSX</b>.</li>
                     <li>Ukuran file tidak boleh lebih dari <b>1024 KB / 1 MB</b>.</li>
                     <li>Kolom <b>wajib</b>: <b>NIS</b> dan <b>NOMINAL</b> (atau <b>TAGIHAN</b>).</li>
-                    <li><b>Format Bintang Juara:</b> <b>NIS</b>, <b>NAMA</b>, <b>UNIT</b>, <b>KELAS</b> (jenjang), <b>KELOMPOK</b>, <b>ANGKATAN</b>, <b>NOMINAL</b> — kolom selain NIS/NOMINAL hanya referensi; data siswa diambil dari database.</li>
-                    <li><b>Format ekspor Data Tagihan:</b> header seperti <b>NIS</b>, <b>NO DAFT</b>, <b>NO VA</b>, <b>TAGIHAN</b> (boleh <b>Rp. …</b>). Jika <b>NIS</b> kosong, sistem memakai <b>NO DAFT</b> / <b>NO VA</b> (7510050…) untuk cocokkan <b>NUM2ND</b>/<b>NOCUST</b>.</li>
+                    <li><b>Format Bintang Juara:</b> <b>NIS</b>, <b>NAMA</b>, <b>UNIT</b>, <b>KELAS</b> (jenjang), <b>KELOMPOK</b>, <b>ANGKATAN</b>, <b>NOMINAL</b> — kolom selain NIS dan nominal bersifat referensi; data siswa diambil dari master siswa.</li>
+                    <li><b>Format ekspor Data Tagihan:</b> header seperti <b>NIS</b>, <b>NO DAFT</b>, <b>NO VA</b>, <b>TAGIHAN</b> (boleh <b>Rp. …</b>). Jika NIS kosong, sistem memakai nomor pendaftaran atau nomor VA untuk mencocokkan siswa.</li>
                 </ul>
                 <div class="eid-example">
                     <a href="{{ route('keu.tagihan.upload_excel.contoh') }}" target="_blank" rel="noopener">Contoh file (tagihan_excel.xlsx)</a>

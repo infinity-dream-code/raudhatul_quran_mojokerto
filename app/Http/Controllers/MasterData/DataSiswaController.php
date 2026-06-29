@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\MasterData;
 
+use Barryvdh\DomPDF\Facade\Pdf;
 use App\Http\Controllers\Controller;
 use App\Services\AmalFatimahApiService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -47,6 +49,7 @@ class DataSiswaController extends Controller
             'angkatan' => $ui['angkatan'],
             'sekolah' => $ui['sekolah'],
             'kelas' => $ui['kelas'],
+            'kelompok' => $ui['kelompok'],
             'siswa' => $ui['siswa'],
             'keyword' => $ui['q'],
             'perPage' => $perPage,
@@ -68,6 +71,9 @@ class DataSiswaController extends Controller
             'KELAS',
             'KELOMPOK',
             'ANGKATAN',
+            'STATUS',
+            'JENIS KELAMIN',
+            'ALAMAT',
             'WALI',
         ];
 
@@ -101,6 +107,9 @@ class DataSiswaController extends Controller
                     trim((string) ($r['desc02'] ?? '')) !== '' ? (string) $r['desc02'] : '-',
                     trim((string) ($r['desc03'] ?? '')) !== '' ? (string) $r['desc03'] : '-',
                     trim((string) ($r['desc04'] ?? '')) !== '' ? (string) $r['desc04'] : '-',
+                    self::siswaStatusLabel($r['stcust'] ?? null),
+                    self::siswaGenderLabel($r['code04'] ?? ''),
+                    trim((string) ($r['desc05'] ?? '')) !== '' ? (string) $r['desc05'] : '-',
                     $wali !== '' ? $wali : '-',
                 ];
                 fwrite($output, implode("\t", array_map(static fn ($v) => str_replace(["\r", "\n", "\t"], ' ', $v), $line)) . PHP_EOL);
@@ -114,16 +123,18 @@ class DataSiswaController extends Controller
         ]);
     }
 
-    public function exportPdf(Request $request, AmalFatimahApiService $api): View
+    public function exportPdf(Request $request, AmalFatimahApiService $api): Response
     {
         $ui = $this->extractUiFilters($request);
         $rows = $api->getSiswa($this->toWsFilters($ui), 200, 0);
 
-        return view('master-data.data-siswa.export-pdf', [
+        $pdf = Pdf::loadView('master-data.data-siswa.export-pdf', [
             'rows' => $rows,
             'filters' => $ui,
-            'printedAt' => now()->format('d/m/Y H:i:s'),
-        ]);
+            'printedAt' => now('Asia/Jakarta'),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->stream('data-siswa-' . now()->format('Ymd-His') . '.pdf');
     }
 
     public function create(): View
@@ -209,6 +220,7 @@ class DataSiswaController extends Controller
             'angkatan' => trim((string) $request->query('angkatan', '')),
             'sekolah' => trim((string) $request->query('sekolah', '')),
             'kelas' => trim((string) $request->query('kelas', '')),
+            'kelompok' => trim((string) $request->query('kelompok', '')),
             'siswa' => trim((string) $request->query('siswa', '')),
             'q' => trim((string) $request->query('q', '')),
         ];
@@ -224,6 +236,30 @@ class DataSiswaController extends Controller
             'desc04' => $ui['angkatan'] !== '' ? $ui['angkatan'] : null,
             'code01' => $ui['sekolah'] !== '' ? $ui['sekolah'] : null,
             'desc02' => $ui['kelas'] !== '' ? $ui['kelas'] : null,
+            'desc03' => $ui['kelompok'] !== '' ? $ui['kelompok'] : null,
         ];
+    }
+
+    private static function siswaStatusLabel(mixed $stcust): string
+    {
+        $st = trim((string) $stcust);
+
+        return ($st === '1' || $st === '1.0') ? 'Aktif' : 'Tidak Aktif';
+    }
+
+    private static function siswaGenderLabel(mixed $code04): string
+    {
+        $g = strtoupper(trim((string) $code04));
+        if ($g === '') {
+            return '-';
+        }
+        if (in_array($g, ['L', 'LK', 'LAKI', 'LAKI-LAKI', 'PRIA', 'M'], true)) {
+            return 'Laki-laki';
+        }
+        if (in_array($g, ['P', 'PR', 'PEREMPUAN', 'WANITA', 'F'], true)) {
+            return 'Perempuan';
+        }
+
+        return $g;
     }
 }

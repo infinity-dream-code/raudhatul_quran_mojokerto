@@ -1215,6 +1215,7 @@ class AmalFatimahApiService
             'CODE01' => $filters['code01'] ?? null,
             'CODE02' => $filters['code02'] ?? null,
             'DESC02' => $filters['desc02'] ?? null,
+            'DESC03' => $filters['desc03'] ?? null,
             'STCUST' => $filters['stcust'] ?? null,
         ], static fn ($v) => !is_null($v) && $v !== '');
 
@@ -1253,6 +1254,7 @@ class AmalFatimahApiService
             'CODE01' => $filters['code01'] ?? null,
             'CODE02' => $filters['code02'] ?? null,
             'DESC02' => $filters['desc02'] ?? null,
+            'DESC03' => $filters['desc03'] ?? null,
             'STCUST' => $filters['stcust'] ?? null,
             'limit' => $limit,
             'offset' => $offset,
@@ -1532,6 +1534,7 @@ class AmalFatimahApiService
             'DESC04' => $filters['desc04'] ?? null,
             'CODE02' => $filters['code02'] ?? null,
             'DESC02' => $filters['desc02'] ?? null,
+            'DESC03' => $filters['desc03'] ?? null,
             'STCUST' => $filters['stcust'] ?? null,
         ], static fn ($v) => !is_null($v) && $v !== '');
 

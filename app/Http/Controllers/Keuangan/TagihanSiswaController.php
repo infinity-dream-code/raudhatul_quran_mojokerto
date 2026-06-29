@@ -68,7 +68,11 @@ class TagihanSiswaController extends Controller
 
         $res = $api->getBuatTagihan($filters, 1, 0);
         if (!($res['ok'] ?? false)) {
-            return response()->json(['ok' => false, 'rows' => []]);
+            return response()->json([
+                'ok' => false,
+                'rows' => [],
+                'message' => (string) ($res['message'] ?? 'Gagal memuat daftar harga dari WS.'),
+            ]);
         }
 
         $data = is_array($res['data'] ?? null) ? $res['data'] : [];

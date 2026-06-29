@@ -80,7 +80,7 @@
             font-size: 12px;
         }
         .ds-table-wrap { overflow-x: auto; }
-        .ds-table { width: 100%; border-collapse: collapse; min-width: 1100px; font-size: 13px; }
+        .ds-table { width: 100%; border-collapse: collapse; min-width: 1400px; font-size: 13px; }
         .ds-table th, .ds-table td {
             border-bottom: 1px solid #eef2f7;
             padding: 10px 10px;
@@ -89,7 +89,17 @@
         }
         .ds-table th { background: #fafbfd; color: #4b5563; font-weight: 700; white-space: nowrap; }
         .ds-col-no { width: 48px; text-align: center; }
+        .ds-center { text-align: center; }
         .ds-col-act { width: 100px; text-align: center; }
+        .ds-pill {
+            display: inline-block;
+            border-radius: 999px;
+            padding: 2px 8px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .ds-pill-ok { background: #dcfce7; color: #15803d; }
+        .ds-pill-no { background: #fee2e2; color: #b91c1c; }
         .ds-btn-reset-login {
             font-size: 11px;
             padding: 6px 10px;
@@ -352,6 +362,18 @@
                         </select>
                     </div>
                     <div class="ds-fld">
+                        <label for="kelompok">Kelompok</label>
+                        <select id="kelompok" name="kelompok">
+                            <option value="">Semua</option>
+                            @foreach (($filterOptions['kelompok'] ?? []) as $kl)
+                                @php $klVal = is_array($kl) ? trim((string) ($kl['desc03'] ?? $kl['DESC03'] ?? '')) : trim((string) $kl); @endphp
+                                @if ($klVal !== '')
+                                    <option value="{{ $klVal }}" {{ ($kelompok ?? '') === $klVal ? 'selected' : '' }}>{{ $klVal }}</option>
+                                @endif
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="ds-fld">
                         <label for="siswa">Siswa (NIS / Nama)</label>
                         <input id="siswa" type="text" name="siswa" value="{{ $siswa ?? '' }}" placeholder="Masukkan NIS/NAMA Siswa">
                     </div>
@@ -376,7 +398,7 @@
                     <div class="ds-export-menu" id="dsExportMenu">
                         <button type="button" class="ds-export-item" id="dsCopyBtn">Copy</button>
                         <a class="ds-export-item" href="{{ route('master.data_siswa.export_excel', request()->query()) }}">Excel</a>
-                        <a class="ds-export-item" href="{{ route('master.data_siswa.export_pdf', request()->query()) }}" target="_blank">Pdf</a>
+                        <a class="ds-export-item" href="{{ route('master.data_siswa.export_pdf', request()->query()) }}">Pdf</a>
                     </div>
                     </div>
                 </div>
@@ -384,6 +406,7 @@
                     @if (($angkatan ?? '') !== '')<input type="hidden" name="angkatan" value="{{ $angkatan }}">@endif
                     @if (($sekolah ?? '') !== '')<input type="hidden" name="sekolah" value="{{ $sekolah }}">@endif
                     @if (($kelas ?? '') !== '')<input type="hidden" name="kelas" value="{{ $kelas }}">@endif
+                    @if (($kelompok ?? '') !== '')<input type="hidden" name="kelompok" value="{{ $kelompok }}">@endif
                     @if (($siswa ?? '') !== '')<input type="hidden" name="siswa" value="{{ $siswa }}">@endif
                     @if (($keyword ?? '') !== '')<input type="hidden" name="q" value="{{ $keyword }}">@endif
                     <span>Tampilkan</span>
@@ -398,6 +421,7 @@
                     @if (($angkatan ?? '') !== '')<input type="hidden" name="angkatan" value="{{ $angkatan }}">@endif
                     @if (($sekolah ?? '') !== '')<input type="hidden" name="sekolah" value="{{ $sekolah }}">@endif
                     @if (($kelas ?? '') !== '')<input type="hidden" name="kelas" value="{{ $kelas }}">@endif
+                    @if (($kelompok ?? '') !== '')<input type="hidden" name="kelompok" value="{{ $kelompok }}">@endif
                     @if (($siswa ?? '') !== '')<input type="hidden" name="siswa" value="{{ $siswa }}">@endif
                     <input type="hidden" name="per_page" value="{{ (int) ($perPage ?? 10) }}">
                     <span>Cari:</span>
@@ -419,6 +443,9 @@
                             <th>Kelas</th>
                             <th>Kelompok</th>
                             <th>Angkatan</th>
+                            <th>Status</th>
+                            <th>Jenis Kelamin</th>
+                            <th>Alamat</th>
                             <th>Wali</th>
                             <th class="ds-col-act">Reset Login</th>
                         </tr>
@@ -438,6 +465,19 @@
                                 $wali = trim((string) ($r['wali'] ?? $r['genus'] ?? ''));
                                 $custid = trim((string) ($r['custid'] ?? ''));
                                 $canReset = $custid !== '' && $nocust !== '' && $nocust !== '-';
+                                $stRaw = trim((string) ($r['stcust'] ?? ''));
+                                $isAktif = ($stRaw === '1' || $stRaw === '1.0');
+                                $gRaw = strtoupper(trim((string) ($r['code04'] ?? '')));
+                                if ($gRaw === '') {
+                                    $genderLbl = '-';
+                                } elseif (in_array($gRaw, ['L', 'LK', 'LAKI', 'LAKI-LAKI', 'PRIA', 'M'], true)) {
+                                    $genderLbl = 'Laki-laki';
+                                } elseif (in_array($gRaw, ['P', 'PR', 'PEREMPUAN', 'WANITA', 'F'], true)) {
+                                    $genderLbl = 'Perempuan';
+                                } else {
+                                    $genderLbl = $gRaw;
+                                }
+                                $alamat = trim((string) ($r['desc05'] ?? ''));
                             @endphp
                             <tr>
                                 <td class="ds-col-chk">
@@ -454,6 +494,11 @@
                                 <td>{{ trim((string) ($r['desc02'] ?? '')) !== '' ? $r['desc02'] : '-' }}</td>
                                 <td>{{ trim((string) ($r['desc03'] ?? '')) !== '' ? $r['desc03'] : '-' }}</td>
                                 <td>{{ trim((string) ($r['desc04'] ?? '')) !== '' ? $r['desc04'] : '-' }}</td>
+                                <td class="ds-center">
+                                    <span class="ds-pill {{ $isAktif ? 'ds-pill-ok' : 'ds-pill-no' }}">{{ $isAktif ? 'Aktif' : 'Tidak Aktif' }}</span>
+                                </td>
+                                <td>{{ $genderLbl }}</td>
+                                <td>{{ $alamat !== '' ? $alamat : '-' }}</td>
                                 <td>{{ $wali !== '' ? $wali : '-' }}</td>
                                 <td class="ds-col-act">
                                     @if ($canReset)
@@ -474,7 +519,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="12" class="ds-empty">Data siswa tidak ditemukan.</td>
+                                <td colspan="15" class="ds-empty">Data siswa tidak ditemukan.</td>
                             </tr>
                         @endforelse
                     </tbody>

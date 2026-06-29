@@ -386,9 +386,13 @@
                     let json;
                     try {
                         json = await fetchOnce();
-                    } catch (_) {
+                    } catch (firstErr) {
                         await wait(350);
-                        json = await fetchOnce();
+                        try {
+                            json = await fetchOnce();
+                        } catch (secondErr) {
+                            throw secondErr;
+                        }
                     }
                     renderAkunRows((json && Array.isArray(json.rows)) ? json.rows : []);
                     bindSelectAll('check-all-akun', 'check-akun');
@@ -396,8 +400,9 @@
                         el.addEventListener('change', updateAkunVisibility);
                     });
                     updateAkunVisibility();
-                } catch (_) {
-                    renderAkunMessage('Gagal ambil kode tagihan dari WS. Coba klik ulang siswa atau cari lagi.', true);
+                } catch (err) {
+                    const msg = (err && err.message) ? err.message : 'Gagal ambil kode tagihan dari WS. Coba klik ulang siswa atau cari lagi.';
+                    renderAkunMessage(msg, true);
                     updateAkunVisibility();
                 }
             };

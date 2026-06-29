@@ -217,7 +217,12 @@
                         <select name="nama_tagihan">
                             <option value="">Semua</option>
                             @foreach (($filterOptions['tagihan'] ?? []) as $tag)
-                                <option value="{{ $tag }}" {{ (($filters['nama_tagihan'] ?? '') === $tag) ? 'selected' : '' }}>{{ $tag }}</option>
+                                @php
+                                    $tagihanValue = is_array($tag) ? (string) ($tag['tagihan'] ?? $tag['nama'] ?? '') : (string) $tag;
+                                @endphp
+                                @if ($tagihanValue !== '')
+                                    <option value="{{ $tagihanValue }}" {{ (($filters['nama_tagihan'] ?? '') === $tagihanValue) ? 'selected' : '' }}>{{ $tagihanValue }}</option>
+                                @endif
                             @endforeach
                         </select>
                     </div>

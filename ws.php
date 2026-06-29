@@ -982,6 +982,21 @@ function scctcustSiswaWhereFromReq(array $req, string $tableAlias = ""): array
         $params[":DESC02_MK"] = $d02;
     }
 
+    if (!empty($req["DESC03"])) {
+        $d03 = trim((string) $req["DESC03"]);
+        $where[] = "(
+            TRIM({$p}DESC03) = :DESC03
+            OR EXISTS (
+                SELECT 1 FROM mst_kelas mkf3
+                WHERE TRIM({$p}CODE03) REGEXP '^[0-9]+$'
+                  AND mkf3.id = CAST(TRIM({$p}CODE03) AS UNSIGNED)
+                  AND TRIM(mkf3.kelas) = :DESC03_MK
+            )
+        )";
+        $params[":DESC03"] = $d03;
+        $params[":DESC03_MK"] = $d03;
+    }
+
     if (isset($req["STCUST"]) && $req["STCUST"] !== "") {
         $stv = trim((string) $req["STCUST"]);
         if ($stv === '1' || (int) preg_replace('/\D+/', '', $stv) === 1) {
@@ -1208,10 +1223,31 @@ function getFilterSiswa(): array
     ");
     $kelas = $stmtKelas ? $stmtKelas->fetchAll() : [];
 
+    $stmtKelompok = $pdo->query("
+        SELECT DISTINCT TRIM(mk.kelas) AS desc03
+        FROM mst_kelas mk
+        WHERE mk.kelas IS NOT NULL AND TRIM(mk.kelas) <> ''
+        UNION
+        SELECT DISTINCT TRIM(c.DESC03) AS desc03
+        FROM scctcust c
+        WHERE c.DESC03 IS NOT NULL AND TRIM(c.DESC03) <> ''
+        ORDER BY desc03 ASC
+    ");
+    $kelompok = [];
+    if ($stmtKelompok) {
+        foreach ($stmtKelompok->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $v = trim((string) ($row['desc03'] ?? $row['DESC03'] ?? ''));
+            if ($v !== '') {
+                $kelompok[] = $v;
+            }
+        }
+    }
+
     return [
         "angkatan" => $angkatan,
         "sekolah"  => $sekolah,
         "kelas"    => $kelas,
+        "kelompok" => $kelompok,
     ];
 }
 
@@ -3396,13 +3432,18 @@ function getBuatTagihan(array $req): array
     if ($kelas_id !== '') {
         if (!empty($kelasRow)) {
             $wheresSiswa[] = "(
-                TRIM(c.CODE03) = :kelas_id
+                (
+                    TRIM(c.CODE03) REGEXP '^[0-9]+$'
+                    AND CAST(TRIM(c.CODE03) AS UNSIGNED) = :kelas_id_int
+                )
+                OR TRIM(c.CODE03) = :kelas_id
                 OR (
-                    TRIM(c.DESC02) = :kelas_nama
-                    AND TRIM(c.DESC03) = :jenjang_nama
+                    TRIM(c.DESC02) = :jenjang_nama
+                    AND TRIM(c.DESC03) = :kelas_nama
                     AND TRIM(c.CODE02) = :unit_nama
                 )
             )";
+            $paramsSiswa[':kelas_id_int'] = (int) $kelas_id;
             $paramsSiswa[':kelas_id'] = $kelas_id;
             $paramsSiswa[':kelas_nama'] = $kelasNama;
             $paramsSiswa[':jenjang_nama'] = $jenjangNama;
@@ -3439,7 +3480,7 @@ function getBuatTagihan(array $req): array
             TRIM(c.CODE01) AS CODE01,
             TRIM(c.CODE03) AS kelas_id,
             COALESCE(NULLIF(TRIM(mk.jenjang), ''), TRIM(c.DESC02)) AS KELAS,
-            COALESCE(NULLIF(TRIM(mk.jenjang), ''), TRIM(c.DESC03)) AS JENJANG,
+            COALESCE(NULLIF(TRIM(mk.kelas), ''), TRIM(c.DESC03)) AS JENJANG,
             TRIM(c.DESC04) AS ANGKATAN,
             TRIM(c.CODE02) AS unit
         FROM scctcust c
@@ -7622,7 +7663,9 @@ function resolveBillacPeriodeByTagihan(string $tagihan, string $fallback = '', s
     ];
 
     $periodeBulan = date('m');
-    $name = mb_strtoupper(trim($tagihan));
+    $name = function_exists('mb_strtoupper')
+        ? mb_strtoupper(trim($tagihan))
+        : strtoupper(trim($tagihan));
     foreach ($monthMap as $key => $mm) {
         if ($name !== '' && str_contains($name, $key)) {
             $periodeBulan = $mm;
