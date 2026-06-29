@@ -32,7 +32,10 @@ class AuthController extends Controller
             $rules['cf-turnstile-response'] = 'required|string';
         }
 
-        $request->validate($rules);
+        $messages = [
+            'cf-turnstile-response.required' => 'Captcha Cloudflare wajib dicentang.',
+        ];
+        $request->validate($rules, $messages);
 
         if ($this->turnstileEnabled() && !$this->verifyTurnstile($request)) {
             return back()

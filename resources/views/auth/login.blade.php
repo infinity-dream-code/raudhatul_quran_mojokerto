@@ -62,6 +62,9 @@
                 @error('turnstile')
                     <div class="error-text" style="text-align:center;margin-bottom:10px;">{{ $message }}</div>
                 @enderror
+                @error('cf-turnstile-response')
+                    <div class="error-text" style="text-align:center;margin-bottom:10px;">{{ $message }}</div>
+                @enderror
             @endif
 
             <button type="submit" class="btn-primary">Masuk</button>
