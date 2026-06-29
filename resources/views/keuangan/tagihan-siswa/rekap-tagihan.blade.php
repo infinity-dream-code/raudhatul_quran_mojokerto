@@ -253,6 +253,8 @@
     </div>
     <script>
         (function () {
+            const csrf = @json(csrf_token());
+            const rekapPrintUrl = @json(route('keu.tagihan.data_print_rekap'));
             const btnRekap = document.getElementById('rkCetakRekapBtn');
             const btnKartu = document.getElementById('rkCetakKartuBtn');
             const btnPerNis = document.getElementById('rkCetakPerNisBtn');
@@ -329,14 +331,72 @@
                 }, 4000);
             }
 
-            if (btnRekap && formRekap) {
-                btnRekap.addEventListener('click', function () {
+            if (btnRekap) {
+                btnRekap.addEventListener('click', async function () {
                     if (rowChecks.length === 0) {
                         alert('Data masih kosong. Klik Cari dulu sebelum cetak rekap.');
                         return;
                     }
-                    rkFillExportForm(formRekap, 'data-rk-export-dyn');
-                    submitPrintForm(formRekap, btnRekap, 'Membuat PDF rekap…');
+
+                    const ff = document.getElementById('rkFormFilter');
+                    if (!ff) return;
+
+                    const fd = new FormData();
+                    fd.append('_token', csrf);
+                    fd.append('has_search_context', '1');
+                    ff.querySelectorAll('input[name], select[name]').forEach(function (el) {
+                        const ty = (el.type || '').toLowerCase();
+                        if (ty === 'button' || ty === 'submit') return;
+                        fd.append(el.name, el.value || '');
+                    });
+
+                    const buttons = [btnRekap, btnKartu, btnPerNis].filter(Boolean);
+                    const prevLabels = new Map();
+                    buttons.forEach(function (b) {
+                        prevLabels.set(b, b.textContent);
+                        b.disabled = true;
+                    });
+                    btnRekap.textContent = 'Membuat PDF rekap…';
+
+                    try {
+                        const res = await fetch(rekapPrintUrl, {
+                            method: 'POST',
+                            body: fd,
+                            credentials: 'same-origin',
+                            headers: {
+                                'Accept': 'application/pdf',
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                        });
+
+                        const contentType = (res.headers.get('content-type') || '').toLowerCase();
+                        if (!res.ok || contentType.includes('application/json')) {
+                            const err = contentType.includes('application/json')
+                                ? await res.json().catch(function () { return {}; })
+                                : {};
+                            throw new Error((err && err.message) ? err.message : 'Gagal membuat PDF rekap.');
+                        }
+
+                        const blob = await res.blob();
+                        const blobUrl = URL.createObjectURL(blob);
+                        const win = window.open(blobUrl, '_blank');
+                        if (!win) {
+                            const a = document.createElement('a');
+                            a.href = blobUrl;
+                            a.download = 'rekap-tagihan.pdf';
+                            a.click();
+                        }
+                        window.setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 120000);
+                    } catch (err) {
+                        alert(err && err.message ? err.message : 'Gagal membuat PDF rekap.');
+                    } finally {
+                        buttons.forEach(function (b) {
+                            b.disabled = false;
+                            if (prevLabels.has(b)) {
+                                b.textContent = prevLabels.get(b);
+                            }
+                        });
+                    }
                 });
             }
 

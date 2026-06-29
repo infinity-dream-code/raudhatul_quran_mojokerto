@@ -4490,6 +4490,7 @@ function getDataTagihan(array $req): array
 
     $detailCustCol = $rekapList ? detectScctbillDetailCustColumn($pdo) : '';
     $detailJoinSql = '';
+    $maxFurutanJoinSql = '';
     if ($rekapList) {
         $detailJoinSql = "
         INNER JOIN scctbill_detail d ON d.BILLCD = b.BILLCD AND d.{$detailCustCol} = b.CUSTID
@@ -4530,6 +4531,13 @@ function getDataTagihan(array $req): array
         ";
     } else {
         $mkUi = mstKelasUiSqlExprs('mk', 'c');
+        $maxFurutanJoinSql = "
+        LEFT JOIN (
+            SELECT CUSTID, MAX(COALESCE(furutan, 0)) AS max_furutan_cust
+            FROM scctbill
+            WHERE FSTSBolehBayar = 1
+            GROUP BY CUSTID
+        ) mf ON mf.CUSTID = b.CUSTID";
         $selectSql = "
             b.CUSTID AS custid,
             TRIM(b.BILLCD) AS billcd,
@@ -4545,11 +4553,7 @@ function getDataTagihan(array $req): array
             TRIM(b.BTA) AS tahun_aka,
             b.FTGLTagihan AS tgl_tagih,
             COALESCE(b.furutan, 0) AS furutan,
-            (
-                SELECT MAX(COALESCE(b2.furutan, 0))
-                FROM scctbill b2
-                WHERE b2.CUSTID = b.CUSTID
-            ) AS max_furutan_cust,
+            COALESCE(mf.max_furutan_cust, COALESCE(b.furutan, 0)) AS max_furutan_cust,
             TRIM(CAST(b.AA AS CHAR)) AS aa,
             TRIM(CAST(b.PAIDST AS CHAR)) AS paidst,
             TRIM(b.BILLAC) AS rek,
@@ -4568,6 +4572,7 @@ function getDataTagihan(array $req): array
         FROM scctbill b
         INNER JOIN scctcust c ON c.CUSTID = b.CUSTID
         " . scctcustJoinMstKelasSql('c', 'mk') . "
+        {$maxFurutanJoinSql}
         {$detailJoinSql}
         WHERE {$whereSql}
         ORDER BY {$orderSql}
@@ -4602,6 +4607,7 @@ function getDataTagihan(array $req): array
             FROM scctbill b
             INNER JOIN scctcust c ON c.CUSTID = b.CUSTID
             " . scctcustJoinMstKelasSql('c', 'mk') . "
+            {$maxFurutanJoinSql}
             {$detailJoinSql}
             WHERE {$whereSql}
         ");
@@ -4913,7 +4919,7 @@ function penerimaanParseSelectedBills(array $req): array
 {
     $raw = $req['selected_bills'] ?? [];
     if (!is_array($raw)) {
-        return [];
+        $raw = [];
     }
 
     $out = [];
@@ -4926,6 +4932,41 @@ function penerimaanParseSelectedBills(array $req): array
         $custid = (int) $m[1];
         $billcd = trim((string) $m[2]);
         if ($custid <= 0 || $billcd === '') {
+            continue;
+        }
+        $key = $custid . '|' . $billcd;
+        if (isset($seen[$key])) {
+            continue;
+        }
+        $seen[$key] = true;
+        $out[] = ['custid' => $custid, 'billcd' => $billcd];
+    }
+
+    if ($out !== []) {
+        return $out;
+    }
+
+    $billcds = $req['selected_billcds'] ?? [];
+    if (!is_array($billcds)) {
+        return [];
+    }
+    $custid = (int) ($req['custid'] ?? 0);
+    if ($custid <= 0 && is_array($req['custids'] ?? null)) {
+        foreach ($req['custids'] as $cv) {
+            $n = (int) $cv;
+            if ($n > 0) {
+                $custid = $n;
+                break;
+            }
+        }
+    }
+    if ($custid <= 0) {
+        return [];
+    }
+
+    foreach ($billcds as $bcd) {
+        $billcd = trim((string) $bcd);
+        if ($billcd === '') {
             continue;
         }
         $key = $custid . '|' . $billcd;
@@ -5196,7 +5237,8 @@ function getKartuSiswaPenerimaan(array $req): array
 
     $kodePost = trim((string) ($fb['kode_post'] ?? ''));
     $namaPost = trim((string) ($fb['nama_post'] ?? ''));
-    $useDetailJoin = ($kodePost !== '' || $namaPost !== '' || $selectedBills !== []);
+    // Jangan paksa JOIN detail hanya karena ada tagihan terpilih (manual bayar sering hanya update header scctbill).
+    $useDetailJoin = ($kodePost !== '' || $namaPost !== '');
 
     $sqlMetode = "
         COALESCE(

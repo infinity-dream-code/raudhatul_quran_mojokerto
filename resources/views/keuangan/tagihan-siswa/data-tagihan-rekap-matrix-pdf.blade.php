@@ -49,8 +49,6 @@
         <table>
             <tr><td class="k">Sekolah</td><td>: {{ $meta['sekolah'] ?? 'Semua' }}</td></tr>
             <tr><td class="k">Tahun Pelajaran</td><td>: {{ $meta['tahun_pelajaran'] ?? 'Semua' }}</td></tr>
-            <tr><td class="k">Periode Mulai</td><td>: {{ $meta['periode_mulai'] ?? '-' }}</td></tr>
-            <tr><td class="k">Periode Akhir</td><td>: {{ $meta['periode_akhir'] ?? '-' }}</td></tr>
             <tr><td class="k">Dari Tanggal</td><td>: {{ $meta['dari_tanggal'] ?? '-' }}</td></tr>
             <tr><td class="k">Sampai Tanggal</td><td>: {{ $meta['sampai_tanggal'] ?? '-' }}</td></tr>
             <tr><td class="k">Kelas</td><td>: {{ $meta['kelas'] ?? 'Semua' }}</td></tr>

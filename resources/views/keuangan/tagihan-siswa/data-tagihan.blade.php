@@ -140,7 +140,7 @@
     <div class="dt-wrap">
         <div class="dt-card">
             <div class="dt-title">Data Tagihan</div>
-            <div class="dt-sub">Data dimuat per halaman (pagination). Filter opsional — kosongkan lalu <strong>Cari</strong> untuk semua tagihan aktif.</div>
+            <div class="dt-sub">Data dimuat per halaman setelah klik <strong>Cari</strong> — tidak mengambil seluruh data sekaligus.</div>
 
             @if (($errorMsg ?? '') !== '')
                 <div class="dt-alert dt-err">{{ $errorMsg }}</div>
@@ -165,10 +165,11 @@
                 $dtPrintUrl = route('keu.tagihan.data_print') . ($dtPrintQs !== '' ? '?' . $dtPrintQs : '');
                 $sortUrutanCur = ($filters['sort_urutan'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
                 $sortUrutanNext = $sortUrutanCur === 'asc' ? 'desc' : 'asc';
-                $sortUrutanQuery = array_merge(request()->query(), ['sort_urutan' => $sortUrutanNext, 'page' => 1]);
+                $sortUrutanQuery = array_merge(request()->query(), ['sort_urutan' => $sortUrutanNext, 'page' => 1, 'cari' => '1']);
             @endphp
 
             <form method="GET" action="{{ route('keu.tagihan.data') }}" id="dtFormFilter">
+                <input type="hidden" name="cari" value="1">
                 <input type="hidden" name="sort_urutan" value="{{ $sortUrutanCur }}">
                 <div class="dt-filter">
                     <div class="dt-fld">
@@ -245,6 +246,9 @@
 
             <div class="dt-toolbar">
                 <form method="GET" action="{{ route('keu.tagihan.data') }}" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    @if ($hasSearched ?? false)
+                        <input type="hidden" name="cari" value="1">
+                    @endif
                     @foreach ($filters as $fk => $fv)
                         @if ($fv !== '' && $fk !== 'per_page')
                             <input type="hidden" name="{{ $fk }}" value="{{ $fv }}">
@@ -401,7 +405,13 @@
                             @endif
                         @empty
                             <tr>
-                                <td colspan="14" style="text-align:center;color:#6b7280;padding:20px;">Tidak ada data.</td>
+                                <td colspan="14" style="text-align:center;color:#6b7280;padding:20px;">
+                                    @if (!($hasSearched ?? false))
+                                        Atur filter lalu klik <strong>Cari</strong> untuk menampilkan data tagihan per halaman.
+                                    @else
+                                        Tidak ada data.
+                                    @endif
+                                </td>
                             </tr>
                         @endforelse
                     </tbody>

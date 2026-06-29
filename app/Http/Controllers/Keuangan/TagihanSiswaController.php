@@ -733,15 +733,19 @@ XML);
             return $api->getFilterBuatTagihan();
         });
 
+        $shouldLoadData = $request->has('cari') || $page > 1;
+
         $rows = [];
         $total = 0;
         $errorMsg = '';
-        $res = $api->getDataTagihan($filters, $perPage, ($page - 1) * $perPage);
-        if ($res['ok']) {
-            $rows = $res['data']['rows'] ?? [];
-            $total = (int) ($res['data']['total'] ?? 0);
-        } else {
-            $errorMsg = $res['message'] ?? 'Gagal memuat data.';
+        if ($shouldLoadData) {
+            $res = $api->getDataTagihan($filters, $perPage, ($page - 1) * $perPage);
+            if ($res['ok']) {
+                $rows = $res['data']['rows'] ?? [];
+                $total = (int) ($res['data']['total'] ?? 0);
+            } else {
+                $errorMsg = $res['message'] ?? 'Gagal memuat data.';
+            }
         }
 
         $paginator = new LengthAwarePaginator(
@@ -758,6 +762,7 @@ XML);
             'filters' => $filters,
             'tagihanRows' => $paginator,
             'errorMsg' => $errorMsg,
+            'hasSearched' => $shouldLoadData,
         ]);
     }
 
@@ -965,17 +970,11 @@ XML);
 
     public function dataPrintRekap(Request $request, AmalFatimahApiService $api): JsonResponse|Response|RedirectResponse
     {
-        $wantsJson = $request->expectsJson()
-            || $request->ajax()
-            || str_contains(strtolower((string) $request->header('Accept', '')), 'application/json');
+        $matrixJson = trim((string) $request->input('export_format', '')) === 'json';
 
         $hasSearchContext = trim((string) $request->input('has_search_context', '')) === '1';
         if (!$hasSearchContext) {
-            if ($wantsJson) {
-                return response()->json(['ok' => false, 'message' => 'Data masih kosong. Klik Cari dulu sebelum cetak rekap.'], 422);
-            }
-
-            return redirect()->back()->with('export_error', 'Data masih kosong. Klik Cari dulu sebelum cetak rekap.');
+            return $this->rekapPrintErrorResponse($request, 'Data masih kosong. Klik Cari dulu sebelum cetak rekap.', $matrixJson);
         }
 
         set_time_limit(900);
@@ -984,33 +983,25 @@ XML);
         $filters = $this->validatedDataTagihanFiltersFromRequest($request);
         $rawRows = $this->fetchTagihanRekapMatrixRows($api, $filters);
         if ($rawRows === null) {
-            if ($wantsJson) {
-                return response()->json(['ok' => false, 'message' => 'Gagal mengambil data dari server. Pastikan ws.php terbaru sudah di-upload.'], 422);
-            }
-
-            return redirect()->back()->with('export_error', 'Gagal mengambil data dari server. Pastikan ws.php terbaru sudah di-upload.');
+            return $this->rekapPrintErrorResponse(
+                $request,
+                'Gagal mengambil data dari server. Pastikan ws.php terbaru sudah di-upload.',
+                $matrixJson
+            );
         }
         if ($rawRows === []) {
-            if ($wantsJson) {
-                return response()->json(['ok' => false, 'message' => 'Tidak ada data yang cocok untuk cetak rekap.'], 422);
-            }
-
-            return redirect()->back()->with('export_error', 'Tidak ada data yang cocok untuk cetak rekap.');
+            return $this->rekapPrintErrorResponse($request, 'Tidak ada data yang cocok untuk cetak rekap.', $matrixJson);
         }
 
         $matrix = $this->buildRekapTagihanMatrix($rawRows);
         if ($matrix === null) {
-            if ($wantsJson) {
-                return response()->json(['ok' => false, 'message' => 'Tidak ada nominal tagihan untuk dicetak.'], 422);
-            }
-
-            return redirect()->back()->with('export_error', 'Tidak ada nominal tagihan untuk dicetak.');
+            return $this->rekapPrintErrorResponse($request, 'Tidak ada nominal tagihan untuk dicetak.', $matrixJson);
         }
 
         $filterOptions = $api->getFilterBuatTagihan();
         $meta = $this->rekapTagihanExportMeta($filters, is_array($filterOptions) ? $filterOptions : []);
 
-        if ($wantsJson) {
+        if ($matrixJson) {
             return response()->json([
                 'ok' => true,
                 'matrix' => $matrix,
@@ -1024,6 +1015,23 @@ XML);
         ])->setPaper('a4', 'landscape');
 
         return $pdf->stream('rekap-tagihan-' . date('Ymd-His') . '.pdf');
+    }
+
+    private function rekapPrintErrorResponse(Request $request, string $message, bool $matrixJson): JsonResponse|RedirectResponse
+    {
+        if ($matrixJson || $this->rekapPrintClientExpectsJson($request)) {
+            return response()->json(['ok' => false, 'message' => $message], 422);
+        }
+
+        return redirect()->back()->with('export_error', $message);
+    }
+
+    private function rekapPrintClientExpectsJson(Request $request): bool
+    {
+        $accept = strtolower((string) $request->header('Accept', ''));
+
+        return str_contains($accept, 'application/json')
+            && !str_contains($accept, 'application/pdf');
     }
 
     /**
@@ -1188,8 +1196,6 @@ XML);
         return [
             'sekolah' => 'Semua',
             'tahun_pelajaran' => trim((string) ($filters['thn_akademik'] ?? '')) ?: 'Semua',
-            'periode_mulai' => '-',
-            'periode_akhir' => '-',
             'dari_tanggal' => trim((string) ($filters['tgl_dari'] ?? '')) ?: '-',
             'sampai_tanggal' => trim((string) ($filters['tgl_sampai'] ?? '')) ?: '-',
             'kelas' => $kelasLabel,

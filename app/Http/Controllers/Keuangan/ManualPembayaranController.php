@@ -96,18 +96,15 @@ class ManualPembayaranController extends Controller
         if ($selectedBills !== []) {
             $res = $api->getKartuSiswaPenerimaan([], $custids, $selectedBills);
         } else {
-            $today = now('Asia/Jakarta')->format('Y-m-d');
-            $filters = [
-                'tgl_dari' => $today,
-                'tgl_sampai' => $today,
+            $res = $api->getKartuSiswaPenerimaan([
+                'tgl_dari' => '',
+                'tgl_sampai' => '',
                 'thn_angkatan' => '',
                 'thn_akademik' => '',
                 'kelas_id' => '',
                 'nama_tagihan' => '',
                 'siswa' => '',
-            ];
-
-            $res = $api->getKartuSiswaPenerimaan($filters, $custids);
+            ], $custids);
         }
         if (!$res['ok']) {
             return redirect()->back()->with('manual_pembayaran_error', $res['message'] ?? 'Gagal mengambil data kuitansi.');
