@@ -28,7 +28,7 @@ return [
     ],
 
     'token' => [
-        'secret' => env('SSO_SHARED_SECRET', ''),
+        'secret' => env('SSO_SHARED_SECRET', 'ganti-dengan-secret-yang-aman'),
         'ttl' => (int) env('SSO_TOKEN_TTL', 300),
     ],
 

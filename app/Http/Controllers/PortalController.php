@@ -66,9 +66,6 @@ class PortalController extends Controller
             $useSignedToken = (bool) config('sso.modules.cashless.use_signed_token', false);
             if ($useSignedToken) {
                 $token = $this->signToken();
-                if ($token === '') {
-                    return redirect()->away($targetUrl);
-                }
                 return redirect()->away($this->buildTargetUrl($targetUrl, [
                     'sso' => 1,
                     'token' => $token,
@@ -96,13 +93,9 @@ class PortalController extends Controller
         $params = [];
         $useSignedToken = (bool) config('sso.modules.presensi.use_signed_token', true);
         if ($useSignedToken) {
-            $token = $this->signToken();
-            if ($token === '') {
-                return redirect()->away($targetUrl);
-            }
             $params = [
                 'sso' => 1,
-                'token' => $token,
+                'token' => $this->signToken(),
             ];
         }
 
@@ -112,10 +105,6 @@ class PortalController extends Controller
     private function signToken(): string
     {
         $secret = (string) config('sso.token.secret', '');
-        if ($secret === '') {
-            return '';
-        }
-
         $payload = [
             'iss' => config('app.name'),
             'sub' => (int) session('auth_user_id', 0),
