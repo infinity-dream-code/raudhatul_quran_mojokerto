@@ -48,11 +48,19 @@
                 </div>
             @endif
 
-            <a href="{{ route('portal.presensi') }}" class="module-card disabled" onclick="return false;" style="pointer-events: none;">
-                <div class="module-icon">📋</div>
-                <h3>Presensi</h3>
-                <p>Segera hadir — modul presensi sedang disiapkan.</p>
-            </a>
+            @if(($modules['presensi']['enabled'] ?? false))
+                <a href="{{ route('portal.presensi') }}" class="module-card">
+                    <div class="module-icon">📋</div>
+                    <h3>Presensi</h3>
+                    <p>Kehadiran santri dan rekap presensi.</p>
+                </a>
+            @else
+                <div class="module-card disabled">
+                    <div class="module-icon">📋</div>
+                    <h3>Presensi</h3>
+                    <p>Modul presensi tidak aktif.</p>
+                </div>
+            @endif
         </div>
 
         <div class="portal-actions">

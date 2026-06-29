@@ -136,6 +136,24 @@ function dbConnectPdo(): PDO
     return $pdo;
 }
 
+/**
+ * Format No VA: prefix 06202 + NIS (digit only), total tepat 16 digit.
+ * Jika NIS < 11 digit akan dipadding nol di depan NIS.
+ */
+function formatNoVaFromNis(string $nis): string
+{
+    $digits = preg_replace('/\D+/', '', $nis);
+    $digits = is_string($digits) ? $digits : '';
+    if ($digits === '') {
+        $digits = '0';
+    }
+    if (strlen($digits) > 11) {
+        $digits = substr($digits, -11);
+    }
+
+    return '06202' . str_pad($digits, 11, '0', STR_PAD_LEFT);
+}
+
 function getDashboard(): array
 {
     $pdo = dbConnectPdo();
@@ -1326,8 +1344,7 @@ function getSiswaByCustid(array $req): array
 
     if ($saldoVa === 0) {
         try {
-            $nocustDigits = preg_replace('/\D+/', '', (string) ($row["NOCUST"] ?? ""));
-            $noVa = "7510050" . ($nocustDigits !== "" ? $nocustDigits : "0");
+            $noVa = formatNoVaFromNis((string) ($row["NOCUST"] ?? ""));
             $stmtSaldo2 = $pdo->prepare("
                 SELECT CAST(COALESCE(SALDO, 0) AS SIGNED) AS SALDO
                 FROM v_saldo_va
@@ -4512,7 +4529,7 @@ function getDataTagihan(array $req): array
             TRIM(b.BILLCD) AS billcd,
             TRIM(c.NOCUST) AS nis,
             TRIM(c.NUM2ND) AS no_daftar,
-            CONCAT('7510050', COALESCE(NULLIF(TRIM(c.NOCUST), ''), '0')) AS no_va,
+            CONCAT('06202', LPAD(COALESCE(NULLIF(TRIM(c.NOCUST), ''), '0'), 11, '0')) AS no_va,
             TRIM(c.NMCUST) AS nama,
             {$mkUi['unit']} AS unit,
             {$mkUi['kelas']} AS kelas,
@@ -4543,7 +4560,7 @@ function getDataTagihan(array $req): array
             TRIM(b.BILLCD) AS billcd,
             TRIM(c.NOCUST) AS nis,
             TRIM(c.NUM2ND) AS no_daftar,
-            CONCAT('7510050', COALESCE(NULLIF(TRIM(c.NOCUST), ''), '0')) AS no_va,
+            CONCAT('06202', LPAD(COALESCE(NULLIF(TRIM(c.NOCUST), ''), '0'), 11, '0')) AS no_va,
             TRIM(c.NMCUST) AS nama,
             {$mkUi['unit']} AS unit,
             {$mkUi['kelas']} AS kelas,
@@ -5166,7 +5183,7 @@ function getDataPenerimaan(array $req): array
 
 /**
  * Kartu siswa dari konteks Data Penerimaan: data siswa (scctcust GENUS) + baris penerimaan (lunas) per filter + custid terpilih.
- * No VA = 7510050 + digit NOCUST.
+ * No VA = 06202 + NOCUST (total 16 digit).
  */
 function getKartuSiswaPenerimaan(array $req): array
 {
@@ -5390,8 +5407,7 @@ function getKartuSiswaPenerimaan(array $req): array
     foreach ($custids as $cid) {
         $s = $siswaById[$cid] ?? null;
         $nocust = trim((string) ($s['NOCUST'] ?? ''));
-        $digits = preg_replace('/\D+/', '', $nocust);
-        $noVa = '7510050' . ($digits !== '' ? $digits : '0');
+        $noVa = formatNoVaFromNis($nocust);
         $cards[$cid] = [
             'custid'   => $cid,
             'nis'      => $nocust,
@@ -6682,7 +6698,7 @@ function getSaldoVirtualAccountRows(array $req): array
         $rows[] = [
             'custid' => (int) ($r['custid'] ?? 0),
             'nis' => $nis,
-            'no_va' => '7510050' . ($digits !== '' ? $digits : '0'),
+            'no_va' => formatNoVaFromNis($nis),
             'nama' => trim((string) ($r['nama'] ?? '')),
             'no_pendaftaran' => trim((string) ($r['no_pendaftaran'] ?? '')),
             'unit' => trim((string) ($r['unit'] ?? '')),
@@ -6743,8 +6759,7 @@ function getSaldoVirtualAccountMutasi(array $req): array
     }
 
     $nis = trim((string) ($srow['nis'] ?? ''));
-    $digits = preg_replace('/\D+/', '', $nis);
-    $noVa = '7510050' . ($digits !== '' ? $digits : '0');
+    $noVa = formatNoVaFromNis($nis);
 
     $whereTran = ['t.CUSTID = :cid'];
     $paramsTran = [':cid' => $custid];
@@ -6982,7 +6997,7 @@ function getDataTransaksiSccttran(array $req): array
         $rows[] = [
             'custid' => (int) ($r['custid'] ?? 0),
             'nis' => $nisR,
-            'no_va' => '7510050' . ($digits !== '' ? $digits : '0'),
+            'no_va' => formatNoVaFromNis($nisR),
             'nama' => trim((string) ($r['nama'] ?? '')),
             'metode' => trim((string) ($r['metode'] ?? '')),
             'noref' => trim((string) ($r['noref'] ?? '')),
@@ -7123,8 +7138,7 @@ function createManualPembayaran(array $req): array
                 $stCust->execute([":custid" => $custid]);
                 $rw = $stCust->fetch();
                 $nocust = trim((string) ($rw["NOCUST"] ?? ""));
-                $nocustDigits = preg_replace('/\D+/', '', $nocust);
-                $noVa = "7510050" . ($nocustDigits !== "" ? $nocustDigits : "0");
+                $noVa = formatNoVaFromNis($nocust);
                 $stmtSaldo2 = $pdo->prepare("
                     SELECT CAST(COALESCE(SALDO, 0) AS SIGNED) AS SALDO
                     FROM v_saldo_va
