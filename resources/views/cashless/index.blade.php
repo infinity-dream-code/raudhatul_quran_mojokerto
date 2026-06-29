@@ -1,167 +1,144 @@
-@extends('layouts.app')
-
-@section('title', 'Cashless')
-
+@extends('layouts.cashless')
+@section('title',$dataTitle??$mainTitle??$title??'Dashboard')
 @section('style')
-<style>
-    .summary-cards {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 12px;
-        margin-bottom: 16px;
-    }
-    .summary-card {
-        background: #fff;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        padding: 14px;
-        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
-    }
-    .summary-label {
-        color: #6b7280;
-        font-size: 12px;
-        margin-bottom: 6px;
-    }
-    .summary-value {
-        font-size: 1.25rem;
-        font-weight: 700;
-        color: #111827;
-    }
-    .filter-wrap {
-        background: #fff;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        padding: 14px;
-        margin-bottom: 14px;
-    }
-    .table-wrap {
-        background: #fff;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-        overflow: auto;
-    }
-    .cashless-table {
-        width: 100%;
-        border-collapse: collapse;
-        min-width: 920px;
-    }
-    .cashless-table th, .cashless-table td {
-        padding: 10px 12px;
-        border-bottom: 1px solid #eef2f7;
-        font-size: 13px;
-        vertical-align: top;
-    }
-    .cashless-table th {
-        text-align: left;
-        font-weight: 700;
-        color: #374151;
-        background: #f9fafb;
-    }
-    .money {
-        text-align: right;
-        font-weight: 700;
-    }
-    .badge-soft {
-        display: inline-block;
-        padding: 4px 8px;
-        border-radius: 999px;
-        font-size: 11px;
-        font-weight: 700;
-    }
-    .badge-sukses { background: #dcfce7; color: #166534; }
-    .badge-gagal { background: #fee2e2; color: #991b1b; }
-    .badge-refund { background: #ffedd5; color: #9a3412; }
-    .sub-line { color: #6b7280; font-size: 12px; margin-top: 2px; }
-    .page-tools {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        flex-wrap: wrap;
-    }
-</style>
+    <link rel="stylesheet" href="{{asset('main/libs/apex-charts/apex-charts.css')}}"/>
+
 @endsection
 
 @section('content')
-    <h3 class="page-heading d-flex text-gray-900 fw-bold flex-column justify-content-center my-0">Cashless</h3>
-    <ul class="breadcrumb breadcrumb-style2">
-        <li class="breadcrumb-item active">Dashboard Cashless</li>
-    </ul>
-
-    @include('cashless._nav')
-
-    <div class="summary-cards">
-        <div class="summary-card">
-            <div class="summary-label">Total Transaksi</div>
-            <div class="summary-value">{{ number_format((int)($stats['transaction_count'] ?? 0), 0, ',', '.') }}</div>
+    <div class="row">
+        <div class="col-12">
+            <div class="row row-cols-2 row-cols-lg-3">
+                <div class="col mb-6 text-center">
+                    <div class="card card-border-shadow-primary bg-label-primary p-5 h-100">
+                        <a href="{{route('cashless.tap-belanja.index')}}"
+                           class="nav-link btn d-flex flex-column align-items-center justify-content-center border-primary">
+                            <span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                     fill="none"
+                                     stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                     stroke-linejoin="round"
+                                     class="icon icon-tabler icons-tabler-outline icon-tabler-credit-card">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                    <path
+                                        d="M3 8a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v8a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3l0 -8"/>
+                                    <path d="M3 10l18 0"/>
+                                    <path d="M7 15l.01 0"/>
+                                    <path d="M11 15l2 0"/>
+                                </svg>
+                            </span>
+                            <h6 class="mt-1 mb-0">Tap Belanja</h6>
+                        </a>
+                    </div>
+                </div>
+                <div class="col mb-6 text-center">
+                    <div class="card card-border-shadow-success bg-label-success p-5 h-100">
+                        <a href="{{route('cashless.cek-limit.index')}}"
+                           class="nav-link btn d-flex flex-column align-items-center justify-content-center border-primary">
+                            <span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                     fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                     stroke-linejoin="round"
+                                     class="icon icon-tabler icons-tabler-outline icon-tabler-cash-off"><path
+                                        stroke="none" d="M0 0h24v24H0z" fill="none"/><path
+                                        d="M13 9h6a2 2 0 0 1 2 2v6m-2 2h-10a2 2 0 0 1 -2 -2v-6a2 2 0 0 1 2 -2"/><path
+                                        d="M12.582 12.59a2 2 0 0 0 2.83 2.826"/><path
+                                        d="M17 9v-2a2 2 0 0 0 -2 -2h-6m-4 0a2 2 0 0 0 -2 2v6a2 2 0 0 0 2 2h2"/><path
+                                        d="M3 3l18 18"/></svg>
+                            </span>
+                            <h6 class="mt-1 mb-0">Cek Limit</h6>
+                        </a>
+                    </div>
+                </div>
+                <div class="col mb-6 text-center">
+                    <div class="card card-border-shadow-warning bg-label-warning p-5 h-100">
+                        <a href="{{route('cashless.data-transaksi-belanja.index')}}"
+                           class="nav-link btn d-flex flex-column align-items-center justify-content-center border-primary">
+                            <span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                     fill="none"
+                                     stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                     stroke-linejoin="round"
+                                     class="menu-icon icon icon-tabler icons-tabler-outline icon-tabler-list">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                    <path d="M9 6l11 0"/>
+                                    <path d="M9 12l11 0"/>
+                                    <path d="M9 18l11 0"/>
+                                    <path d="M5 6l0 .01"/>
+                                    <path d="M5 12l0 .01"/>
+                                    <path d="M5 18l0 .01"/>
+                                </svg>
+                            </span>
+                            <h6 class="mt-1 mb-0">Data Transaksi Belanja</h6>
+                        </a>
+                    </div>
+                </div>
+                <div class="col mb-6 text-center">
+                    <div class="card card-border-shadow-info bg-label-info p-5 h-100">
+                        <a href="{{route('cashless.rekap-penerimaan-harian.index')}}"
+                           class="nav-link btn d-flex flex-column align-items-center justify-content-center border-info">
+                            <span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                     fill="none"
+                                     stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                     stroke-linejoin="round"
+                                     class="icon icon-tabler icons-tabler-outline icon-tabler-calendar">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                    <path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12"/>
+                                    <path d="M16 3v4"/>
+                                    <path d="M8 3v4"/>
+                                    <path d="M4 11h16"/>
+                                    <path d="M11 15h1"/>
+                                    <path d="M12 15v3"/>
+                                </svg>
+                            </span>
+                            <h6 class="mt-1 mb-0">Rekap Harian</h6>
+                        </a>
+                    </div>
+                </div>
+                <div class="col mb-6 text-center">
+                    <div class="card card-border-shadow-success bg-label-success p-5 h-100">
+                        <a href="{{route('cashless.riwayat-pencairan.index')}}"
+                           class="nav-link btn d-flex flex-column align-items-center justify-content-center border-info">
+                            <span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                     fill="none"
+                                     stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                     stroke-linejoin="round"
+                                     class="icon icon-tabler icons-tabler-outline icon-tabler-list-check">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                    <path d="M3.5 5.5l1.5 1.5l2.5 -2.5"/>
+                                    <path d="M3.5 11.5l1.5 1.5l2.5 -2.5"/>
+                                    <path d="M3.5 17.5l1.5 1.5l2.5 -2.5"/>
+                                    <path d="M11 6l9 0"/>
+                                    <path d="M11 12l9 0"/>
+                                    <path d="M11 18l9 0"/>
+                                </svg>
+                            </span>
+                            <h6 class="mt-1 mb-0">Riwayat Pencairan</h6>
+                        </a>
+                    </div>
+                </div>
+                <div class="col mb-6 text-center">
+                    <div class="card card-border-shadow-light bg-label-light p-5 h-100">
+                        <a href="{{route('cashless.profil-admin.index')}}"
+                           class="nav-link btn d-flex flex-column align-items-center justify-content-center border-info">
+                            <span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                     fill="none"
+                                     stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                     stroke-linejoin="round"
+                                     class="menu-icon icon icon-tabler icons-tabler-outline icon-tabler-user">
+                                    <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+                                    <path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0"/>
+                                    <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2"/>
+                                </svg>
+                            </span>
+                            <h6 class="mt-1 mb-0">Profil Admin</h6>
+                        </a>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="summary-card">
-            <div class="summary-label">Total Pendapatan (Sukses)</div>
-            <div class="summary-value">Rp {{ number_format((float)($stats['total_balance'] ?? 0), 0, ',', '.') }}</div>
-        </div>
-        <div class="summary-card">
-            <div class="summary-label">Sukses</div>
-            <div class="summary-value">{{ number_format((int)($stats['success_count'] ?? 0), 0, ',', '.') }}</div>
-        </div>
-        <div class="summary-card">
-            <div class="summary-label">Gagal</div>
-            <div class="summary-value">{{ number_format((int)($stats['failed_count'] ?? 0), 0, ',', '.') }}</div>
-        </div>
-        <div class="summary-card">
-            <div class="summary-label">Refund</div>
-            <div class="summary-value">{{ number_format((int)($stats['refund_count'] ?? 0), 0, ',', '.') }}</div>
-        </div>
-    </div>
-
-    <div class="filter-wrap">
-        <div class="page-tools">
-            <a class="btn btn-primary btn-sm" href="{{ route('cashless.topup') }}">Catat Transaksi / Topup</a>
-            <a class="btn btn-outline-primary btn-sm" href="{{ route('cashless.transactions') }}">Lihat Semua Transaksi</a>
-            <a class="btn btn-outline-secondary btn-sm" href="{{ route('cashless.saldo') }}">Saldo Wallet</a>
-        </div>
-    </div>
-
-    <div class="table-wrap">
-        <table class="cashless-table">
-            <thead>
-            <tr>
-                <th>Transaksi</th>
-                <th>Siswa</th>
-                <th>Detail</th>
-                <th class="money">Nominal</th>
-                <th>Status</th>
-            </tr>
-            </thead>
-            <tbody>
-            @forelse($rows as $row)
-                @php
-                    $status = strtolower((string)($row->status ?? 'sukses'));
-                    $badgeClass = $status === 'gagal' ? 'badge-gagal' : ($status === 'refund' ? 'badge-refund' : 'badge-sukses');
-                    $kode = $row->trx_code ?? ('TRX-' . str_pad((string)($row->id ?? 0), 6, '0', STR_PAD_LEFT));
-                @endphp
-                <tr>
-                    <td>
-                        <strong>{{ $kode }}</strong>
-                        <div class="sub-line">{{ $row->created_at ?? '-' }}</div>
-                    </td>
-                    <td>
-                        <strong>{{ $row->student_name ?? '-' }}</strong>
-                        <div class="sub-line">{{ $row->student_id ?? '-' }}</div>
-                    </td>
-                    <td>
-                        {{ $row->note ?? '-' }}
-                    </td>
-                    <td class="money">Rp {{ number_format((float)($row->amount ?? 0), 0, ',', '.') }}</td>
-                    <td><span class="badge-soft {{ $badgeClass }}">{{ ucfirst($status) }}</span></td>
-                </tr>
-            @empty
-                <tr>
-                    <td colspan="5" style="text-align:center;color:#6b7280;padding:18px;">
-                        Belum ada data transaksi cashless.
-                    </td>
-                </tr>
-            @endforelse
-            </tbody>
-        </table>
     </div>
 @endsection
-

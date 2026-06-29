@@ -89,6 +89,7 @@ class AuthController extends Controller
             'auth_is_superadmin',
             'auth_sekolah_code01',
             'auth_sekolah_nama',
+            'user',
         ]);
         $request->session()->invalidate();
         $request->session()->regenerateToken();

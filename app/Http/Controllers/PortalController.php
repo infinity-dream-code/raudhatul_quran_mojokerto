@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\CashlessAuth;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -47,7 +48,7 @@ class PortalController extends Controller
             return redirect()->route('login');
         }
 
-        $request->session()->forget(['auth_module', 'dummy_logged_in']);
+        $request->session()->forget(['auth_module', 'dummy_logged_in', 'user']);
 
         return redirect()->route('portal');
     }
@@ -60,6 +61,7 @@ class PortalController extends Controller
 
         $request->session()->put('auth_module', 'cashless');
         $request->session()->put('dummy_logged_in', false);
+        CashlessAuth::syncSession();
 
         $targetUrl = trim((string) (config('sso.modules.cashless.url') ?? ''));
         $targetHost = strtolower((string) parse_url($targetUrl, PHP_URL_HOST));
