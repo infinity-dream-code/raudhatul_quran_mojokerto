@@ -62,6 +62,21 @@ class PortalController extends Controller
         $request->session()->put('dummy_logged_in', false);
 
         $targetUrl = trim((string) (config('sso.modules.cashless.url') ?? ''));
+        $targetHost = strtolower((string) parse_url($targetUrl, PHP_URL_HOST));
+        $targetPath = trim((string) parse_url($targetUrl, PHP_URL_PATH), '/');
+        $currentHost = strtolower((string) $request->getHost());
+
+        // Jika diarahkan ke host sendiri/localhost dengan path cashless, pakai route internal satu project.
+        if (
+            $targetUrl === ''
+            || (
+                $targetPath === 'cashless'
+                && ($targetHost === '' || $targetHost === 'localhost' || $targetHost === '127.0.0.1' || $targetHost === $currentHost)
+            )
+        ) {
+            return redirect()->route('cashless.index');
+        }
+
         if ($this->isExternalUrl($targetUrl)) {
             $useSignedToken = (bool) config('sso.modules.cashless.use_signed_token', false);
             if ($useSignedToken) {
