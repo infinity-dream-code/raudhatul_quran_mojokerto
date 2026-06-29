@@ -34,9 +34,8 @@ class SaldoController extends Controller
 
         [$filters, $perPage, $page] = $this->vaPagingFromRequest($request);
 
-        $shell = $api->loadRekapPenerimaanShell();
+        $shell = $api->loadPenerimaanFilterShell();
         $filterOptions = $shell['filterOptions'];
-        $tingkatOptions = is_array($shell['tingkatOptions'] ?? null) ? $shell['tingkatOptions'] : [];
 
         $paginator = new Paginator([], $perPage, $page, [
             'path' => $request->url(),
@@ -49,7 +48,6 @@ class SaldoController extends Controller
         return view('keuangan.saldo.virtual-account', [
             'pageTitle' => 'Saldo Virtual Account',
             'filterOptions' => $filterOptions,
-            'tingkatOptions' => $tingkatOptions,
             'filters' => $filters,
             'rowsPaginator' => $paginator,
             'vaRowsUrl' => route('keu.saldo.va.rows', $rowsQuery),
@@ -89,7 +87,7 @@ class SaldoController extends Controller
                 return;
             }
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, ['No', 'NIS', 'NO VA', 'NAMA', 'No Pendaftaran', 'Unit', 'Kelas', 'Jenjang', 'Angkatan', 'Saldo'], ';');
+            fputcsv($out, ['No', 'NIS', 'NO VA', 'NAMA', 'No Pendaftaran', 'Unit', 'Kelas', 'Kelompok', 'Angkatan', 'Saldo'], ';');
             $no = 1;
             foreach ($rows as $r) {
                 if (!is_array($r)) {
@@ -103,7 +101,7 @@ class SaldoController extends Controller
                     $r['no_pendaftaran'] ?? '',
                     $r['unit'] ?? '',
                     $r['kelas'] ?? '',
-                    $r['jenjang'] ?? '',
+                    $r['kelompok'] ?? '',
                     $r['angkatan'] ?? '',
                     (string) ((int) ($r['saldo'] ?? 0)),
                 ], ';');
@@ -134,7 +132,7 @@ class SaldoController extends Controller
                 'no_pendaftaran' => $np !== '' ? $np : '-',
                 'unit' => (string) ($r['unit'] ?? ''),
                 'kelas' => (string) ($r['kelas'] ?? ''),
-                'jenjang' => (string) ($r['jenjang'] ?? ''),
+                'kelompok' => (string) ($r['kelompok'] ?? ''),
                 'angkatan' => (string) ($r['angkatan'] ?? ''),
                 'saldo' => (int) ($r['saldo'] ?? 0),
             ];
@@ -159,7 +157,7 @@ class SaldoController extends Controller
         $buf .= '<Worksheet ss:Name="Saldo VA"><Table>' . "\n";
         $buf .= '<Column ss:Width="90"/><Column ss:Width="110"/><Column ss:Width="180"/><Column ss:Width="100"/><Column ss:Width="140"/><Column ss:Width="70"/><Column ss:Width="80"/><Column ss:Width="80"/><Column ss:Width="100"/>' . "\n";
         $buf .= '<Row>';
-        foreach (['NIS', 'NO VA', 'NAMA', 'NO PENDAFTARAN', 'UNIT', 'KELAS', 'JENJANG', 'ANGKATAN', 'SALDO'] as $h) {
+        foreach (['NIS', 'NO VA', 'NAMA', 'NO PENDAFTARAN', 'UNIT', 'KELAS', 'KELOMPOK', 'ANGKATAN', 'SALDO'] as $h) {
             $buf .= '<Cell ss:StyleID="hdr"><Data ss:Type="String">' . $esc($h) . '</Data></Cell>';
         }
         $buf .= '</Row>' . "\n";
@@ -177,7 +175,7 @@ class SaldoController extends Controller
             $buf .= '<Cell><Data ss:Type="String">' . $esc($np !== '' ? $np : '-') . '</Data></Cell>';
             $buf .= '<Cell><Data ss:Type="String">' . $esc((string) ($r['unit'] ?? '')) . '</Data></Cell>';
             $buf .= '<Cell><Data ss:Type="String">' . $esc((string) ($r['kelas'] ?? '')) . '</Data></Cell>';
-            $buf .= '<Cell><Data ss:Type="String">' . $esc((string) ($r['jenjang'] ?? '')) . '</Data></Cell>';
+            $buf .= '<Cell><Data ss:Type="String">' . $esc((string) ($r['kelompok'] ?? '')) . '</Data></Cell>';
             $buf .= '<Cell><Data ss:Type="String">' . $esc((string) ($r['angkatan'] ?? '')) . '</Data></Cell>';
             $buf .= '<Cell ss:StyleID="n"><Data ss:Type="Number">' . $saldo . '</Data></Cell>';
             $buf .= '</Row>' . "\n";
@@ -277,11 +275,24 @@ class SaldoController extends Controller
             $perPage = 10;
         }
         $page = max(1, (int) $request->query('page', 1));
+        $sortBy = strtolower(trim((string) $request->query('sort_by', 'trxdate')));
+        $sortDir = strtolower(trim((string) $request->query('sort_dir', 'desc')));
+        if (!in_array($sortBy, ['metode', 'noref', 'trxdate', 'debet', 'kredit'], true)) {
+            $sortBy = 'trxdate';
+        }
+        if (!in_array($sortDir, ['asc', 'desc'], true)) {
+            $sortDir = 'desc';
+        }
         // Jangan pakai ?cari= dari halaman daftar: itu filter NIS/nama siswa, bukan filter baris mutasi.
         // Kalau ikut terbawa, API mutasi memfilter METODE/HELPDESK/NOREFF → sering kosong walau saldo ada.
         $mutasiUrl = route('keu.saldo.va.detail_rows', array_merge(
             ['custid' => $custid],
-            array_filter(['per_page' => $perPage, 'page' => $page], static fn ($v) => $v !== '' && $v !== null)
+            array_filter([
+                'per_page' => $perPage,
+                'page' => $page,
+                'sort_by' => $sortBy,
+                'sort_dir' => $sortDir,
+            ], static fn ($v) => $v !== '' && $v !== null)
         ));
 
         return view('keuangan.saldo.virtual-account-detail', [
@@ -290,6 +301,8 @@ class SaldoController extends Controller
             'mutasiUrl' => $mutasiUrl,
             'perPage' => $perPage,
             'mutasiCari' => '',
+            'sortBy' => $sortBy,
+            'sortDir' => $sortDir,
         ]);
     }
 
@@ -301,8 +314,16 @@ class SaldoController extends Controller
         }
         $page = max(1, (int) $request->query('page', 1));
         $cari = trim((string) $request->query('cari', ''));
+        $sortBy = strtolower(trim((string) $request->query('sort_by', 'trxdate')));
+        $sortDir = strtolower(trim((string) $request->query('sort_dir', 'desc')));
+        if (!in_array($sortBy, ['metode', 'noref', 'trxdate', 'debet', 'kredit'], true)) {
+            $sortBy = 'trxdate';
+        }
+        if (!in_array($sortDir, ['asc', 'desc'], true)) {
+            $sortDir = 'desc';
+        }
 
-        $res = $api->getSaldoVirtualAccountMutasi($custid, $cari, $perPage, ($page - 1) * $perPage);
+        $res = $api->getSaldoVirtualAccountMutasi($custid, $cari, $perPage, ($page - 1) * $perPage, $sortBy, $sortDir);
         if (!$res['ok']) {
             return response()->json([
                 'ok' => false,
@@ -327,6 +348,8 @@ class SaldoController extends Controller
         $q = array_filter([
             'per_page' => $perPage,
             'cari' => $cari,
+            'sort_by' => $sortBy,
+            'sort_dir' => $sortDir,
         ], static fn ($v) => $v !== '' && $v !== null);
         $prevUrl = $page > 1 ? route('keu.saldo.va.detail_rows', array_merge(['custid' => $custid], $q, ['page' => $page - 1])) : null;
         $nextUrl = $hasMore ? route('keu.saldo.va.detail_rows', array_merge(['custid' => $custid], $q, ['page' => $page + 1])) : null;
@@ -344,6 +367,8 @@ class SaldoController extends Controller
             'prev_url' => $prevUrl,
             'next_url' => $nextUrl,
             'cari' => $cari,
+            'sort_by' => $sortBy,
+            'sort_dir' => $sortDir,
         ]);
     }
 
@@ -368,14 +393,12 @@ class SaldoController extends Controller
 
         [$filters, $perPage, $page, $queryForUrls] = $this->dtListBundle($request);
 
-        $shell = $api->loadRekapPenerimaanShell();
+        $shell = $api->loadPenerimaanFilterShell();
         $filterOptions = $shell['filterOptions'];
-        $tingkatOptions = is_array($shell['tingkatOptions'] ?? null) ? $shell['tingkatOptions'] : [];
 
         return view('keuangan.saldo.data-transaksi', [
             'pageTitle' => 'Data Transaksi',
             'filterOptions' => $filterOptions,
-            'tingkatOptions' => $tingkatOptions,
             'filters' => $filters,
             'listPage' => $page,
             'listPerPage' => $perPage,
@@ -414,7 +437,7 @@ class SaldoController extends Controller
                 return;
             }
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, ['No', 'NIS', 'NO VA', 'NAMA', 'METODE', 'TANGGAL TRANSAKSI', 'DEBET', 'KREDIT'], ';');
+            fputcsv($out, ['No', 'NIS', 'NO VA', 'NAMA', 'METODE', 'NOREF', 'TANGGAL TRANSAKSI', 'DEBET', 'KREDIT'], ';');
             $no = 1;
             foreach ($rows as $r) {
                 if (!is_array($r)) {
@@ -426,6 +449,7 @@ class SaldoController extends Controller
                     $r['no_va'] ?? '',
                     $r['nama'] ?? '',
                     $r['metode'] ?? '',
+                    $r['noref'] ?? '',
                     $this->formatTrxDateExport($r['trxdate'] ?? null),
                     (string) ((int) ($r['debet'] ?? 0)),
                     (string) ((int) ($r['kredit'] ?? 0)),
@@ -454,6 +478,7 @@ class SaldoController extends Controller
                 'no_va' => (string) ($r['no_va'] ?? ''),
                 'nama' => (string) ($r['nama'] ?? ''),
                 'metode' => (string) ($r['metode'] ?? ''),
+                'noref' => (string) ($r['noref'] ?? ''),
                 'trxdate' => $this->formatTrxDateExport($r['trxdate'] ?? null),
                 'debet' => (int) ($r['debet'] ?? 0),
                 'kredit' => (int) ($r['kredit'] ?? 0),
@@ -479,7 +504,7 @@ class SaldoController extends Controller
         $buf .= '<Worksheet ss:Name="Data Transaksi"><Table>' . "\n";
         $buf .= '<Column ss:Width="40"/><Column ss:Width="90"/><Column ss:Width="110"/><Column ss:Width="180"/><Column ss:Width="100"/><Column ss:Width="140"/><Column ss:Width="90"/><Column ss:Width="90"/>' . "\n";
         $buf .= '<Row>';
-        foreach (['NO', 'NIS', 'NO VA', 'NAMA', 'METODE', 'TANGGAL TRANSAKSI', 'DEBET', 'KREDIT'] as $h) {
+        foreach (['NO', 'NIS', 'NO VA', 'NAMA', 'METODE', 'NOREF', 'TANGGAL TRANSAKSI', 'DEBET', 'KREDIT'] as $h) {
             $buf .= '<Cell ss:StyleID="hdr"><Data ss:Type="String">' . $esc($h) . '</Data></Cell>';
         }
         $buf .= '</Row>' . "\n";
@@ -497,6 +522,7 @@ class SaldoController extends Controller
             $buf .= '<Cell><Data ss:Type="String">' . $esc((string) ($r['no_va'] ?? '')) . '</Data></Cell>';
             $buf .= '<Cell><Data ss:Type="String">' . $esc((string) ($r['nama'] ?? '')) . '</Data></Cell>';
             $buf .= '<Cell><Data ss:Type="String">' . $esc((string) ($r['metode'] ?? '')) . '</Data></Cell>';
+            $buf .= '<Cell><Data ss:Type="String">' . $esc((string) ($r['noref'] ?? '')) . '</Data></Cell>';
             $buf .= '<Cell><Data ss:Type="String">' . $esc($this->formatTrxDateExport($r['trxdate'] ?? null)) . '</Data></Cell>';
             $buf .= '<Cell ss:StyleID="n"><Data ss:Type="Number">' . $debet . '</Data></Cell>';
             $buf .= '<Cell ss:StyleID="n"><Data ss:Type="Number">' . $kredit . '</Data></Cell>';
@@ -671,6 +697,7 @@ class SaldoController extends Controller
             'sekolah' => trim((string) $request->query('sekolah', '')),
             'kelas_id' => trim((string) $request->query('kelas_id', '')),
             'cari' => trim((string) $request->query('cari', '')),
+            'saldo_positif' => (int) $request->query('saldo_positif', 0) === 1 ? '1' : '',
         ];
     }
 }

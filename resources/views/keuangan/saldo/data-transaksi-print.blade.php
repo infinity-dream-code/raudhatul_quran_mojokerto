@@ -48,6 +48,7 @@
                 <th>NO VA</th>
                 <th>NAMA</th>
                 <th>METODE</th>
+                <th>NOREF</th>
                 <th>TANGGAL TRANSAKSI</th>
                 <th>DEBET</th>
                 <th>KREDIT</th>
@@ -77,6 +78,7 @@
                     <td class="dt-ctr">{{ $r['no_va'] ?? '' }}</td>
                     <td>{{ $r['nama'] ?? '' }}</td>
                     <td>{{ $r['metode'] ?? '' }}</td>
+                    <td>{{ $r['noref'] ?? '' }}</td>
                     <td class="dt-ctr">{{ $trxFmt }}</td>
                     <td class="dt-num">{{ $rpDebet }}</td>
                     <td class="dt-num">{{ $rpKredit }}</td>

@@ -4,6 +4,11 @@
     @php
         $vaDetailBase = preg_replace('#/\d+$#', '/', route('keu.saldo.va.detail', ['custid' => 1]));
         $vaExportQ = request()->query();
+        $vaTransaksiQ = array_filter([
+            'sekolah' => $filters['sekolah'] ?? '',
+            'kelas_id' => $filters['kelas_id'] ?? '',
+            'thn_angkatan' => $filters['thn_angkatan'] ?? '',
+        ], static fn ($v) => $v !== '' && $v !== null);
     @endphp
     <style>
         .va-wrap { margin-top: 16px; }
@@ -39,6 +44,8 @@
             display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
         }
         .va-btn-search { background: #2563eb; border-color: #2563eb; color: #fff; }
+        .va-btn-saldo { background: #15803d; border-color: #15803d; color: #fff; }
+        .va-btn-transaksi { background: #f0fdf4; border-color: #86efac; color: #166534; }
         .va-btn-export { background: #e0f2fe; border-color: #7dd3fc; color: #0369a1; }
         .va-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #eef2f7; }
         .va-select, .va-input-search { height: 34px; border: 1px solid #d1d5db; border-radius: 8px; padding: 0 10px; font-size: 12px; }
@@ -86,6 +93,7 @@
             <div id="vaFetchErr" class="va-alert va-err" style="display:none;"></div>
 
             <form method="GET" action="{{ route('keu.saldo.va') }}" id="formVaFilter">
+                <input type="hidden" name="saldo_positif" id="vaSaldoPositif" value="{{ ($filters['saldo_positif'] ?? '') === '1' ? '1' : '' }}">
                 <div class="va-sub">Filter</div>
                 <div class="va-filter">
                     <div class="va-fld">
@@ -98,25 +106,37 @@
                         </select>
                     </div>
                     <div class="va-fld">
-                        <label>Sekolah</label>
-                        <select name="sekolah">
+                        <label>Unit</label>
+                        <select name="sekolah" id="vaSekolah" title="Filter unit dari mst_sekolah">
                             <option value="">Semua</option>
-                            @foreach (($tingkatOptions ?? []) as $unit)
-                                @php $u = (string) $unit; @endphp
-                                @if ($u !== '')
-                                    <option value="{{ $u }}" {{ (($filters['sekolah'] ?? '') === $u) ? 'selected' : '' }}>{{ $u }}</option>
+                            @foreach (($filterOptions['sekolah'] ?? []) as $sk)
+                                @php
+                                    $code = trim((string) (is_array($sk) ? ($sk['code'] ?? '') : ''));
+                                    $nama = trim((string) (is_array($sk) ? ($sk['nama'] ?? '') : ''));
+                                    $lbl = $nama !== '' ? $nama : $code;
+                                @endphp
+                                @if ($code !== '')
+                                    <option value="{{ $code }}" {{ (($filters['sekolah'] ?? '') === $code) ? 'selected' : '' }}>{{ $lbl }}</option>
                                 @endif
                             @endforeach
                         </select>
                     </div>
                     <div class="va-fld">
-                        <label>Kelas</label>
-                        <select name="kelas_id">
+                        <label>Kelas — Kelompok</label>
+                        <select name="kelas_id" id="vaKelasId" title="Unit - Kelas (jenjang) - Kelompok">
                             <option value="">Semua</option>
                             @foreach (($filterOptions['kelas'] ?? []) as $k)
-                                @php $id = (string) ($k['id'] ?? ''); $lbl = trim((string) (($k['unit'] ?? '') . ' ' . ($k['kelas'] ?? ''))); @endphp
-                                @if ($id !== '')
-                                    <option value="{{ $id }}" {{ (($filters['kelas_id'] ?? '') === $id) ? 'selected' : '' }}>{{ $lbl }}</option>
+                                @php
+                                    $id = (string) ($k['id'] ?? '');
+                                    $parts = array_values(array_filter([
+                                        (string) ($k['unit'] ?? ''),
+                                        (string) ($k['jenjang'] ?? ''),
+                                        (string) ($k['kelas'] ?? ''),
+                                    ], static fn ($v) => $v !== ''));
+                                    $lbl = implode(' - ', $parts);
+                                @endphp
+                                @if ($id !== '' && $lbl !== '')
+                                    <option value="{{ $id }}" data-unit="{{ (string) ($k['unit'] ?? '') }}" {{ (($filters['kelas_id'] ?? '') === $id) ? 'selected' : '' }}>{{ $lbl }}</option>
                                 @endif
                             @endforeach
                         </select>
@@ -137,8 +157,10 @@
                             <a href="{{ route('keu.saldo.va', array_merge($vaExportQ, ['export' => 'csv'])) }}" role="menuitem">CSV (UTF-8)</a>
                         </div>
                     </div>
+                    <a class="va-btn va-btn-transaksi" href="{{ route('keu.saldo.transaksi', $vaTransaksiQ) }}">Lihat Transaksi</a>
                     <a class="va-btn" href="{{ route('keu.saldo.va') }}">Reset</a>
-                    <button type="submit" class="va-btn va-btn-search">Cari</button>
+                    <button type="button" class="va-btn va-btn-saldo" id="vaBtnCariSaldo">Cari Saldo</button>
+                    <button type="submit" class="va-btn va-btn-search" id="vaBtnCari">Cari</button>
                 </div>
             </form>
 
@@ -176,7 +198,7 @@
                             <th>No Pendaftaran</th>
                             <th>UNIT</th>
                             <th>KELAS</th>
-                            <th>JENJANG</th>
+                            <th>KELOMPOK</th>
                             <th>ANGKATAN</th>
                             <th class="va-num">SALDO</th>
                             <th class="va-ctr">Detail</th>
@@ -201,10 +223,6 @@
         </div>
     </div>
 
-    <p style="margin-top:12px;">
-        <a class="btn btn-primary" href="{{ route('keu.saldo.transaksi') }}">Data Transaksi</a>
-    </p>
-
     <script>
         (function () {
             try {
@@ -222,6 +240,46 @@
             var toolbarForm = document.getElementById('vaToolbarForm');
             var kw = document.getElementById('vaKw');
             var debounceTimer;
+            var vaFormFilter = document.getElementById('formVaFilter');
+            var vaSaldoPositif = document.getElementById('vaSaldoPositif');
+            var vaBtnCariSaldo = document.getElementById('vaBtnCariSaldo');
+            var vaBtnCari = document.getElementById('vaBtnCari');
+
+            if (vaBtnCariSaldo && vaFormFilter) {
+                vaBtnCariSaldo.addEventListener('click', function () {
+                    if (vaSaldoPositif) vaSaldoPositif.value = '1';
+                    vaFormFilter.submit();
+                });
+            }
+            if (vaBtnCari && vaSaldoPositif) {
+                vaBtnCari.addEventListener('click', function () {
+                    vaSaldoPositif.value = '';
+                });
+            }
+
+            var vaSekolah = document.getElementById('vaSekolah');
+            var vaKelasId = document.getElementById('vaKelasId');
+            function syncVaKelasBySekolah() {
+                if (!vaKelasId) return;
+                var sk = vaSekolah ? vaSekolah.value : '';
+                var skText = '';
+                if (vaSekolah && vaSekolah.selectedIndex >= 0) {
+                    skText = (vaSekolah.options[vaSekolah.selectedIndex].text || '').trim();
+                }
+                Array.prototype.forEach.call(vaKelasId.options, function (opt, idx) {
+                    if (idx === 0) { opt.hidden = false; return; }
+                    if (!sk) { opt.hidden = false; return; }
+                    var u = (opt.getAttribute('data-unit') || '').trim();
+                    opt.hidden = !(u === skText || u === sk);
+                });
+                if (vaKelasId.selectedOptions.length && vaKelasId.selectedOptions[0].hidden) {
+                    vaKelasId.value = '';
+                }
+            }
+            if (vaSekolah) {
+                vaSekolah.addEventListener('change', syncVaKelasBySekolah);
+                syncVaKelasBySekolah();
+            }
 
             if (exportBtn && exportDd) {
                 exportBtn.addEventListener('click', function (e) {
@@ -256,12 +314,12 @@
                                 return;
                             }
                             var rows = j.rows || [];
-                            var header = ['NIS', 'NO VA', 'NAMA', 'NO PENDAFTARAN', 'UNIT', 'KELAS', 'JENJANG', 'ANGKATAN', 'SALDO'];
+                            var header = ['NIS', 'NO VA', 'NAMA', 'NO PENDAFTARAN', 'UNIT', 'KELAS', 'KELOMPOK', 'ANGKATAN', 'SALDO'];
                             var lines = [header.join('\t')];
                             rows.forEach(function (row) {
                                 lines.push([
                                     row.nis, row.no_va, row.nama, row.no_pendaftaran, row.unit,
-                                    row.kelas, row.jenjang, row.angkatan, String(row.saldo)
+                                    row.kelas, row.kelompok, row.angkatan, String(row.saldo)
                                 ].join('\t'));
                             });
                             var text = lines.join('\n');
@@ -332,15 +390,14 @@
                                     '<td>' + esc(np) + '</td>' +
                                     '<td>' + esc(r.unit || '-') + '</td>' +
                                     '<td>' + esc(r.kelas || '-') + '</td>' +
-                                    '<td>' + esc(r.jenjang || '-') + '</td>' +
+                                    '<td>' + esc(r.kelompok || '-') + '</td>' +
                                     '<td>' + esc(r.angkatan || '-') + '</td>' +
                                     '<td class="va-num">' + fmtRp(r.saldo) + '</td>' +
                                     '<td class="va-ctr"><a class="va-detail-btn" href="' + escAttr(href) + '" title="Detail transaksi">📋</a></td></tr>';
                             }).join('');
                         }
                         if (footerInfo) {
-                            footerInfo.innerHTML = 'Menampilkan ' + esc(j.first_item) + ' sampai ' + esc(j.last_item) +
-                                ' <span style="color:#6b7280;">(saldo dari sccttran: KREDIT − DEBET)</span>';
+                            footerInfo.innerHTML = 'Menampilkan ' + esc(j.first_item) + ' sampai ' + esc(j.last_item);
                         }
                         if (footerNav) {
                             var prevH = j.prev_url ? '<a class="va-page" href="' + escAttr(j.prev_url) + '">Sebelumnya</a>' : '<span class="va-page disabled">Sebelumnya</span>';

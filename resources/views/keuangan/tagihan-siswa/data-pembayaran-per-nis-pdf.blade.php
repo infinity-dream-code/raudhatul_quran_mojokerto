@@ -24,24 +24,8 @@
 </head>
 <body>
 @php
-    $logoData = null;
-    $logoCandidates = ['logo.png', 'logo.jpg', 'logo.jpeg', 'logo.webp', 'logoyayasan.png', 'logo.jpg', 'logo.jpg'];
-    $publicDir = public_path();
-    if (is_dir($publicDir)) {
-        try {
-            $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($publicDir, FilesystemIterator::SKIP_DOTS));
-            foreach ($it as $f) {
-                if (!$f->isFile()) continue;
-                $name = strtolower($f->getFilename());
-                $hit = in_array($name, $logoCandidates, true) || str_contains($name, 'logo') || str_contains($name, 'amal') || str_contains($name, 'fatimah') || str_contains($name, 'fataimah');
-                if (!$hit) continue;
-                $ext = strtolower((string) pathinfo($name, PATHINFO_EXTENSION));
-                $mime = $ext === 'jpg' || $ext === 'jpeg' ? 'image/jpeg' : ($ext === 'webp' ? 'image/webp' : 'image/png');
-                $raw = @file_get_contents($f->getPathname());
-                if ($raw !== false && $raw !== '') { $logoData = 'data:' . $mime . ';base64,' . base64_encode($raw); break; }
-            }
-        } catch (Throwable $e) {}
-    }
+    use App\Support\BrandLogo;
+    $logoData = BrandLogo::dataUri();
 @endphp
 
 <div class="head">

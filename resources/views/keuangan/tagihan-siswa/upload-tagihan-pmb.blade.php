@@ -233,11 +233,37 @@
                 const tag = selTag && selTag.value ? selTag.value.trim() : '';
                 if (!thn || !inpPeriode) return;
                 if (!tag) { inpPeriode.value = ''; return; }
+
+                const bulanDariNama = {
+                    JANUARI: '01', FEBRUARI: '02', MARET: '03', APRIL: '04',
+                    MEI: '05', JUNI: '06', JULI: '07', AGUSTUS: '08',
+                    SEPTEMBER: '09', OKTOBER: '10', NOVEMBER: '11', DESEMBER: '12',
+                };
+                function parseYears(s) {
+                    const m = String(s).match(/(\d{4})\s*[/\-]\s*(\d{4})/);
+                    if (m) return { y1: m[1], y2: m[2] };
+                    const ys = String(s).match(/\d{4}/g);
+                    return (ys && ys.length >= 2) ? { y1: ys[0], y2: ys[1] } : null;
+                }
+                const pair = parseYears(thn);
+                let local = '';
+                if (pair) {
+                    let bulan = String(new Date().getMonth() + 1).padStart(2, '0');
+                    const nm = tag.toUpperCase();
+                    for (const [b, k] of Object.entries(bulanDariNama)) {
+                        if (nm.includes(b)) { bulan = k; break; }
+                    }
+                    local = (parseInt(bulan, 10) < 7 ? pair.y2 : pair.y1) + bulan;
+                    inpPeriode.value = local;
+                }
+
                 try {
-                    const res = await fetch(fungsiUrl + '?thn_akademik=' + encodeURIComponent(thn) + '&tagihan=' + encodeURIComponent(tag), { headers: { 'Accept': 'application/json' } });
+                    const res = await fetch(fungsiUrl + '?thn_akademik=' + encodeURIComponent(thn) + '&tagihan=' + encodeURIComponent(tag) + '&_t=' + Date.now(), { cache: 'no-store', headers: { 'Accept': 'application/json' } });
                     const data = await res.json();
-                    inpPeriode.value = (data.periode || data.fungsi || '').toString();
-                } catch (e) { inpPeriode.value = ''; }
+                    const server = String((data.periode || data.fungsi) || '').trim();
+                    if (/^\d{6}$/.test(server)) inpPeriode.value = server;
+                    else if (!local) inpPeriode.value = '';
+                } catch (e) { if (!local) inpPeriode.value = ''; }
             }
 
             if (selThn) selThn.addEventListener('change', refreshPeriode);

@@ -13,7 +13,7 @@ use Illuminate\View\View;
 
 class ExportImportDataController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request, AmalFatimahApiService $api): View
     {
         $perPage = (int) $request->query('per_page', 10);
         if (!in_array($perPage, [10, 25, 50], true)) {
@@ -64,6 +64,7 @@ class ExportImportDataController extends Controller
             'importRows' => $importRows,
             'keyword' => $keyword,
             'perPage' => $perPage,
+            'sekolahList' => $api->getSekolah(),
         ]);
     }
 
@@ -110,6 +111,19 @@ class ExportImportDataController extends Controller
 
     public function save(Request $request, AmalFatimahApiService $api): RedirectResponse
     {
+        $rules = [
+            'metode' => ['required', 'in:1,2,3,4'],
+            'sekolah' => ['nullable', 'string', 'max:50'],
+        ];
+        if (in_array((string) $request->input('metode'), ['1', '2'], true)) {
+            $rules['sekolah'] = ['required', 'string', 'max:50'];
+        }
+
+        $validated = $request->validate($rules, [
+            'sekolah.required' => 'Sekolah wajib dipilih untuk metode simpan dengan NIS / nomor pendaftaran.',
+            'metode.required' => 'Metode penyimpanan wajib dipilih.',
+        ]);
+
         $storedPath = session('import_preview_file');
         $originalName = (string) session('import_preview_filename', 'import.xlsx');
 
@@ -120,7 +134,10 @@ class ExportImportDataController extends Controller
         }
 
         $absolutePath = Storage::path($storedPath);
-        $result = $api->importSiswaByFilePath($absolutePath, $originalName);
+        $result = $api->importSiswaByFilePath($absolutePath, $originalName, [
+            'sekolah' => trim((string) $validated['sekolah']),
+            'metode' => trim((string) $validated['metode']),
+        ]);
 
         if (!($result['ok'] ?? false)) {
             Log::error('[Import Siswa] Request ke WS gagal', [

@@ -6,7 +6,7 @@
 <div class="portal-page">
     <div class="portal-card">
         <div class="brand">
-            <img src="{{ asset('logo.png') }}" alt="Logo">
+            <img src="{{ asset('mojokerto.png') }}" alt="Logo">
             <div class="brand-name">{{ config('app.name') }}</div>
         </div>
 

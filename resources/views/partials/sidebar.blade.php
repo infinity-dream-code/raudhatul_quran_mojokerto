@@ -1,6 +1,6 @@
 ﻿<aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
-        <img src="{{ asset('logo.jpg') }}" alt="Logo">
+        <img src="{{ asset('mojokerto.png') }}" alt="Logo">
         <div>
             <div class="sidebar-brand-title">MA'HAD TAHFIDZ RAUDHATUL QUR'AN</div>
             <div class="sidebar-brand-sub">Sistem Keuangan</div>

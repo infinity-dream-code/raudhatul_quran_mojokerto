@@ -107,6 +107,8 @@ Route::middleware(['web', 'dummy.auth'])->group(function () {
         Route::get('/data-siswa/{id}/edit', [DataSiswaController::class, 'edit'])->name('data_siswa.edit');
         Route::put('/data-siswa/{id}', [DataSiswaController::class, 'update'])->name('data_siswa.update');
         Route::delete('/data-siswa/{id}', [DataSiswaController::class, 'destroy'])->name('data_siswa.destroy');
+        Route::post('/data-siswa/{id}/reset-login-android', [DataSiswaController::class, 'resetLoginAndroid'])->name('data_siswa.reset_login_android');
+        Route::post('/data-siswa/reset-login-android-bulk', [DataSiswaController::class, 'resetLoginAndroidBulk'])->name('data_siswa.reset_login_android_bulk');
 
         // Setting Atribut Siswa
         Route::get('/setting-atribut-siswa', [SettingAtributSiswaController::class, 'index'])->name('setting_atribut_siswa');

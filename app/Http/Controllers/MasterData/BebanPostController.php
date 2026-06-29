@@ -48,6 +48,21 @@ class BebanPostController extends Controller
         ]);
 
         $filterOptions = $api->getFilterBebanPost();
+        $kelasFromApi = is_array($filterOptions['kelas'] ?? null) ? $filterOptions['kelas'] : [];
+        if ($kelasFromApi === []) {
+            $kelasFromApi = $api->getKelas();
+        }
+        $filterOptions['kelas'] = array_map(static function ($row) {
+            $item = is_array($row) ? array_change_key_case($row, CASE_LOWER) : [];
+
+            return [
+                'id' => (string) ($item['id'] ?? ''),
+                'kelas' => (string) ($item['kelas'] ?? ''),
+                'unit' => (string) ($item['unit'] ?? ''),
+                'jenjang' => (string) ($item['jenjang'] ?? ''),
+                'kelompok' => (string) ($item['kelompok'] ?? ''),
+            ];
+        }, $kelasFromApi);
 
         return view('master-data.beban-post.index', [
             'pageTitle' => 'Beban Post',

@@ -80,18 +80,35 @@ class ManualPembayaranController extends Controller
             return redirect()->back()->with('manual_pembayaran_error', 'Data siswa tidak valid untuk cetak kuitansi.');
         }
 
-        $today = now('Asia/Jakarta')->format('Y-m-d');
-        $filters = [
-            'tgl_dari' => $today,
-            'tgl_sampai' => $today,
-            'thn_angkatan' => '',
-            'thn_akademik' => '',
-            'kelas_id' => '',
-            'nama_tagihan' => '',
-            'siswa' => '',
-        ];
+        $selectedBills = [];
+        $billcds = $request->input('selected_billcds', []);
+        if (!is_array($billcds)) {
+            $billcds = [];
+        }
+        $primaryCustid = (int) ($custids[0] ?? 0);
+        foreach ($billcds as $bcd) {
+            $bcd = trim((string) $bcd);
+            if ($bcd !== '' && $primaryCustid > 0) {
+                $selectedBills[] = ['custid' => $primaryCustid, 'billcd' => $bcd];
+            }
+        }
 
-        $res = $api->getKartuSiswaPenerimaan($filters, $custids);
+        if ($selectedBills !== []) {
+            $res = $api->getKartuSiswaPenerimaan([], $custids, $selectedBills);
+        } else {
+            $today = now('Asia/Jakarta')->format('Y-m-d');
+            $filters = [
+                'tgl_dari' => $today,
+                'tgl_sampai' => $today,
+                'thn_angkatan' => '',
+                'thn_akademik' => '',
+                'kelas_id' => '',
+                'nama_tagihan' => '',
+                'siswa' => '',
+            ];
+
+            $res = $api->getKartuSiswaPenerimaan($filters, $custids);
+        }
         if (!$res['ok']) {
             return redirect()->back()->with('manual_pembayaran_error', $res['message'] ?? 'Gagal mengambil data kuitansi.');
         }
@@ -179,6 +196,9 @@ class ManualPembayaranController extends Controller
             'manualPembayaranSuccess' => (bool) session('manual_pembayaran_success', false),
             'manualPembayaranSuccessMessage' => trim((string) session('manual_pembayaran_message', '')),
             'manualPembayaranSuccessCustid' => (int) session('manual_pembayaran_custid', 0),
+            'manualPembayaranSuccessBillcds' => is_array(session('manual_pembayaran_billcds'))
+                ? array_values(session('manual_pembayaran_billcds'))
+                : [],
             'filters' => [
                 'siswa_search' => $searchSiswa,
                 'thn_aka' => trim((string) $request->query('thn_aka', '')),
@@ -221,6 +241,7 @@ class ManualPembayaranController extends Controller
         return $successHome->with([
             'manual_pembayaran_success' => true,
             'manual_pembayaran_custid' => $custid,
+            'manual_pembayaran_billcds' => $billcds,
             'manual_pembayaran_message' => $res['message'] ?: 'Pembayaran manual berhasil diproses.',
         ]);
     }

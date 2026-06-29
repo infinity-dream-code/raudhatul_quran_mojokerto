@@ -61,10 +61,11 @@
                 <th style="width:9%">NIS</th>
                 <th style="width:11%">NO VA</th>
                 <th style="width:18%">NAMA</th>
-                <th style="width:10%">METODE</th>
-                <th style="width:17%">TANGGAL TRANSAKSI</th>
-                <th style="width:15%">DEBET</th>
-                <th style="width:15%">KREDIT</th>
+                <th style="width:9%">METODE</th>
+                <th style="width:12%">NOREF</th>
+                <th style="width:15%">TANGGAL TRANSAKSI</th>
+                <th style="width:13%">DEBET</th>
+                <th style="width:13%">KREDIT</th>
             </tr>
         </thead>
         <tbody>
@@ -91,6 +92,7 @@
                     <td class="dt-center">{{ $r['no_va'] ?? '' }}</td>
                     <td class="dt-left">{{ $r['nama'] ?? '' }}</td>
                     <td class="dt-left">{{ $r['metode'] ?? '' }}</td>
+                    <td class="dt-left">{{ $r['noref'] ?? '' }}</td>
                     <td class="dt-center">{{ $trxFmt }}</td>
                     <td class="dt-num">{{ $rpDebet }}</td>
                     <td class="dt-num">{{ $rpKredit }}</td>

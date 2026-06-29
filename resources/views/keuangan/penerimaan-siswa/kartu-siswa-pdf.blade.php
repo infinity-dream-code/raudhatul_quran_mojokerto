@@ -38,31 +38,9 @@
 </head>
 <body>
     @php
-        $logoDataUri = null;
-        $logoCandidates = [
-            public_path('logo.jpg'),
-            public_path('logo.png'),
-            public_path('logo.jpg'),
-            public_path('logo.jpeg'),
-            public_path('images/logo.png'),
-        ];
-        foreach ($logoCandidates as $lp) {
-            if (is_string($lp) && $lp !== '' && file_exists($lp)) {
-                $ext = strtolower((string) pathinfo($lp, PATHINFO_EXTENSION));
-                $mime = match ($ext) {
-                    'png' => 'image/png',
-                    'jpg', 'jpeg' => 'image/jpeg',
-                    'webp' => 'image/webp',
-                    default => 'application/octet-stream',
-                };
-                $raw = @file_get_contents($lp);
-                if ($raw !== false) {
-                    $logoDataUri = 'data:' . $mime . ';base64,' . base64_encode($raw);
-                    break;
-                }
-            }
-        }
-        $yayasanName = 'MA'HAD TAHFIDZ RAUDHATUL QUR'AN';
+        use App\Support\BrandLogo;
+        $logoDataUri = BrandLogo::dataUri();
+        $yayasanName = "MA'HAD TAHFIDZ RAUDHATUL QUR'AN";
         $yayasanAddr = 'Mojokerto, Jawa Timur';
         $yayasanContact = 'No. Telp: — &nbsp;&nbsp; E-mail: —';
         $tglTtd = 'SURAKARTA, ' . \Illuminate\Support\Carbon::now('Asia/Jakarta')->locale('id')->translatedFormat('l, j F Y');

@@ -48,7 +48,7 @@
         .dp-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #eef2f7; }
         .dp-select, .dp-input-search { height: 34px; border: 1px solid #d1d5db; border-radius: 8px; padding: 0 10px; font-size: 12px; }
         .dp-table-wrap { overflow-x: auto; }
-        .dp-table { width: 100%; min-width: 1100px; border-collapse: collapse; font-size: 12px; }
+        .dp-table { width: 100%; min-width: 1380px; border-collapse: collapse; font-size: 12px; }
         .dp-table th, .dp-table td { border-bottom: 1px solid #eef2f7; padding: 8px 6px; text-align: left; vertical-align: middle; }
         .dp-table th { background: #fafbfd; color: #4b5563; font-weight: 700; white-space: nowrap; }
         .dp-num { text-align: right; white-space: nowrap; }
@@ -105,12 +105,20 @@
                         <input type="text" name="nis" value="{{ $filters['nis'] ?? '' }}" placeholder="Masukkan NIS siswa" autocomplete="off">
                     </div>
                     <div class="dp-fld">
-                        <label>Kelas</label>
-                        <select name="kelas_id">
+                        <label>Kelas — Kelompok</label>
+                        <select name="kelas_id" title="Unit - Kelas (jenjang) - Kelompok">
                             <option value="">Semua</option>
                             @foreach (($filterOptions['kelas'] ?? []) as $k)
-                                @php $id = (string) ($k['id'] ?? ''); $lbl = trim((string) (($k['unit'] ?? '') . ' ' . ($k['kelas'] ?? ''))); @endphp
-                                @if ($id !== '')
+                                @php
+                                    $id = (string) ($k['id'] ?? '');
+                                    $parts = array_values(array_filter([
+                                        (string) ($k['unit'] ?? ''),
+                                        (string) ($k['jenjang'] ?? ''),
+                                        (string) ($k['kelas'] ?? ''),
+                                    ], static fn ($v) => $v !== ''));
+                                    $lbl = implode(' - ', $parts);
+                                @endphp
+                                @if ($id !== '' && $lbl !== '')
                                     <option value="{{ $id }}" {{ (($filters['kelas_id'] ?? '') === $id) ? 'selected' : '' }}>{{ $lbl }}</option>
                                 @endif
                             @endforeach
@@ -125,7 +133,12 @@
                         <select name="nama_tagihan">
                             <option value="">Semua</option>
                             @foreach (($filterOptions['tagihan'] ?? []) as $tag)
-                                <option value="{{ $tag }}" {{ (($filters['nama_tagihan'] ?? '') === $tag) ? 'selected' : '' }}>{{ $tag }}</option>
+                                @php
+                                    $tagihanValue = is_array($tag) ? (string) ($tag['tagihan'] ?? $tag['nama'] ?? '') : (string) $tag;
+                                @endphp
+                                @if ($tagihanValue !== '')
+                                    <option value="{{ $tagihanValue }}" {{ (($filters['nama_tagihan'] ?? '') === $tagihanValue) ? 'selected' : '' }}>{{ $tagihanValue }}</option>
+                                @endif
                             @endforeach
                         </select>
                     </div>
@@ -150,8 +163,56 @@
                         <input type="date" name="tgl_sampai" value="{{ $filters['tgl_sampai'] ?? '' }}">
                     </div>
                     <div class="dp-fld">
-                        <label>Sekolah</label>
-                        <input type="text" name="sekolah" value="{{ $filters['sekolah'] ?? '' }}" placeholder="Nama unit / sekolah">
+                        <label>Unit</label>
+                        <select name="sekolah" title="Filter unit dari mst_sekolah">
+                            <option value="">Semua</option>
+                            @foreach (($filterOptions['sekolah'] ?? []) as $sk)
+                                @php
+                                    $code = trim((string) (is_array($sk) ? ($sk['code'] ?? '') : ''));
+                                    $nama = trim((string) (is_array($sk) ? ($sk['nama'] ?? '') : ''));
+                                    $lbl = $nama !== '' ? $nama : $code;
+                                @endphp
+                                @if ($code !== '')
+                                    <option value="{{ $code }}" {{ (($filters['sekolah'] ?? '') === $code) ? 'selected' : '' }}>{{ $lbl }}</option>
+                                @endif
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="dp-fld">
+                        <label>Kode Post</label>
+                        <select name="kode_post">
+                            <option value="">Semua</option>
+                            @foreach (($filterOptions['akun'] ?? []) as $ak)
+                                @php
+                                    $kode = trim((string) (is_array($ak) ? ($ak['kode'] ?? '') : ''));
+                                    $namaAkun = trim((string) (is_array($ak) ? ($ak['nama'] ?? '') : ''));
+                                    $lbl = $kode . ($namaAkun !== '' ? ' — ' . $namaAkun : '');
+                                @endphp
+                                @if ($kode !== '')
+                                    <option value="{{ $kode }}" {{ (($filters['kode_post'] ?? '') === $kode) ? 'selected' : '' }}>{{ $lbl }}</option>
+                                @endif
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="dp-fld">
+                        <label>Nama Post</label>
+                        <select name="nama_post">
+                            <option value="">Semua</option>
+                            @php $namaPostSeen = []; @endphp
+                            @foreach (($filterOptions['akun'] ?? []) as $ak)
+                                @php
+                                    $namaAkun = trim((string) (is_array($ak) ? ($ak['nama'] ?? '') : ''));
+                                    $kode = trim((string) (is_array($ak) ? ($ak['kode'] ?? '') : ''));
+                                    if ($namaAkun === '') {
+                                        $namaAkun = $kode;
+                                    }
+                                @endphp
+                                @if ($namaAkun !== '' && !isset($namaPostSeen[$namaAkun]))
+                                    @php $namaPostSeen[$namaAkun] = true; @endphp
+                                    <option value="{{ $namaAkun }}" {{ (($filters['nama_post'] ?? '') === $namaAkun) ? 'selected' : '' }}>{{ $namaAkun }}</option>
+                                @endif
+                            @endforeach
+                        </select>
                     </div>
                     <div class="dp-fld">
                         <label>Periode Mulai</label>
@@ -214,6 +275,9 @@
                             <th>NAMA</th>
                             <th>Unit</th>
                             <th>Kelas</th>
+                            <th>Kelompok</th>
+                            <th>Kode Post</th>
+                            <th>Nama Post</th>
                             <th>Nama Tagihan</th>
                             <th class="dp-num">Tagihan</th>
                             <th>Metode</th>
@@ -223,7 +287,7 @@
                     </thead>
                     <tbody id="dpTbody">
                         <tr id="dpLoadingRow">
-                            <td colspan="11" style="text-align:center;color:#6b7280;padding:20px;">Memuat data tabel…</td>
+                            <td colspan="14" style="text-align:center;color:#6b7280;padding:20px;">Memuat data tabel…</td>
                         </tr>
                     </tbody>
                 </table>
@@ -442,14 +506,14 @@
                                 errEl.style.display = 'block';
                                 errEl.textContent = msg;
                             }
-                            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:#b91c1c;padding:20px;">' +
+                            tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;color:#b91c1c;padding:20px;">' +
                                 esc(msg) + '</td></tr>';
                             if (footerInfo) footerInfo.innerHTML = '';
                             return;
                         }
                         var rows = j.rows || [];
                         if (rows.length === 0) {
-                            tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:#6b7280;padding:20px;">Tidak ada data untuk filter ini.</td></tr>';
+                            tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;color:#6b7280;padding:20px;">Tidak ada data untuk filter ini.</td></tr>';
                         } else {
                             tbody.innerHTML = rows.map(function (r, idx) {
                                 var no = (j.first_item || 0) + idx;
@@ -461,6 +525,9 @@
                                     '<td>' + esc(r.nama || '-') + '</td>' +
                                     '<td>' + esc(r.unit || '-') + '</td>' +
                                     '<td>' + esc(r.kelas || '-') + '</td>' +
+                                    '<td>' + esc(r.kelompok || '-') + '</td>' +
+                                    '<td>' + esc(r.kode_post || '-') + '</td>' +
+                                    '<td>' + esc(r.nama_post || '-') + '</td>' +
                                     '<td>' + esc(r.nama_tagihan || '-') + '</td>' +
                                     '<td class="dp-num">' + fmtRp(r.tagihan) + '</td>' +
                                     '<td>' + esc(r.metode || '-') + '</td>' +
@@ -484,7 +551,7 @@
                             errEl.style.display = 'block';
                             errEl.textContent = 'Gagal menghubungi server.';
                         }
-                        if (tbody) tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;color:#b91c1c;padding:20px;">Gagal menghubungi server.</td></tr>';
+                        if (tbody) tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;color:#b91c1c;padding:20px;">Gagal menghubungi server.</td></tr>';
                     });
             }
         })();

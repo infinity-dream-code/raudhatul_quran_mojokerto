@@ -45,32 +45,10 @@
 </head>
 <body>
     @php
-        $logoDataUri = null;
-        $logoCandidates = [
-            public_path('logo.jpg'),
-            public_path('logo.png'),
-            public_path('logo.jpg'),
-            public_path('logo.jpeg'),
-            public_path('images/logo.png'),
-        ];
-        foreach ($logoCandidates as $lp) {
-            if (is_string($lp) && $lp !== '' && file_exists($lp)) {
-                $ext = strtolower((string) pathinfo($lp, PATHINFO_EXTENSION));
-                $mime = match ($ext) {
-                    'png' => 'image/png',
-                    'jpg', 'jpeg' => 'image/jpeg',
-                    'webp' => 'image/webp',
-                    default => 'application/octet-stream',
-                };
-                $raw = @file_get_contents($lp);
-                if ($raw !== false) {
-                    $logoDataUri = 'data:' . $mime . ';base64,' . base64_encode($raw);
-                    break;
-                }
-            }
-        }
+        use App\Support\BrandLogo;
+        $logoDataUri = BrandLogo::dataUri();
         $dengan2000 = !empty($dengan_2000);
-        $yayasanName = 'MA'HAD TAHFIDZ RAUDHATUL QUR'AN';
+        $yayasanName = "MA'HAD TAHFIDZ RAUDHATUL QUR'AN";
         $yayasanAddr = 'Mojokerto, Jawa Timur';
         $yayasanContact = '';
         if (!function_exists('kuitansi_format_rp')) {

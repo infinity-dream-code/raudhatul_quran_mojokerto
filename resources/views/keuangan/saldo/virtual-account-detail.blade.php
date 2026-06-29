@@ -39,6 +39,10 @@
         .vd-table { width: 100%; min-width: 720px; border-collapse: collapse; font-size: 12px; }
         .vd-table th, .vd-table td { border-bottom: 1px solid #eef2f7; padding: 8px 6px; text-align: left; vertical-align: middle; }
         .vd-table th { background: #fafbfd; color: #4b5563; font-weight: 700; }
+        .vd-table th.vd-sortable { cursor: pointer; user-select: none; }
+        .vd-table th.vd-sortable:hover { background: #f1f5f9; }
+        .vd-table th.vd-sort-asc::after { content: ' ▲'; font-size: 10px; color: #2563eb; }
+        .vd-table th.vd-sort-desc::after { content: ' ▼'; font-size: 10px; color: #2563eb; }
         .vd-num { text-align: right; white-space: nowrap; }
         .vd-ctr { text-align: center; }
         .vd-total-row td { font-weight: 800; background: #f8fafc; border-top: 2px solid #e5e7eb; }
@@ -101,14 +105,15 @@
                     <thead>
                         <tr>
                             <th class="vd-ctr">No</th>
-                            <th>METODE</th>
-                            <th>TANGGAL TRANSAKSI</th>
-                            <th class="vd-num">DEBET</th>
-                            <th class="vd-num">KREDIT</th>
+                            <th class="vd-sortable" data-sort="metode" id="vdSortMetode">METODE</th>
+                            <th class="vd-sortable" data-sort="noref" id="vdSortNoref">NOREF</th>
+                            <th class="vd-sortable" data-sort="trxdate" id="vdSortTrxdate">TANGGAL TRANSAKSI</th>
+                            <th class="vd-sortable vd-num" data-sort="debet" id="vdSortDebet">DEBET</th>
+                            <th class="vd-sortable vd-num" data-sort="kredit" id="vdSortKredit">KREDIT</th>
                         </tr>
                     </thead>
                     <tbody id="vdTbody">
-                        <tr><td colspan="5" style="text-align:center;padding:20px;color:#6b7280;">Memuat…</td></tr>
+                        <tr><td colspan="6" style="text-align:center;padding:20px;color:#6b7280;">Memuat…</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -124,6 +129,8 @@
         (function () {
             var custid = {{ (int) $custid }};
             var loadUrl = @json($mutasiUrl ?? '');
+            var sortBy = @json($sortBy ?? 'trxdate');
+            var sortDir = @json($sortDir ?? 'desc');
             var tbody = document.getElementById('vdTbody');
             var metaEl = document.getElementById('vdMeta');
             var errEl = document.getElementById('vdErr');
@@ -163,15 +170,52 @@
                 var saldo = fmtRp(siswa.saldo || 0);
                 return '<dl><dt>Nis</dt><dd>' + esc(siswa.nis || '-') + '</dd></dl>' +
                     '<dl><dt>Nama</dt><dd>' + esc(siswa.nama || '-') + '</dd></dl>' +
+                    '<dl><dt>Unit</dt><dd>' + esc(siswa.unit || '-') + '</dd></dl>' +
                     '<dl><dt>Kelas</dt><dd>' + esc(siswa.kelas || '-') + '</dd></dl>' +
+                    '<dl><dt>Kelompok</dt><dd>' + esc(siswa.kelompok || '-') + '</dd></dl>' +
                     '<dl><dt>Angkatan</dt><dd>' + esc(siswa.angkatan || '-') + '</dd></dl>' +
                     '<dl><dt>Nomor Virtual Account</dt><dd>' + esc(siswa.no_va || '-') + '</dd></dl>' +
                     '<div class="vd-saldo-box"><div class="lbl">Total Saldo</div><div class="val">' + saldo + '</div></div>';
             }
 
+            function withSortParams(url) {
+                var u = new URL(url, window.location.origin);
+                u.searchParams.set('sort_by', sortBy);
+                u.searchParams.set('sort_dir', sortDir);
+                return u.toString();
+            }
+
+            function updateSortHeaders() {
+                document.querySelectorAll('#vdTable th[data-sort]').forEach(function (th) {
+                    th.classList.remove('vd-sort-asc', 'vd-sort-desc');
+                    if (th.getAttribute('data-sort') === sortBy) {
+                        th.classList.add(sortDir === 'asc' ? 'vd-sort-asc' : 'vd-sort-desc');
+                    }
+                });
+            }
+
+            function applySort(col) {
+                if (sortBy === col) {
+                    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    sortBy = col;
+                    sortDir = (col === 'metode' || col === 'noref') ? 'asc' : 'desc';
+                }
+                updateSortHeaders();
+                var u = new URL(loadUrl, window.location.origin);
+                if (perPage) u.searchParams.set('per_page', perPage.value);
+                if (kw) u.searchParams.set('cari', kw.value || '');
+                u.searchParams.set('page', '1');
+                u.searchParams.set('sort_by', sortBy);
+                u.searchParams.set('sort_dir', sortDir);
+                loadUrl = u.pathname + u.search;
+                fetchRows(withSortParams(u.toString()));
+                try { history.replaceState(null, '', loadUrl); } catch (e) {}
+            }
+
             function fetchRows(url) {
                 if (!url || !tbody) return;
-                fetch(url, {
+                fetch(withSortParams(url), {
                     headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     credentials: 'same-origin'
                 })
@@ -183,7 +227,7 @@
                                 errEl.style.display = 'block';
                                 errEl.textContent = j.message || 'Gagal memuat mutasi.';
                             }
-                            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#b91c1c;">' + esc(j.message || 'Gagal') + '</td></tr>';
+                            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#b91c1c;">' + esc(j.message || 'Gagal') + '</td></tr>';
                             return;
                         }
                         if (errEl) errEl.style.display = 'none';
@@ -195,7 +239,7 @@
                         var rows = j.rows || [];
                         var totals = j.totals || {};
                         if (rows.length === 0) {
-                            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#6b7280;">Tidak ada transaksi' +
+                            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#6b7280;">Tidak ada transaksi' +
                                 (j.cari ? ' untuk pencarian ini' : '') + '.</td></tr>';
                         } else {
                             var body = rows.map(function (r, idx) {
@@ -203,16 +247,17 @@
                                 return '<tr>' +
                                     '<td class="vd-ctr">' + esc(no) + '</td>' +
                                     '<td>' + esc(r.metode || '-') + '</td>' +
+                                    '<td>' + esc(r.noref || '-') + '</td>' +
                                     '<td>' + esc(fmtTrx(r.trxdate)) + '</td>' +
                                     '<td class="vd-num">' + (r.debet > 0 ? fmtRp(r.debet) : '-') + '</td>' +
                                     '<td class="vd-num">' + (r.kredit > 0 ? fmtRp(r.kredit) : '-') + '</td></tr>';
                             }).join('');
                             body += '<tr class="vd-total-row">' +
-                                '<td colspan="3" class="vd-num">TOTAL</td>' +
+                                '<td colspan="4" class="vd-num">TOTAL</td>' +
                                 '<td class="vd-num">' + fmtRp(totals.debet || 0) + '</td>' +
                                 '<td class="vd-num">' + fmtRp(totals.kredit || 0) + '</td></tr>';
                             body += '<tr class="vd-total-row">' +
-                                '<td colspan="3" class="vd-num">TOTAL SALDO (KREDIT − DEBET)</td>' +
+                                '<td colspan="4" class="vd-num">TOTAL SALDO (KREDIT − DEBET)</td>' +
                                 '<td colspan="2" class="vd-num">' + fmtRp(totals.saldo || 0) + '</td></tr>';
                             tbody.innerHTML = body;
                         }
@@ -221,19 +266,23 @@
                             footerInfo.innerHTML = 'Menampilkan ' + esc(j.first_item) + ' sampai ' + esc(j.last_item) + extra;
                         }
                         if (footerNav) {
-                            var prevH = j.prev_url ? '<a class="vd-page" href="' + escAttr(j.prev_url) + '">Sebelumnya</a>' : '<span class="vd-page disabled">Sebelumnya</span>';
-                            var nextH = j.next_url ? '<a class="vd-page" href="' + escAttr(j.next_url) + '">Selanjutnya</a>' : '<span class="vd-page disabled">Selanjutnya</span>';
+                            var prevH = j.prev_url ? '<a class="vd-page" href="' + escAttr(withSortParams(j.prev_url)) + '">Sebelumnya</a>' : '<span class="vd-page disabled">Sebelumnya</span>';
+                            var nextH = j.next_url ? '<a class="vd-page" href="' + escAttr(withSortParams(j.next_url)) + '">Selanjutnya</a>' : '<span class="vd-page disabled">Selanjutnya</span>';
                             footerNav.innerHTML = prevH + '<span class="vd-page active">' + esc(String(j.page || 1)) + '</span>' + nextH;
                             footerNav.querySelectorAll('a.vd-page').forEach(function (a) {
                                 a.addEventListener('click', function (ev) {
                                     ev.preventDefault();
-                                    fetchRows(a.getAttribute('href'));
+                                    var href = a.getAttribute('href');
+                                    fetchRows(href);
                                     try {
-                                        history.replaceState(null, '', a.getAttribute('href'));
+                                        history.replaceState(null, '', href);
                                     } catch (e2) {}
                                 });
                             });
                         }
+                        if (j.sort_by) sortBy = j.sort_by;
+                        if (j.sort_dir) sortDir = j.sort_dir;
+                        updateSortHeaders();
                     })
                     .catch(function () {
                         if (errEl) {
@@ -248,8 +297,11 @@
                     var u = new URL(loadUrl, window.location.origin);
                     u.searchParams.set('per_page', perPage.value);
                     u.searchParams.set('page', '1');
+                    u.searchParams.set('sort_by', sortBy);
+                    u.searchParams.set('sort_dir', sortDir);
+                    loadUrl = u.pathname + u.search;
                     fetchRows(u.toString());
-                    try { history.replaceState(null, '', u.pathname + u.search); } catch (e) {}
+                    try { history.replaceState(null, '', loadUrl); } catch (e) {}
                 });
             }
             if (kw) {
@@ -260,12 +312,22 @@
                         u.searchParams.set('cari', kw.value || '');
                         u.searchParams.set('page', '1');
                         if (perPage) u.searchParams.set('per_page', perPage.value);
+                        u.searchParams.set('sort_by', sortBy);
+                        u.searchParams.set('sort_dir', sortDir);
+                        loadUrl = u.pathname + u.search;
                         fetchRows(u.toString());
-                        try { history.replaceState(null, '', u.pathname + u.search); } catch (e) {}
+                        try { history.replaceState(null, '', loadUrl); } catch (e) {}
                     }, 450);
                 });
             }
 
+            document.querySelectorAll('#vdTable th[data-sort]').forEach(function (th) {
+                th.addEventListener('click', function () {
+                    applySort(th.getAttribute('data-sort') || 'trxdate');
+                });
+            });
+
+            updateSortHeaders();
             fetchRows(loadUrl);
         })();
     </script>

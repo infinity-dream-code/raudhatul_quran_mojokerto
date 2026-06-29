@@ -86,11 +86,14 @@ class MasterKelasController extends Controller
         ]);
 
         if (!($result['ok'] ?? false)) {
+            $msg = trim((string) ($result['message'] ?? 'Gagal menambahkan data kelas.'));
+
             return redirect()
                 ->route('master.kelas')
                 ->withInput()
                 ->with('openCreateModal', true)
-                ->withErrors(['api' => $result['message'] ?? 'Gagal menambahkan data kelas.']);
+                ->with('error', $msg)
+                ->withErrors(['api' => $msg]);
         }
 
         return redirect()->route('master.kelas')->with('status', 'Data Master Kelas berhasil ditambahkan.');

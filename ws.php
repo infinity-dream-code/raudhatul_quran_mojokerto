@@ -353,7 +353,7 @@ function createKelas(array $req): array
         http_response_code(409);
         echo json_encode([
             "status" => 409,
-            "message" => "Kombinasi unit, kelas, dan kelompok sudah terdaftar"
+            "message" => "Gagal menyimpan: kombinasi unit \"{$unit}\", kelas \"{$jenjang}\", kelompok \"{$kelas}\" sudah terdaftar"
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -906,6 +906,30 @@ function mstKelasUiSqlExprs(string $mkAlias = 'mk', string $custAlias = 'c'): ar
 }
 
 /**
+ * Fragment WHERE: siswa pada unit sekolah (:sekolah_code = mst_sekolah.CODE01).
+ * Butuh LEFT JOIN mst_kelas $mkAlias ON CAST($mkAlias.id AS CHAR) = TRIM($cAlias.CODE03).
+ */
+function siswaSekolahFilterSql(string $cAlias = 'c', string $mkAlias = 'mk'): string
+{
+    return "(
+        TRIM({$cAlias}.CODE01) = :sekolah_code
+        OR TRIM({$cAlias}.CODE02) = (
+            SELECT TRIM(COALESCE(NULLIF(TRIM(msf.DESC01), ''), TRIM(msf.CODE01)))
+            FROM mst_sekolah msf
+            WHERE TRIM(msf.CODE01) = :sekolah_code
+            LIMIT 1
+        )
+        OR TRIM({$cAlias}.CODE02) = :sekolah_code
+        OR ({$mkAlias}.id IS NOT NULL AND TRIM({$mkAlias}.unit) = (
+            SELECT TRIM(COALESCE(NULLIF(TRIM(msf.DESC01), ''), TRIM(msf.CODE01)))
+            FROM mst_sekolah msf
+            WHERE TRIM(msf.CODE01) = :sekolah_code
+            LIMIT 1
+        ))
+    )";
+}
+
+/**
  * @return array{0: list<string>, 1: array<string, mixed>}
  */
 function scctcustSiswaWhereFromReq(array $req, string $tableAlias = ""): array
@@ -959,8 +983,15 @@ function scctcustSiswaWhereFromReq(array $req, string $tableAlias = ""): array
     }
 
     if (isset($req["STCUST"]) && $req["STCUST"] !== "") {
-        $where[] = "{$p}STCUST = :STCUST";
-        $params[":STCUST"] = trim((string) $req["STCUST"]);
+        $stv = trim((string) $req["STCUST"]);
+        if ($stv === '1' || (int) preg_replace('/\D+/', '', $stv) === 1) {
+            $where[] = "TRIM(CAST({$p}STCUST AS CHAR)) = '1'";
+        } elseif ($stv === '0' || (int) preg_replace('/\D+/', '', $stv) === 0) {
+            $where[] = "(TRIM(CAST({$p}STCUST AS CHAR)) = '0' OR {$p}STCUST IS NULL)";
+        } else {
+            $where[] = "{$p}STCUST = :STCUST";
+            $params[":STCUST"] = $stv;
+        }
     }
 
     return [$where, $params];
@@ -1092,7 +1123,7 @@ function createSiswa(array $req): array
     $stmt->execute([
         ":NOCUST" => $nis,
         ":NMCUST" => $nama,
-        ":NUM2ND" => $nodaf !== "" ? $nodaf : null,
+        ":NUM2ND" => normalizeScctcustDashField($nodaf),
         ":CODE02" => $unit !== "" ? $unit : null,
         ":CODE03" => $kelas !== "" ? $kelas : null,
         ":DESC03" => $kelompok !== "" ? $kelompok : null,
@@ -1378,6 +1409,138 @@ function getSiswaByCustid(array $req): array
     return $row;
 }
 
+function callAndroidLogonFixer(PDO $pdo, string $nis): void
+{
+    $nis = trim($nis);
+    if ($nis === '' || $nis === '-') {
+        throw new InvalidArgumentException('NIS tidak valid untuk reset login Android.');
+    }
+
+    $stmt = $pdo->prepare('CALL AndroidLogonFixer(?)');
+    $stmt->execute([$nis]);
+    while ($stmt->nextRowset()) {
+    }
+}
+
+function resolveNisForAndroidReset(PDO $pdo, array $req): string
+{
+    $nis = trim((string) ($req['nis'] ?? ''));
+    $custid = (int) ($req['CUSTID'] ?? $req['custid'] ?? 0);
+
+    if ($nis === '' && $custid > 0) {
+        $st = $pdo->prepare('SELECT TRIM(NOCUST) AS nis FROM scctcust WHERE CUSTID = :id LIMIT 1');
+        $st->execute([':id' => $custid]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        $nis = trim((string) ($row['nis'] ?? ''));
+    }
+
+    return $nis;
+}
+
+function resetLoginAndroid(array $req): array
+{
+    $pdo = dbConnectPdo();
+    $nis = resolveNisForAndroidReset($pdo, $req);
+
+    if ($nis === '' || $nis === '-') {
+        http_response_code(422);
+        echo json_encode([
+            'status'  => 422,
+            'message' => 'Siswa tidak memiliki NIS valid',
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    try {
+        callAndroidLogonFixer($pdo, $nis);
+
+        return [
+            'nis'     => $nis,
+            'message' => 'Login Android direset',
+        ];
+    } catch (Throwable $e) {
+        http_response_code(422);
+        echo json_encode([
+            'status'  => 422,
+            'message' => 'Gagal reset login Android',
+            'error'   => $e->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+}
+
+function resetLoginAndroidBulk(array $req): array
+{
+    $custids = $req['custids'] ?? [];
+    if (!is_array($custids) || count($custids) === 0) {
+        http_response_code(422);
+        echo json_encode([
+            'status'  => 422,
+            'message' => 'custids wajib diisi',
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $custids = array_values(array_filter(array_map('intval', $custids), static fn ($v) => $v > 0));
+    if (count($custids) === 0) {
+        http_response_code(422);
+        echo json_encode([
+            'status'  => 422,
+            'message' => 'custids tidak valid',
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $pdo = dbConnectPdo();
+    $placeholders = implode(',', array_fill(0, count($custids), '?'));
+    $stmt = $pdo->prepare("SELECT CUSTID, TRIM(NOCUST) AS nis FROM scctcust WHERE CUSTID IN ($placeholders)");
+    $stmt->execute($custids);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    if (!$rows) {
+        http_response_code(422);
+        echo json_encode([
+            'status'  => 422,
+            'message' => 'Data siswa tidak ditemukan',
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $processed = 0;
+    try {
+        foreach ($rows as $row) {
+            $nis = trim((string) ($row['nis'] ?? ''));
+            if ($nis === '' || $nis === '-') {
+                continue;
+            }
+            callAndroidLogonFixer($pdo, $nis);
+            $processed++;
+        }
+    } catch (Throwable $e) {
+        http_response_code(422);
+        echo json_encode([
+            'status'  => 422,
+            'message' => 'Gagal reset login android massal',
+            'error'   => $e->getMessage(),
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    if ($processed === 0) {
+        http_response_code(422);
+        echo json_encode([
+            'status'  => 422,
+            'message' => 'Tidak ada siswa valid untuk reset (NIS kosong)',
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    return [
+        'processed' => $processed,
+        'message'   => "Reset Android berhasil untuk {$processed} siswa.",
+    ];
+}
+
 function getThnAka(): array
 {
     $pdo = dbConnectPdo();
@@ -1595,8 +1758,7 @@ function getFilterBebanPost(): array
     $stmtKelas = $pdo->prepare("
         SELECT id, TRIM(kelas) AS kelas, TRIM(unit) AS unit, TRIM(jenjang) AS jenjang, TRIM(kelompok) AS kelompok
         FROM mst_kelas
-        WHERE kelas IS NOT NULL AND TRIM(kelas) != ''
-        ORDER BY unit ASC, kelas ASC
+        ORDER BY unit ASC, jenjang ASC, kelas ASC
     ");
     $stmtKelas->execute();
     $kelas = $stmtKelas->fetchAll();
@@ -1978,6 +2140,70 @@ function exportSiswa(array $req): void
     exit;
 }
 
+function normalizeScctcustDashField(?string $value): string
+{
+    $s = trim((string) $value);
+
+    return $s !== '' ? $s : '-';
+}
+
+function fetchMstSekolahByCode01(PDO $pdo, string $code01): ?array
+{
+    $code01 = trim($code01);
+    if ($code01 === '') {
+        return null;
+    }
+
+    $st = $pdo->prepare("
+        SELECT TRIM(CODE01) AS CODE01, TRIM(DESC01) AS DESC01
+        FROM mst_sekolah
+        WHERE TRIM(CODE01) = :code01
+        LIMIT 1
+    ");
+    $st->execute([':code01' => $code01]);
+    $row = $st->fetch(PDO::FETCH_ASSOC);
+
+    return $row ?: null;
+}
+
+function importSiswaColumnAliases(): array
+{
+    return [
+        'NODAF'  => ['NODAFTAR', 'NO PEND', 'NO_PEND', 'NO DAFT', 'NO DAFTAR'],
+        'NAMA'   => ['Nama'],
+        'WALI'   => ['ORTU', 'GENUS'],
+    ];
+}
+
+function importSiswaColGet(array $colMap, string $key, array $row): string
+{
+    $try = [$key];
+    $aliases = importSiswaColumnAliases();
+    if (isset($aliases[$key])) {
+        $try = array_merge($try, $aliases[$key]);
+    }
+
+    foreach ($try as $k) {
+        $uk = strtoupper(trim((string) $k));
+        if (isset($colMap[$uk])) {
+            return trim((string) ($row[$colMap[$uk]] ?? ''));
+        }
+    }
+
+    return '';
+}
+
+function importSiswaHasNodafColumn(array $colMap): bool
+{
+    foreach (['NODAF', 'NODAFTAR', 'NO PEND', 'NO_PEND', 'NO DAFT', 'NO DAFTAR'] as $col) {
+        if (isset($colMap[$col])) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function importSiswa(array $req): array
 {
     if (empty($_FILES["file"]["tmp_name"])) {
@@ -2078,48 +2304,113 @@ function importSiswa(array $req): array
         $colMap[strtoupper(trim((string) $col))] = $idx;
     }
 
-    $required = ["NIS"];
-    foreach ($required as $col) {
-        if (!isset($colMap[$col])) {
+    $metode = trim((string) ($req['metode'] ?? '1'));
+    if (!in_array($metode, ['1', '2', '3', '4'], true)) {
+        $metode = '1';
+    }
+
+    $hasNis = isset($colMap['NIS']);
+    $hasNodafCol = importSiswaHasNodafColumn($colMap);
+
+    if ($metode === '1' && !$hasNis) {
+        http_response_code(422);
+        echo json_encode([
+            'status'  => 422,
+            'message' => 'Kolom wajib tidak ditemukan: NIS (metode simpan dengan NIS)',
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    if ($metode === '2' && !$hasNodafCol) {
+        http_response_code(422);
+        echo json_encode([
+            'status'  => 422,
+            'message' => 'Kolom wajib tidak ditemukan: NODAF / NODAFTAR (metode simpan dengan nomor pendaftaran)',
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    if ($metode === '3' && !$hasNis) {
+        http_response_code(422);
+        echo json_encode([
+            'status'  => 422,
+            'message' => 'Kolom wajib tidak ditemukan: NIS (metode update kelas)',
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    if ($metode === '4' && (!$hasNis || !$hasNodafCol)) {
+        http_response_code(422);
+        echo json_encode([
+            'status'  => 422,
+            'message' => 'Kolom wajib tidak ditemukan: NIS dan NODAF / NODAFTAR (metode upgrade ke NIS)',
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $pdo = dbConnectPdo();
+
+    $sekolahRow = null;
+    if (in_array($metode, ['1', '2'], true)) {
+        $sekolahCode = trim((string) ($req['sekolah'] ?? ''));
+        if ($sekolahCode === '') {
             http_response_code(422);
             echo json_encode([
-                "status"  => 422,
-                "message" => "Kolom wajib tidak ditemukan: " . $col
+                'status'  => 422,
+                'message' => 'Sekolah wajib dipilih sebelum menyimpan data',
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        $sekolahRow = fetchMstSekolahByCode01($pdo, $sekolahCode);
+        if (!$sekolahRow) {
+            http_response_code(422);
+            echo json_encode([
+                'status'  => 422,
+                'message' => 'Sekolah tidak ditemukan di mst_sekolah. Periksa Master Sekolah.',
             ], JSON_UNESCAPED_UNICODE);
             exit;
         }
     }
-
-    $pdo = dbConnectPdo();
 
     $inserted = 0;
     $updated  = 0;
     $skipped  = 0;
     $errors   = [];
 
-    $colGet = fn(string $key, array $row) => isset($colMap[$key]) ? trim((string) ($row[$colMap[$key]] ?? "")) : "";
+    $colGet = static fn (string $key, array $row) => importSiswaColGet($colMap, $key, $row);
 
     for ($i = 1; $i < count($rows); $i++) {
         $row = $rows[$i];
 
-        $nis = $colGet("NIS", $row);
-        if ($nis === "") {
+        $nis      = $colGet('NIS', $row);
+        $nama     = $colGet('NAMA', $row);
+        $nodaf    = $colGet('NODAF', $row);
+        $unit     = $colGet('UNIT', $row);
+        $kelas    = $colGet('KELAS', $row);
+        $kelompok = $colGet('KELOMPOK', $row);
+        $angkatan = $colGet('ANGKATAN', $row);
+        $gender   = $colGet('GENDER', $row);
+        $alamat   = $colGet('ALAMAT', $row);
+        $ayah     = $colGet('AYAH', $row);
+        $ibu      = $colGet('IBU', $row);
+        $wali     = $colGet('WALI', $row);
+        $waliNama = $wali !== '' ? $wali : ($ayah !== '' ? $ayah : $ibu);
+
+        $rowKey = $nis !== '' ? $nis : ($nodaf !== '' ? $nodaf : 'baris-' . ($i + 1));
+
+        if ($metode === '1' && $nis === '') {
             $skipped++;
             continue;
         }
-
-        $nama       = $colGet("NAMA", $row);
-        $nodaf      = $colGet("NODAF", $row);
-        $unit       = $colGet("UNIT", $row);
-        $kelas      = $colGet("KELAS", $row);
-        $kelompok   = $colGet("KELOMPOK", $row);
-        $angkatan   = $colGet("ANGKATAN", $row);
-        $gender     = $colGet("GENDER", $row);
-        $alamat     = $colGet("ALAMAT", $row);
-        $ayah       = $colGet("AYAH", $row);
-        $ibu        = $colGet("IBU", $row);
-        $wali       = $colGet("WALI", $row);
-        $waliNama   = $wali !== "" ? $wali : ($ayah !== "" ? $ayah : $ibu);
+        if ($metode === '2' && $nodaf === '') {
+            $skipped++;
+            continue;
+        }
+        if ($metode === '3' && $nis === '') {
+            $skipped++;
+            continue;
+        }
+        if ($metode === '4' && ($nis === '' || $nodaf === '')) {
+            $skipped++;
+            continue;
+        }
 
         $kelasRow = resolveKelasForSiswaImport($pdo, $unit, $kelas, $kelompok);
         $code02 = $unit !== '' ? $unit : null;
@@ -2134,91 +2425,235 @@ function importSiswa(array $req): array
             if ($code02 === null && $kelasRow['unit'] !== '') {
                 $code02 = $kelasRow['unit'];
             }
-        } elseif ($kelas !== '' || ($unit !== '' && $kelompok !== '')) {
+        } elseif ($metode !== '4' && ($kelas !== '' || ($unit !== '' && $kelompok !== ''))) {
             $errors[] = [
-                'nis' => $nis,
+                'nis' => $rowKey,
                 'error' => resolveKelasForSiswaImportMessage($kelas, $kelompok, null),
             ];
             $skipped++;
             continue;
         }
 
+        $nisDb = normalizeScctcustDashField($nis);
+        $nodafDb = normalizeScctcustDashField($nodaf);
+        $code01 = $sekolahRow['CODE01'] ?? null;
+        $desc01 = $sekolahRow['DESC01'] ?? null;
+
         try {
-            $check = $pdo->prepare("SELECT 1 FROM scctcust WHERE TRIM(NOCUST) = :nis LIMIT 1");
-            $check->execute([":nis" => $nis]);
+            if ($metode === '3') {
+                if (!$kelasRow) {
+                    $errors[] = ['nis' => $nis, 'error' => 'Kelas tidak ditemukan di Master Kelas'];
+                    $skipped++;
+                    continue;
+                }
+                $check = $pdo->prepare('SELECT 1 FROM scctcust WHERE TRIM(NOCUST) = :nis LIMIT 1');
+                $check->execute([':nis' => $nis]);
+                if (!$check->fetch()) {
+                    $errors[] = ['nis' => $nis, 'error' => 'Siswa dengan NIS tersebut tidak ditemukan'];
+                    $skipped++;
+                    continue;
+                }
+                $upd = $pdo->prepare('
+                    UPDATE scctcust SET
+                        CODE02 = :CODE02,
+                        DESC02 = :DESC02,
+                        CODE03 = :CODE03,
+                        DESC03 = :DESC03
+                    WHERE TRIM(NOCUST) = :nis
+                ');
+                $upd->execute([
+                    ':CODE02' => $code02,
+                    ':DESC02' => $desc02,
+                    ':CODE03' => $code03,
+                    ':DESC03' => $desc03,
+                    ':nis'    => $nis,
+                ]);
+                $updated++;
+                continue;
+            }
+
+            if ($metode === '4') {
+                $checkNis = $pdo->prepare('SELECT 1 FROM scctcust WHERE TRIM(NOCUST) = :nis LIMIT 1');
+                $checkNis->execute([':nis' => $nis]);
+                if ($checkNis->fetch()) {
+                    $errors[] = ['nis' => $nis, 'error' => 'NIS sudah terdaftar pada siswa lain'];
+                    $skipped++;
+                    continue;
+                }
+                $check = $pdo->prepare('SELECT NOCUST FROM scctcust WHERE TRIM(NUM2ND) = :nodaf LIMIT 1');
+                $check->execute([':nodaf' => $nodafDb]);
+                $existing = $check->fetch(PDO::FETCH_ASSOC);
+                if (!$existing) {
+                    $errors[] = ['nis' => $nodaf, 'error' => 'Nomor pendaftaran tidak ditemukan'];
+                    $skipped++;
+                    continue;
+                }
+                $curNis = trim((string) ($existing['NOCUST'] ?? ''));
+                if ($curNis !== '' && $curNis !== '-') {
+                    $errors[] = ['nis' => $nodaf, 'error' => 'Nomor pendaftaran sudah memiliki NIS'];
+                    $skipped++;
+                    continue;
+                }
+                $upd = $pdo->prepare('UPDATE scctcust SET NOCUST = :nis WHERE TRIM(NUM2ND) = :nodaf');
+                $upd->execute([':nis' => $nis, ':nodaf' => $nodafDb]);
+                $updated++;
+                continue;
+            }
+
+            if ($metode === '2') {
+                $check = $pdo->prepare('SELECT CUSTID, NOCUST FROM scctcust WHERE TRIM(NUM2ND) = :nodaf LIMIT 1');
+                $check->execute([':nodaf' => $nodafDb]);
+                $existing = $check->fetch(PDO::FETCH_ASSOC);
+
+                if ($existing) {
+                    $upd = $pdo->prepare('
+                        UPDATE scctcust SET
+                            NOCUST = :NOCUST,
+                            NMCUST = :NMCUST,
+                            CODE01 = :CODE01,
+                            DESC01 = :DESC01,
+                            CODE02 = :CODE02,
+                            DESC02 = :DESC02,
+                            CODE03 = :CODE03,
+                            DESC03 = :DESC03,
+                            DESC04 = :DESC04,
+                            CODE04 = :CODE04,
+                            DESC05 = :DESC05,
+                            GENUS  = :GENUS,
+                            STCUST = 1
+                        WHERE TRIM(NUM2ND) = :nodaf
+                    ');
+                    $upd->execute([
+                        ':NOCUST' => $nis !== '' ? $nisDb : normalizeScctcustDashField((string) ($existing['NOCUST'] ?? '')),
+                        ':NMCUST' => $nama !== '' ? $nama : null,
+                        ':CODE01' => $code01,
+                        ':DESC01' => $desc01,
+                        ':CODE02' => $code02,
+                        ':DESC02' => $desc02,
+                        ':CODE03' => $code03,
+                        ':DESC03' => $desc03,
+                        ':DESC04' => $angkatan !== '' ? $angkatan : null,
+                        ':CODE04' => $gender !== '' ? $gender : null,
+                        ':DESC05' => $alamat !== '' ? $alamat : null,
+                        ':GENUS'  => $waliNama !== '' ? $waliNama : null,
+                        ':nodaf'  => $nodafDb,
+                    ]);
+                    $updated++;
+                } else {
+                    if ($nis !== '') {
+                        $checkNis = $pdo->prepare('SELECT 1 FROM scctcust WHERE TRIM(NOCUST) = :nis LIMIT 1');
+                        $checkNis->execute([':nis' => $nis]);
+                        if ($checkNis->fetch()) {
+                            $errors[] = ['nis' => $nis, 'error' => 'NIS sudah terdaftar'];
+                            $skipped++;
+                            continue;
+                        }
+                    }
+                    $ins = $pdo->prepare('
+                        INSERT INTO scctcust
+                            (NOCUST, NMCUST, NUM2ND, CODE01, DESC01, CODE02, DESC02, CODE03, DESC03, DESC04, CODE04, DESC05, GENUS, STCUST)
+                        VALUES
+                            (:NOCUST, :NMCUST, :NUM2ND, :CODE01, :DESC01, :CODE02, :DESC02, :CODE03, :DESC03, :DESC04, :CODE04, :DESC05, :GENUS, 1)
+                    ');
+                    $ins->execute([
+                        ':NOCUST' => $nis !== '' ? $nisDb : '-',
+                        ':NMCUST' => $nama !== '' ? $nama : null,
+                        ':NUM2ND' => $nodafDb,
+                        ':CODE01' => $code01,
+                        ':DESC01' => $desc01,
+                        ':CODE02' => $code02,
+                        ':DESC02' => $desc02,
+                        ':CODE03' => $code03,
+                        ':DESC03' => $desc03,
+                        ':DESC04' => $angkatan !== '' ? $angkatan : null,
+                        ':CODE04' => $gender !== '' ? $gender : null,
+                        ':DESC05' => $alamat !== '' ? $alamat : null,
+                        ':GENUS'  => $waliNama !== '' ? $waliNama : null,
+                    ]);
+                    $inserted++;
+                }
+                continue;
+            }
+
+            // Metode 1 — simpan / update by NIS
+            $check = $pdo->prepare('SELECT 1 FROM scctcust WHERE TRIM(NOCUST) = :nis LIMIT 1');
+            $check->execute([':nis' => $nis]);
             $existing = $check->fetch();
 
             if ($existing) {
-                $upd = $pdo->prepare("
+                $upd = $pdo->prepare('
                     UPDATE scctcust SET
-                        NMCUST            = :NMCUST,
-                        NUM2ND            = :NUM2ND,
-                        CODE02            = :CODE02,
-                        DESC02            = :DESC02,
-                        CODE03            = :CODE03,
-                        DESC03            = :DESC03,
-                        DESC04            = :DESC04,
-                        CODE04            = :CODE04,
-                        DESC05            = :DESC05,
-                        GENUS             = :GENUS
+                        NMCUST = :NMCUST,
+                        NUM2ND = :NUM2ND,
+                        CODE01 = :CODE01,
+                        DESC01 = :DESC01,
+                        CODE02 = :CODE02,
+                        DESC02 = :DESC02,
+                        CODE03 = :CODE03,
+                        DESC03 = :DESC03,
+                        DESC04 = :DESC04,
+                        CODE04 = :CODE04,
+                        DESC05 = :DESC05,
+                        GENUS  = :GENUS,
+                        STCUST = 1
                     WHERE TRIM(NOCUST) = :nis
-                ");
-
+                ');
                 $upd->execute([
-                    ":NMCUST"            => $nama !== "" ? $nama : null,
-                    ":NUM2ND"            => $nodaf !== "" ? $nodaf : null,
-                    ":CODE02"            => $code02,
-                    ":DESC02"            => $desc02,
-                    ":CODE03"            => $code03,
-                    ":DESC03"            => $desc03,
-                    ":DESC04"            => $angkatan !== "" ? $angkatan : null,
-                    ":CODE04"            => $gender !== "" ? $gender : null,
-                    ":DESC05"            => $alamat !== "" ? $alamat : null,
-                    ":GENUS"             => $waliNama !== "" ? $waliNama : null,
-                    ":nis"               => $nis,
+                    ':NMCUST' => $nama !== '' ? $nama : null,
+                    ':NUM2ND' => $nodafDb,
+                    ':CODE01' => $code01,
+                    ':DESC01' => $desc01,
+                    ':CODE02' => $code02,
+                    ':DESC02' => $desc02,
+                    ':CODE03' => $code03,
+                    ':DESC03' => $desc03,
+                    ':DESC04' => $angkatan !== '' ? $angkatan : null,
+                    ':CODE04' => $gender !== '' ? $gender : null,
+                    ':DESC05' => $alamat !== '' ? $alamat : null,
+                    ':GENUS'  => $waliNama !== '' ? $waliNama : null,
+                    ':nis'    => $nis,
                 ]);
-
                 $updated++;
             } else {
-                $ins = $pdo->prepare("
+                $ins = $pdo->prepare('
                     INSERT INTO scctcust
-                        (NOCUST, NMCUST, NUM2ND, CODE02, DESC02, CODE03, DESC03, DESC04, CODE04, DESC05, GENUS)
+                        (NOCUST, NMCUST, NUM2ND, CODE01, DESC01, CODE02, DESC02, CODE03, DESC03, DESC04, CODE04, DESC05, GENUS, STCUST)
                     VALUES
-                        (:NOCUST, :NMCUST, :NUM2ND, :CODE02, :DESC02, :CODE03, :DESC03, :DESC04, :CODE04, :DESC05, :GENUS)
-                ");
-
+                        (:NOCUST, :NMCUST, :NUM2ND, :CODE01, :DESC01, :CODE02, :DESC02, :CODE03, :DESC03, :DESC04, :CODE04, :DESC05, :GENUS, 1)
+                ');
                 $ins->execute([
-                    ":NOCUST"            => $nis,
-                    ":NMCUST"            => $nama !== "" ? $nama : null,
-                    ":NUM2ND"            => $nodaf !== "" ? $nodaf : null,
-                    ":CODE02"            => $code02,
-                    ":DESC02"            => $desc02,
-                    ":CODE03"            => $code03,
-                    ":DESC03"            => $desc03,
-                    ":DESC04"            => $angkatan !== "" ? $angkatan : null,
-                    ":CODE04"            => $gender !== "" ? $gender : null,
-                    ":DESC05"            => $alamat !== "" ? $alamat : null,
-                    ":GENUS"             => $waliNama !== "" ? $waliNama : null,
+                    ':NOCUST' => $nis,
+                    ':NMCUST' => $nama !== '' ? $nama : null,
+                    ':NUM2ND' => $nodafDb,
+                    ':CODE01' => $code01,
+                    ':DESC01' => $desc01,
+                    ':CODE02' => $code02,
+                    ':DESC02' => $desc02,
+                    ':CODE03' => $code03,
+                    ':DESC03' => $desc03,
+                    ':DESC04' => $angkatan !== '' ? $angkatan : null,
+                    ':CODE04' => $gender !== '' ? $gender : null,
+                    ':DESC05' => $alamat !== '' ? $alamat : null,
+                    ':GENUS'  => $waliNama !== '' ? $waliNama : null,
                 ]);
-
                 $inserted++;
             }
         } catch (Throwable $e) {
-            $errors[] = ["nis" => $nis, "error" => $e->getMessage()];
+            $errors[] = ['nis' => $rowKey, 'error' => $e->getMessage()];
             writeLog([
-                "scope" => "importSiswa.row_error",
-                "row" => $i + 1,
-                "nis" => $nis,
-                "error" => $e->getMessage(),
+                'scope' => 'importSiswa.row_error',
+                'row'   => $i + 1,
+                'nis'   => $rowKey,
+                'error' => $e->getMessage(),
             ]);
         }
     }
 
     return [
-        "inserted" => $inserted,
-        "updated"  => $updated,
-        "skipped"  => $skipped,
-        "errors"   => $errors,
+        'inserted' => $inserted,
+        'updated'  => $updated,
+        'skipped'  => $skipped,
+        'errors'   => $errors,
     ];
 }
 
@@ -2643,14 +3078,91 @@ function getFilterBuatTagihan(): array
     $stmtKelas->execute();
     $kelas = $stmtKelas->fetchAll();
 
-    $stmtTagihan = $pdo->prepare("
-        SELECT TRIM(tagihan) AS tagihan
-        FROM mst_tagihan
-        WHERE tagihan IS NOT NULL AND TRIM(tagihan) != ''
-        ORDER BY urut ASC
-    ");
-    $stmtTagihan->execute();
-    $tagihan = array_column($stmtTagihan->fetchAll(), 'tagihan');
+    $tagihan = [];
+    try {
+        $stmtTagihan = $pdo->prepare("
+            SELECT TRIM(tagihan) AS tagihan, TRIM(COALESCE(kode, '')) AS kode
+            FROM mst_tagihan
+            WHERE tagihan IS NOT NULL AND TRIM(tagihan) != ''
+            ORDER BY urut ASC
+        ");
+        $stmtTagihan->execute();
+        $tagihanRows = $stmtTagihan->fetchAll(PDO::FETCH_ASSOC);
+        $tagihan = array_values(array_filter(array_map(static function ($row) {
+            $name = trim((string) ($row['tagihan'] ?? ''));
+            if ($name === '') {
+                return null;
+            }
+
+            return [
+                'tagihan' => $name,
+                'kode'    => trim((string) ($row['kode'] ?? '')),
+            ];
+        }, $tagihanRows)));
+    } catch (Throwable $e) {
+        $stmtTagihan = $pdo->prepare("
+            SELECT TRIM(tagihan) AS tagihan
+            FROM mst_tagihan
+            WHERE tagihan IS NOT NULL AND TRIM(tagihan) != ''
+            ORDER BY urut ASC
+        ");
+        $stmtTagihan->execute();
+        foreach ($stmtTagihan->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $name = trim((string) ($row['tagihan'] ?? ''));
+            if ($name !== '') {
+                $tagihan[] = ['tagihan' => $name, 'kode' => ''];
+            }
+        }
+    }
+
+    $akun = [];
+    try {
+        $stAkun = $pdo->query("
+            SELECT TRIM(KodeAkun) AS kode, TRIM(COALESCE(NamaAkun, '')) AS nama
+            FROM u_akun
+            WHERE KodeAkun IS NOT NULL AND TRIM(KodeAkun) != ''
+            ORDER BY KodeAkun ASC
+        ");
+        if ($stAkun) {
+            foreach ($stAkun->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $kode = trim((string) ($row['kode'] ?? ''));
+                if ($kode === '') {
+                    continue;
+                }
+                $akun[] = [
+                    'kode' => $kode,
+                    'nama' => trim((string) ($row['nama'] ?? '')),
+                ];
+            }
+        }
+    } catch (Throwable $e) {
+        $akun = [];
+    }
+
+    $sekolahList = [];
+    try {
+        $stSekolah = $pdo->query("
+            SELECT TRIM(CODE01) AS code, TRIM(DESC01) AS nama
+            FROM mst_sekolah
+            WHERE CODE01 IS NOT NULL AND TRIM(CODE01) != ''
+            ORDER BY TRIM(DESC01) ASC, TRIM(CODE01) ASC
+        ");
+        if ($stSekolah) {
+            foreach ($stSekolah->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $code = trim((string) ($row['code'] ?? ''));
+                $nama = trim((string) ($row['nama'] ?? ''));
+                if ($code === '') {
+                    continue;
+                }
+                $sekolahList[] = [
+                    'code' => $code,
+                    'nama' => $nama !== '' ? $nama : $code,
+                ];
+            }
+        }
+    } catch (Throwable $e) {
+        $sekolahList = [];
+    }
 
     $ms = round((microtime(true) - $t0) * 1000, 2);
     if ($ms >= 200) {
@@ -2662,6 +3174,8 @@ function getFilterBuatTagihan(): array
         'thn_angkatan' => $thn_angkatan,
         'kelas'        => $kelas,
         'tagihan'      => $tagihan,
+        'akun'         => $akun,
+        'sekolah'      => $sekolahList,
     ];
 }
 
@@ -2784,6 +3298,52 @@ function resolveKodeProdForDaftarHarga(PDO $pdo, string $kelas_id, string $thn_a
     return $resolved !== '' ? $resolved : $kelas_id;
 }
 
+/**
+ * Kode post (KodeAkun) untuk nama tagihan — dari mst_tagihan.kode atau u_akun.NamaAkun.
+ */
+function resolveKodePostForTagihan(PDO $pdo, string $tagihan): string
+{
+    $tagihan = trim($tagihan);
+    if ($tagihan === '') {
+        return '';
+    }
+
+    try {
+        $stmt = $pdo->prepare("
+            SELECT TRIM(kode) AS kode
+            FROM mst_tagihan
+            WHERE TRIM(tagihan) = :t
+               OR UPPER(TRIM(tagihan)) = UPPER(:t2)
+            LIMIT 1
+        ");
+        $stmt->execute([':t' => $tagihan, ':t2' => $tagihan]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $kode = trim((string) ($row['kode'] ?? ''));
+        if ($kode !== '') {
+            return $kode;
+        }
+    } catch (Throwable $e) {
+        // kolom kode belum ada di skema lama — lanjut ke u_akun
+    }
+
+    try {
+        $stmtAkun = $pdo->prepare("
+            SELECT TRIM(KodeAkun) AS kode
+            FROM u_akun
+            WHERE TRIM(NamaAkun) = :nama
+               OR UPPER(TRIM(NamaAkun)) = UPPER(:nama2)
+            ORDER BY KodeAkun ASC
+            LIMIT 1
+        ");
+        $stmtAkun->execute([':nama' => $tagihan, ':nama2' => $tagihan]);
+        $akunRow = $stmtAkun->fetch(PDO::FETCH_ASSOC);
+
+        return trim((string) ($akunRow['kode'] ?? ''));
+    } catch (Throwable $e) {
+        return '';
+    }
+}
+
 function getBuatTagihan(array $req): array
 {
     $thn_akademik = trim((string) ($req['thn_akademik'] ?? ''));
@@ -2805,7 +3365,7 @@ function getBuatTagihan(array $req): array
     // Fungsi/BILLAC berbasis rule tagihan:
     // - bulanan (nama bulan) => YYYYMM sesuai bulan pada nama tagihan
     // - selain bulanan => YYYY + bulan sekarang
-    $fungsi = resolveBillacPeriodeByTagihan($tagihan, trim((string) ($req['fungsi'] ?? '')));
+    $fungsi = resolveBillacPeriodeByTagihan($tagihan, trim((string) ($req['fungsi'] ?? '')), $thn_akademik);
     writeLog([
         'scope' => 'getBuatTagihan:fungsi',
         'fungsi' => $fungsi,
@@ -3003,7 +3563,7 @@ function getFungsiBuatTagihan(array $req): array
         return ['fungsi' => '', 'source' => 'empty_param'];
     }
 
-    $fungsi = resolveBillacPeriodeByTagihan($tagihan, date('Ym'));
+    $fungsi = resolveBillacPeriodeByTagihan($tagihan, date('Ym'), $thn_akademik);
     $source = 'rule.tagihan.periode';
 
     writeLog([
@@ -3092,6 +3652,14 @@ function resolveScctcustRowFromNisMap(
     }
 
     return null;
+}
+
+/**
+ * Siswa aktif di scctcust (STCUST = 1).
+ */
+function scctcustIsActive(mixed $stcust): bool
+{
+    return (int) preg_replace('/\D+/', '', trim((string) $stcust)) === 1;
 }
 
 /**
@@ -3251,6 +3819,7 @@ function enrichTagihanExcelRows(array $req): array
     $sql = "
         SELECT
             c.CUSTID,
+            CAST(COALESCE(c.STCUST, 0) AS SIGNED) AS STCUST,
             TRIM(c.NOCUST) AS NIS_RAW,
             TRIM(c.NUM2ND) AS NUM2ND_RAW,
             TRIM(c.NMCUST) AS NAMA,
@@ -3281,31 +3850,57 @@ function enrichTagihanExcelRows(array $req): array
     foreach ($normalized as $base) {
         $nis = $base['nis'];
         $hint = (int) ($base['custid_hint'] ?? 0);
-        $m = resolveScctcustRowFromNisMap($map, $nis, $hint);
-        if ($m !== null) {
-            $out[] = [
-                'nis'         => $nis !== '' ? $nis : trim((string) ($m['NIS_RAW'] ?? '')),
-                'nominal'     => $base['nominal'],
-                'kontak_wali' => $base['kontak_wali'],
-                'custid'      => (int) ($m['CUSTID'] ?? 0),
-                'nama'        => trim((string) ($m['NAMA'] ?? '')),
-                'sekolah'     => trim((string) ($m['SEKOLAH'] ?? '')),
-                'kelas'       => trim((string) ($m['KELAS'] ?? '')),
-                'kelompok'    => trim((string) ($m['KELOMPOK'] ?? '')),
-                'ok'          => true,
-            ];
-        } else {
+        $nominal = (int) ($base['nominal'] ?? 0);
+
+        if ($nominal <= 0) {
             $out[] = [
                 'nis'         => $nis,
-                'nominal'     => $base['nominal'],
+                'nominal'     => $nominal,
                 'kontak_wali' => $base['kontak_wali'],
-                'custid'      => 0,
+                'custid'      => $hint > 0 ? $hint : 0,
+                'stcust'      => null,
                 'nama'        => '',
                 'sekolah'     => '',
                 'kelas'       => '',
                 'kelompok'    => '',
                 'ok'          => false,
-                'error'       => 'NIS / id tidak ditemukan di scctcust',
+                'error'       => 'Nominal tidak valid atau kosong',
+            ];
+            continue;
+        }
+
+        $m = resolveScctcustRowFromNisMap($map, $nis, $hint);
+        if ($m !== null) {
+            $stcust = (int) ($m['STCUST'] ?? $m['stcust'] ?? 0);
+            $custid = (int) ($m['CUSTID'] ?? 0);
+            $isActive = scctcustIsActive($stcust);
+
+            $out[] = [
+                'nis'         => $nis !== '' ? $nis : trim((string) ($m['NIS_RAW'] ?? '')),
+                'nominal'     => $nominal,
+                'kontak_wali' => $base['kontak_wali'],
+                'custid'      => $custid,
+                'stcust'      => $stcust,
+                'nama'        => trim((string) ($m['NAMA'] ?? '')),
+                'sekolah'     => trim((string) ($m['SEKOLAH'] ?? '')),
+                'kelas'       => trim((string) ($m['KELAS'] ?? '')),
+                'kelompok'    => trim((string) ($m['KELOMPOK'] ?? '')),
+                'ok'          => $isActive,
+                'error'       => $isActive ? '' : 'Siswa tidak aktif (STCUST=0)',
+            ];
+        } else {
+            $out[] = [
+                'nis'         => $nis,
+                'nominal'     => $nominal,
+                'kontak_wali' => $base['kontak_wali'],
+                'custid'      => 0,
+                'stcust'      => null,
+                'nama'        => '',
+                'sekolah'     => '',
+                'kelas'       => '',
+                'kelompok'    => '',
+                'ok'          => false,
+                'error'       => 'NIS / ID tidak ditemukan di scctcust',
             ];
         }
     }
@@ -3328,7 +3923,7 @@ function createTagihanExcelUpload(array $req): array
         exit;
     }
 
-    $periode = resolveBillacPeriodeByTagihan($tagihan, $periode);
+    $periode = resolveBillacPeriodeByTagihan($tagihan, $periode, $thn_akademik);
 
     if (!is_array($rows) || count($rows) === 0) {
         http_response_code(422);
@@ -3337,6 +3932,11 @@ function createTagihanExcelUpload(array $req): array
     }
 
     $pdo = dbConnectPdo();
+
+    if ($kode_akun === '') {
+        $kode_akun = resolveKodePostForTagihan($pdo, $tagihan);
+    }
+
     $akunRow = null;
     if ($kode_akun !== '') {
         $stmtAkun = $pdo->prepare("
@@ -3352,9 +3952,19 @@ function createTagihanExcelUpload(array $req): array
             echo json_encode(['status' => 422, 'message' => 'Kode akun (post) tidak ditemukan di u_akun'], JSON_UNESCAPED_UNICODE);
             exit;
         }
+    } else {
+        http_response_code(422);
+        echo json_encode([
+            'status'  => 422,
+            'message' => 'Kode post untuk tagihan "' . $tagihan . '" tidak ditemukan. Periksa Master Tagihan (kolom kode) atau u_akun.',
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
     }
 
     $billnm = $tagihan !== '' ? $tagihan : trim((string) ($akunRow['NamaAkun'] ?? 'Tagihan'));
+
+    $tahunDetail = preg_match('/^\d{6}/', $periode) ? substr($periode, 0, 4) : date('Y');
+    $periodeDetail = preg_match('/^\d{6}/', $periode) ? substr($periode, 4, 2) : date('m');
 
     $stmtInsert = $pdo->prepare("
         INSERT INTO scctbill
@@ -3370,15 +3980,12 @@ function createTagihanExcelUpload(array $req): array
         LIMIT 1
     ");
     $detailCustCol = detectScctbillDetailCustColumn($pdo);
-    $stmtInsertDetail = null;
-    if ($kode_akun !== '') {
-        $stmtInsertDetail = $pdo->prepare("
-            INSERT INTO scctbill_detail
-                (AA, KodePost, BILLAM, {$detailCustCol}, FID, tahun, periode, BILLCD)
-            VALUES
-                (:AA, :KodePost, :BILLAM, :CUST_VAL, :FID, :tahun, :periode, :BILLCD)
-        ");
-    }
+    $stmtInsertDetail = $pdo->prepare("
+        INSERT INTO scctbill_detail
+            (AA, KodePost, BILLAM, {$detailCustCol}, FID, tahun, periode, BILLCD)
+        VALUES
+            (:AA, :KodePost, :BILLAM, :CUST_VAL, :FID, :tahun, :periode, :BILLCD)
+    ");
 
     $inserted = 0;
     $skipped  = 0;
@@ -3405,6 +4012,20 @@ function createTagihanExcelUpload(array $req): array
             $custid = resolveCustIdForTagihanRow($pdo, $nis, $custidIn);
             if ($custid <= 0) {
                 $errors[] = ['nis' => $nis, 'error' => 'NIS / CUSTID tidak ditemukan di scctcust'];
+                $skipped++;
+                continue;
+            }
+
+            $stCheck = $pdo->prepare('SELECT CAST(COALESCE(STCUST, 0) AS SIGNED) AS STCUST FROM scctcust WHERE CUSTID = ? LIMIT 1');
+            $stCheck->execute([$custid]);
+            $stRow = $stCheck->fetch(PDO::FETCH_ASSOC);
+            if (!$stRow || !scctcustIsActive($stRow['STCUST'] ?? 0)) {
+                $errors[] = [
+                    'nis' => $nis,
+                    'custid' => $custid,
+                    'error' => 'Siswa tidak aktif (STCUST=0), tagihan tidak dibuat',
+                ];
+                $skipped++;
                 continue;
             }
 
@@ -3426,20 +4047,18 @@ function createTagihanExcelUpload(array $req): array
                     ':BTA'    => $thn_akademik,
                     ':FURUTAN' => $furutan,
                 ]);
-                if ($stmtInsertDetail !== null) {
-                    $stmtBillAa->execute([':c' => $custid, ':b' => $billcd]);
-                    $billAa = (int) ($stmtBillAa->fetchColumn() ?: 0);
-                    $stmtInsertDetail->execute([
-                        ':AA' => $billAa,
-                        ':KodePost' => trim((string) $kode_akun),
-                        ':BILLAM' => $nominal,
-                        ':CUST_VAL' => $custid,
-                        ':FID' => null,
-                        ':tahun' => date('Y'),
-                        ':periode' => date('m'),
-                        ':BILLCD' => $billcd,
-                    ]);
-                }
+                $stmtBillAa->execute([':c' => $custid, ':b' => $billcd]);
+                $billAa = (int) ($stmtBillAa->fetchColumn() ?: 0);
+                $stmtInsertDetail->execute([
+                    ':AA' => $billAa,
+                    ':KodePost' => trim((string) $kode_akun),
+                    ':BILLAM' => $nominal,
+                    ':CUST_VAL' => $custid,
+                    ':FID' => null,
+                    ':tahun' => $tahunDetail,
+                    ':periode' => $periodeDetail,
+                    ':BILLCD' => $billcd,
+                ]);
                 $inserted++;
             } catch (Throwable $e) {
                 $errors[] = ['nis' => $nis, 'error' => $e->getMessage()];
@@ -3502,6 +4121,8 @@ function penerimaanBuildPenerimaanFiltersFromReq(array $req): array
     $cari = trim((string) ($req['cari'] ?? ''));
     $fidbank = trim((string) ($req['fidbank'] ?? ''));
     $sekolah = trim((string) ($req['sekolah'] ?? ''));
+    $kodePost = trim((string) ($req['kode_post'] ?? ''));
+    $namaPost = trim((string) ($req['nama_post'] ?? ''));
     $periodeMulai = trim((string) ($req['periode_mulai'] ?? ''));
     $periodeAkhir = trim((string) ($req['periode_akhir'] ?? ''));
 
@@ -3583,6 +4204,16 @@ function penerimaanBuildPenerimaanFiltersFromReq(array $req): array
         $paramsBill[':fidbank'] = $fidbank;
     }
 
+    if ($kodePost !== '') {
+        $whereBill[] = 'TRIM(d.KodePost) = :filt_kode_post';
+        $paramsBill[':filt_kode_post'] = $kodePost;
+    }
+
+    if ($namaPost !== '') {
+        $whereBill[] = 'UPPER(TRIM(COALESCE(NULLIF(TRIM(a.NamaAkun), \'\'), TRIM(d.KodePost)))) = UPPER(TRIM(:filt_nama_post))';
+        $paramsBill[':filt_nama_post'] = $namaPost;
+    }
+
     $whereCust = [];
     $paramsCust = [];
 
@@ -3620,8 +4251,8 @@ function penerimaanBuildPenerimaanFiltersFromReq(array $req): array
     }
 
     if ($sekolah !== '') {
-        $whereCust[] = "(COALESCE(NULLIF(TRIM(mk.unit), ''), TRIM(c.CODE02)) LIKE :sekolah)";
-        $paramsCust[':sekolah'] = '%' . $sekolah . '%';
+        $whereCust[] = 'TRIM(c.CODE01) = :sekolah_code';
+        $paramsCust[':sekolah_code'] = $sekolah;
     }
 
     return [
@@ -3630,6 +4261,8 @@ function penerimaanBuildPenerimaanFiltersFromReq(array $req): array
         'whereCust'     => $whereCust,
         'paramsCust'    => $paramsCust,
         'sekolah'       => $sekolah,
+        'kode_post'     => $kodePost,
+        'nama_post'     => $namaPost,
         'tgl_dari'      => $tglDari,
         'tgl_sampai'    => $tglSampai,
         'thn_angkatan'  => $thnAngkatan,
@@ -3675,6 +4308,8 @@ function getDataTagihan(array $req): array
     $thnAkademik = trim((string) ($req['thn_akademik'] ?? ''));
     $kelasId = trim((string) ($req['kelas_id'] ?? ''));
     $namaTagihan = trim((string) ($req['nama_tagihan'] ?? ''));
+    $kodePost = trim((string) ($req['kode_post'] ?? ''));
+    $namaPost = trim((string) ($req['nama_post'] ?? ''));
     $nisFilter = trim((string) ($req['nis'] ?? ''));
     $namaFilter = trim((string) ($req['nama'] ?? ''));
     $siswa = trim((string) ($req['siswa'] ?? ''));
@@ -3774,6 +4409,15 @@ function getDataTagihan(array $req): array
         $where[] = "(b.PAIDST = '0' OR b.PAIDST = 0 OR TRIM(CAST(b.PAIDST AS CHAR)) = '0')";
         $where[] = 'd.KodePost IS NOT NULL';
         $where[] = "TRIM(d.KodePost) <> ''";
+        $where[] = "TRIM(CAST(c.STCUST AS CHAR)) = '1'";
+        if ($kodePost !== '') {
+            $where[] = 'TRIM(d.KodePost) = :filt_kode_post';
+            $params[':filt_kode_post'] = $kodePost;
+        }
+        if ($namaPost !== '') {
+            $where[] = 'UPPER(TRIM(COALESCE(NULLIF(TRIM(a.NamaAkun), \'\'), TRIM(d.KodePost)))) = UPPER(TRIM(:filt_nama_post))';
+            $params[':filt_nama_post'] = $namaPost;
+        }
     }
 
     $whereSql = implode(' AND ', $where);
@@ -4072,6 +4716,10 @@ function getTagihanRekapMatrix(array $req): array
     $thnAkademik = trim((string) ($req['thn_akademik'] ?? ''));
     $kelasId = trim((string) ($req['kelas_id'] ?? ''));
     $namaTagihan = trim((string) ($req['nama_tagihan'] ?? ''));
+    $kodePost = trim((string) ($req['kode_post'] ?? ''));
+    $namaPost = trim((string) ($req['nama_post'] ?? ''));
+    $nisFilter = trim((string) ($req['nis'] ?? ''));
+    $namaFilter = trim((string) ($req['nama'] ?? ''));
     $siswa = trim((string) ($req['siswa'] ?? ''));
     $sortUrutan = strtolower(trim((string) ($req['sort_urutan'] ?? 'asc')));
     if (!in_array($sortUrutan, ['asc', 'desc'], true)) {
@@ -4128,6 +4776,15 @@ function getTagihanRekapMatrix(array $req): array
         $params[':billnm'] = $namaTagihan;
     }
 
+    if ($kodePost !== '') {
+        $where[] = 'TRIM(d.KodePost) = :filt_kode_post';
+        $params[':filt_kode_post'] = $kodePost;
+    }
+    if ($namaPost !== '') {
+        $where[] = 'UPPER(TRIM(COALESCE(NULLIF(TRIM(a.NamaAkun), \'\'), TRIM(d.KodePost)))) = UPPER(TRIM(:filt_nama_post))';
+        $params[':filt_nama_post'] = $namaPost;
+    }
+
     if ($thnAngkatan !== '') {
         $where[] = '(TRIM(c.DESC04) = :thn_ang OR TRIM(c.DESC04) = :thn_ang_base)';
         $params[':thn_ang'] = $thnAngkatan;
@@ -4139,7 +4796,15 @@ function getTagihanRekapMatrix(array $req): array
         $params[':kelas_id'] = $kelasId;
     }
 
-    if ($siswa !== '') {
+    if ($nisFilter !== '') {
+        $where[] = 'TRIM(c.NOCUST) LIKE :filt_nis';
+        $params[':filt_nis'] = '%' . $nisFilter . '%';
+    }
+    if ($namaFilter !== '') {
+        $where[] = 'TRIM(c.NMCUST) LIKE :filt_nama';
+        $params[':filt_nama'] = '%' . $namaFilter . '%';
+    }
+    if ($siswa !== '' && $nisFilter === '' && $namaFilter === '') {
         $sLike = '%' . $siswa . '%';
         $where[] = '(
             TRIM(c.NOCUST) LIKE :siswa_nis
@@ -4274,14 +4939,17 @@ function getDataPenerimaan(array $req): array
     $fidbank = $fb['fidbank'];
     $periodeMulai = $fb['periode_mulai'];
     $periodeAkhir = $fb['periode_akhir'];
+    $kodePost = $fb['kode_post'] ?? '';
+    $namaPost = $fb['nama_post'] ?? '';
 
     $whereAll = array_merge($whereBill, $whereCust);
     $whereSql = implode(' AND ', $whereAll);
     $params = array_merge($paramsBill, $paramsCust);
 
-    $useMkJoin = ($sekolah !== '');
+    $detailCustCol = detectScctbillDetailCustColumn($pdo);
+    $mkUi = mstKelasUiSqlExprs('mk', 'c');
 
-    $orderSql = 'b.PAIDDT DESC, b.CUSTID DESC, b.BILLCD ASC';
+    $orderSql = 'b.PAIDDT DESC, b.CUSTID DESC, b.BILLCD ASC, TRIM(d.KodePost) ASC';
 
     $sqlMetode = "
         COALESCE(
@@ -4300,46 +4968,30 @@ function getDataPenerimaan(array $req): array
 
     $aaSelect = $useAaOrder ? ', b.AA AS aa' : '';
 
-    if ($useMkJoin) {
-        $sqlBase = "
+    $sqlBase = "
         FROM scctbill b
         INNER JOIN scctcust c ON c.CUSTID = b.CUSTID
-        LEFT JOIN mst_kelas mk ON CAST(mk.id AS CHAR) = TRIM(c.CODE03)
+        " . scctcustJoinMstKelasSql('c', 'mk') . "
+        INNER JOIN scctbill_detail d ON d.BILLCD = b.BILLCD AND d.{$detailCustCol} = b.CUSTID
+        LEFT JOIN u_akun a ON TRIM(a.KodeAkun) = TRIM(d.KodePost)
         WHERE {$whereSql}
     ";
-        $sqlSelectList = "
+    $sqlSelectList = "
             b.CUSTID AS custid,
             b.BILLCD AS billcd,
             TRIM(c.NOCUST) AS nis,
             TRIM(c.NMCUST) AS nama,
-            COALESCE(NULLIF(TRIM(mk.unit), ''), TRIM(c.CODE02), '') AS unit,
-            COALESCE(NULLIF(TRIM(mk.jenjang), ''), TRIM(c.DESC02), '') AS kelas,
+            {$mkUi['unit']} AS unit,
+            {$mkUi['kelas']} AS kelas,
+            {$mkUi['kelompok']} AS kelompok,
             TRIM(b.BILLNM) AS nama_tagihan,
-            b.BILLAM AS tagihan,
+            COALESCE(d.BILLAM, b.BILLAM, 0) AS tagihan,
             {$sqlMetode} AS metode,
             b.PAIDDT AS paiddt,
-            TRIM(b.BTA) AS tahun_aka{$aaSelect}
+            TRIM(b.BTA) AS tahun_aka,
+            TRIM(d.KodePost) AS kode_post,
+            COALESCE(NULLIF(TRIM(a.NamaAkun), ''), TRIM(d.KodePost)) AS nama_post{$aaSelect}
     ";
-    } else {
-        $sqlBase = "
-        FROM scctbill b
-        INNER JOIN scctcust c ON c.CUSTID = b.CUSTID
-        WHERE {$whereSql}
-    ";
-        $sqlSelectList = "
-            b.CUSTID AS custid,
-            b.BILLCD AS billcd,
-            TRIM(c.NOCUST) AS nis,
-            TRIM(c.NMCUST) AS nama,
-            TRIM(c.CODE02) AS unit,
-            TRIM(c.DESC02) AS kelas,
-            TRIM(b.BILLNM) AS nama_tagihan,
-            b.BILLAM AS tagihan,
-            {$sqlMetode} AS metode,
-            b.PAIDDT AS paiddt,
-            TRIM(b.BTA) AS tahun_aka{$aaSelect}
-    ";
-    }
 
     $rows = [];
     $total = 0;
@@ -4347,24 +4999,13 @@ function getDataPenerimaan(array $req): array
 
     if ($includeTotal) {
         $tCount0 = microtime(true);
-        if (empty($whereCust)) {
-            $whereBillSql = implode(' AND ', $whereBill);
-            $sqlCount = "SELECT COUNT(*) AS total FROM scctbill b WHERE {$whereBillSql}";
-            $stc = $pdo->prepare($sqlCount);
-            foreach ($paramsBill as $k => $v) {
-                $stc->bindValue($k, $v, PDO::PARAM_STR);
-            }
-            $stc->execute();
-            $total = (int) ($stc->fetchColumn() ?: 0);
-        } else {
-            $sqlCount = "SELECT COUNT(*) AS total {$sqlBase}";
-            $stc = $pdo->prepare($sqlCount);
-            foreach ($params as $k => $v) {
-                $stc->bindValue($k, $v, PDO::PARAM_STR);
-            }
-            $stc->execute();
-            $total = (int) ($stc->fetchColumn() ?: 0);
+        $sqlCount = "SELECT COUNT(*) AS total {$sqlBase}";
+        $stc = $pdo->prepare($sqlCount);
+        foreach ($params as $k => $v) {
+            $stc->bindValue($k, $v, PDO::PARAM_STR);
         }
+        $stc->execute();
+        $total = (int) ($stc->fetchColumn() ?: 0);
         $tCountMs = round((microtime(true) - $tCount0) * 1000, 2);
     }
 
@@ -4400,7 +5041,7 @@ function getDataPenerimaan(array $req): array
         't_count_ms'         => $tCountMs,
         't_select_ms'        => $tSelectMs,
         'use_aa_order'       => $useAaOrder,
-        'use_mst_kelas_join' => $useMkJoin,
+        'use_mst_kelas_join' => true,
         'include_total'      => $includeTotal,
         'page_limit'         => $pageLimit,
         'sql_limit'          => $sqlLimit,
@@ -4420,6 +5061,8 @@ function getDataPenerimaan(array $req): array
             'nama'           => $nama !== '',
             'cari'           => $cari !== '',
             'sekolah'        => $sekolah !== '',
+            'kode_post'      => $kodePost !== '',
+            'nama_post'      => $namaPost !== '',
         ],
         'hint'               => 'Jika t_select_ms besar: jalankan indeks di database/sql/scctbill_index_penerimaan.sql; OFFSET besar memperlambat — pertimbangkan keyset pagination.',
         'select_error'       => $selectError,
@@ -4510,10 +5153,9 @@ function getKartuSiswaPenerimaan(array $req): array
     $whereSql = implode(' AND ', $whereAll);
     $params = array_merge($paramsBill, $paramsCust);
 
-    $useMkJoin = ($sekolah !== '');
-    $orderSql = $useAaOrder
-        ? 'b.AA DESC, b.CUSTID DESC, b.BILLCD DESC'
-        : 'b.PAIDDT DESC, b.BILLCD ASC';
+    $kodePost = trim((string) ($fb['kode_post'] ?? ''));
+    $namaPost = trim((string) ($fb['nama_post'] ?? ''));
+    $useDetailJoin = ($kodePost !== '' || $namaPost !== '' || $selectedBills !== []);
 
     $sqlMetode = "
         COALESCE(
@@ -4532,14 +5174,47 @@ function getKartuSiswaPenerimaan(array $req): array
 
     $aaSelect = $useAaOrder ? ', b.AA AS aa' : '';
 
-    if ($useMkJoin) {
+    if ($useDetailJoin) {
+        $detailCustCol = detectScctbillDetailCustColumn($pdo);
+        $mkUi = mstKelasUiSqlExprs('mk', 'c');
+        $orderSql = $useAaOrder
+            ? 'b.AA DESC, b.CUSTID DESC, b.BILLCD DESC, TRIM(d.KodePost) ASC'
+            : 'b.PAIDDT DESC, b.BILLCD ASC, TRIM(d.KodePost) ASC';
         $sqlBase = "
+        FROM scctbill b
+        INNER JOIN scctcust c ON c.CUSTID = b.CUSTID
+        " . scctcustJoinMstKelasSql('c', 'mk') . "
+        INNER JOIN scctbill_detail d ON d.BILLCD = b.BILLCD AND d.{$detailCustCol} = b.CUSTID
+        LEFT JOIN u_akun a ON TRIM(a.KodeAkun) = TRIM(d.KodePost)
+        WHERE {$whereSql}
+    ";
+        $sqlSelectList = "
+            b.CUSTID AS custid,
+            b.BILLCD AS billcd,
+            TRIM(c.NOCUST) AS nis,
+            TRIM(c.NMCUST) AS nama,
+            {$mkUi['unit']} AS unit,
+            {$mkUi['kelas']} AS kelas,
+            TRIM(b.BILLNM) AS nama_tagihan,
+            COALESCE(d.BILLAM, b.BILLAM, 0) AS tagihan,
+            {$sqlMetode} AS metode,
+            b.PAIDDT AS paiddt,
+            TRIM(b.BTA) AS tahun_aka{$aaSelect}
+    ";
+    } else {
+        $useMkJoin = ($sekolah !== '');
+        $orderSql = $useAaOrder
+            ? 'b.AA DESC, b.CUSTID DESC, b.BILLCD DESC'
+            : 'b.PAIDDT DESC, b.BILLCD ASC';
+
+        if ($useMkJoin) {
+            $sqlBase = "
         FROM scctbill b
         INNER JOIN scctcust c ON c.CUSTID = b.CUSTID
         LEFT JOIN mst_kelas mk ON CAST(mk.id AS CHAR) = TRIM(c.CODE03)
         WHERE {$whereSql}
     ";
-        $sqlSelectList = "
+            $sqlSelectList = "
             b.CUSTID AS custid,
             b.BILLCD AS billcd,
             TRIM(c.NOCUST) AS nis,
@@ -4552,13 +5227,13 @@ function getKartuSiswaPenerimaan(array $req): array
             b.PAIDDT AS paiddt,
             TRIM(b.BTA) AS tahun_aka{$aaSelect}
     ";
-    } else {
-        $sqlBase = "
+        } else {
+            $sqlBase = "
         FROM scctbill b
         INNER JOIN scctcust c ON c.CUSTID = b.CUSTID
         WHERE {$whereSql}
     ";
-        $sqlSelectList = "
+            $sqlSelectList = "
             b.CUSTID AS custid,
             b.BILLCD AS billcd,
             TRIM(c.NOCUST) AS nis,
@@ -4571,6 +5246,7 @@ function getKartuSiswaPenerimaan(array $req): array
             b.PAIDDT AS paiddt,
             TRIM(b.BTA) AS tahun_aka{$aaSelect}
     ";
+        }
     }
 
     $maxRows = 8000;
@@ -5110,7 +5786,7 @@ function getHapusTagihanRows(array $req): array
 /**
  * @return array{0: string, 1: array<string, string>}
  */
-function cekPelunasanBuildWhere(array $req): array
+function cekPelunasanBuildWhere(array $req, ?PDO $pdo = null): array
 {
     $thnAkademik = trim((string) ($req['thn_akademik'] ?? ''));
     $kelasId = trim((string) ($req['kelas_id'] ?? ''));
@@ -5135,7 +5811,11 @@ function cekPelunasanBuildWhere(array $req): array
         $params[':cp_bta_yr'] = $thnAkademik;
     }
     if ($kelasId !== '') {
-        $where[] = 'TRIM(c.CODE03) = :cp_kelas_id';
+        $where[] = 'EXISTS (
+            SELECT 1 FROM mst_kelas mk_cp
+            WHERE CAST(mk_cp.id AS CHAR) = TRIM(c.CODE03)
+              AND CAST(mk_cp.id AS CHAR) = TRIM(:cp_kelas_id)
+        )';
         $params[':cp_kelas_id'] = $kelasId;
     }
     if ($nis !== '') {
@@ -5156,24 +5836,41 @@ function cekPelunasanBuildWhere(array $req): array
         $params[':cp_billnm'] = $namaTagihan;
     }
     if ($cari !== '') {
-        $where[] = '(
-            TRIM(c.NOCUST) LIKE :cp_sw1
-            OR TRIM(c.NUM2ND) LIKE :cp_sw2
-            OR TRIM(c.NMCUST) LIKE :cp_sw3
-            OR TRIM(b.BILLNM) LIKE :cp_sw4
-        )';
         $like = '%' . $cari . '%';
+        $cariParts = [
+            'TRIM(c.NOCUST) LIKE :cp_sw1',
+            'TRIM(c.NUM2ND) LIKE :cp_sw2',
+            'TRIM(c.NMCUST) LIKE :cp_sw3',
+            'TRIM(b.BILLNM) LIKE :cp_sw4',
+        ];
+        if ($pdo instanceof PDO) {
+            $detailCol = detectScctbillDetailCustColumn($pdo);
+            $cariParts[] = "EXISTS (
+                SELECT 1 FROM scctbill_detail dx
+                LEFT JOIN u_akun ax ON TRIM(ax.KodeAkun) = TRIM(dx.KodePost)
+                WHERE dx.BILLCD = b.BILLCD AND dx.{$detailCol} = b.CUSTID
+                  AND (
+                    TRIM(dx.KodePost) LIKE :cp_sw5
+                    OR TRIM(ax.NamaAkun) LIKE :cp_sw6
+                  )
+            )";
+        }
+        $where[] = '(' . implode(' OR ', $cariParts) . ')';
         $params[':cp_sw1'] = $like;
         $params[':cp_sw2'] = $like;
         $params[':cp_sw3'] = $like;
         $params[':cp_sw4'] = $like;
+        if ($pdo instanceof PDO) {
+            $params[':cp_sw5'] = $like;
+            $params[':cp_sw6'] = $like;
+        }
     }
 
     return [implode(' AND ', $where), $params];
 }
 
 /**
- * Daftar Cek Pelunasan:
+ * Daftar Cek Pelunasan (per baris detail post scctbill_detail):
  * menampilkan semua tagihan (lunas/belum) dengan syarat FSTSBolehBayar = 1.
  */
 function getCekPelunasanRows(array $req): array
@@ -5181,32 +5878,43 @@ function getCekPelunasanRows(array $req): array
     $tWall0 = microtime(true);
     $pdo = dbConnectPdo();
     $useAaOrder = scctbillHasAaColumn($pdo);
+    $detailCustCol = detectScctbillDetailCustColumn($pdo);
 
-    $limit = min(100, max(1, (int) ($req['limit'] ?? 25)));
-    $offset = max(0, (int) ($req['offset'] ?? 0));
-    $fetchLimit = $limit + 1;
+    $forExport = (int) ($req['for_export'] ?? 0) === 1;
+    $maxCap = $forExport ? 8000 : 100;
+    $limit = min($maxCap, max(1, (int) ($req['limit'] ?? 25)));
+    $offset = $forExport ? 0 : max(0, (int) ($req['offset'] ?? 0));
+    $fetchLimit = $forExport ? $limit : ($limit + 1);
 
-    [$whereSql, $params] = cekPelunasanBuildWhere($req);
+    [$whereSql, $params] = cekPelunasanBuildWhere($req, $pdo);
     $orderSql = $useAaOrder
-        ? 'b.AA DESC, b.CUSTID DESC, b.BILLCD DESC'
-        : 'b.FTGLTagihan DESC, b.CUSTID DESC, b.BILLCD DESC';
+        ? 'b.AA DESC, b.CUSTID DESC, b.BILLCD DESC, TRIM(d.KodePost) ASC'
+        : 'b.FTGLTagihan DESC, b.CUSTID DESC, b.BILLCD DESC, TRIM(d.KodePost) ASC';
 
     $sql = "
         SELECT
             b.CUSTID AS custid,
+            TRIM(b.BILLCD) AS billcd,
             TRIM(b.BTA) AS tahun_pelajaran,
             TRIM(c.NOCUST) AS nis,
             TRIM(c.NUM2ND) AS no_pendaftaran,
             TRIM(c.NMCUST) AS nama,
             TRIM(b.BILLNM) AS nama_tagihan,
             CAST(COALESCE(b.BILLAM, 0) AS SIGNED) AS tagihan,
+            TRIM(d.KodePost) AS kode_post,
+            COALESCE(NULLIF(TRIM(a.NamaAkun), ''), TRIM(d.KodePost)) AS nama_post,
+            CAST(COALESCE(d.BILLAM, 0) AS SIGNED) AS nominal,
             CASE
                 WHEN (b.PAIDST = '1' OR b.PAIDST = 1 OR TRIM(CAST(b.PAIDST AS CHAR)) = '1') THEN 1
                 ELSE 0
             END AS lunas
         FROM scctbill b
         INNER JOIN scctcust c ON c.CUSTID = b.CUSTID
+        INNER JOIN scctbill_detail d ON d.BILLCD = b.BILLCD AND d.{$detailCustCol} = b.CUSTID
+        LEFT JOIN u_akun a ON TRIM(a.KodeAkun) = TRIM(d.KodePost)
         WHERE {$whereSql}
+          AND d.KodePost IS NOT NULL
+          AND TRIM(d.KodePost) <> ''
         ORDER BY {$orderSql}
         LIMIT " . (int) $fetchLimit . " OFFSET " . (int) $offset;
 
@@ -5217,7 +5925,7 @@ function getCekPelunasanRows(array $req): array
     $stmt->execute();
     $raw = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $hasMore = count($raw) > $limit;
+    $hasMore = !$forExport && count($raw) > $limit;
     if ($hasMore) {
         $raw = array_slice($raw, 0, $limit);
     }
@@ -5226,12 +5934,16 @@ function getCekPelunasanRows(array $req): array
     foreach ($raw as $r) {
         $rows[] = [
             'custid' => (int) ($r['custid'] ?? 0),
+            'billcd' => trim((string) ($r['billcd'] ?? '')),
             'tahun_pelajaran' => trim((string) ($r['tahun_pelajaran'] ?? '')),
             'nis' => trim((string) ($r['nis'] ?? '')),
             'no_pendaftaran' => trim((string) ($r['no_pendaftaran'] ?? '')),
             'nama' => trim((string) ($r['nama'] ?? '')),
             'nama_tagihan' => trim((string) ($r['nama_tagihan'] ?? '')),
             'tagihan' => (int) ($r['tagihan'] ?? 0),
+            'kode_post' => trim((string) ($r['kode_post'] ?? '')),
+            'nama_post' => trim((string) ($r['nama_post'] ?? '')),
+            'nominal' => (int) ($r['nominal'] ?? 0),
             'lunas' => (int) ($r['lunas'] ?? 0),
         ];
     }
@@ -5262,7 +5974,7 @@ function getCekPelunasanCards(array $req): array
     $pdo = dbConnectPdo();
 
     if ($custids === []) {
-        [$whereSql, $params] = cekPelunasanBuildWhere($req);
+        [$whereSql, $params] = cekPelunasanBuildWhere($req, $pdo);
         $sqlIds = "
             SELECT DISTINCT b.CUSTID AS custid
             FROM scctbill b
@@ -5391,6 +6103,14 @@ function getEditManualBillsByCustid(array $req): array
     }
 
     $pdo = dbConnectPdo();
+
+    $stCheck = $pdo->prepare('SELECT CAST(COALESCE(STCUST, 0) AS SIGNED) AS STCUST FROM scctcust WHERE CUSTID = ? LIMIT 1');
+    $stCheck->execute([$custid]);
+    $stRow = $stCheck->fetch(PDO::FETCH_ASSOC);
+    if (!$stRow || !scctcustIsActive($stRow['STCUST'] ?? 0)) {
+        return ['error' => 'Siswa tidak aktif (STCUST=0)', 'unpaid' => [], 'paid' => []];
+    }
+
     $sql = "
         SELECT
             b.BILLCD AS billcd,
@@ -5800,6 +6520,7 @@ function getSaldoVirtualAccountRows(array $req): array
     $sekolah = trim((string) ($req['sekolah'] ?? ''));
     $kelasId = trim((string) ($req['kelas_id'] ?? ''));
     $cari = trim((string) ($req['cari'] ?? ''));
+    $saldoPositif = (int) ($req['saldo_positif'] ?? 0) === 1;
     $thnAngkatanBase = trim((string) preg_replace('/\s*-\s*.*/', '', $thnAngkatan));
 
     $where = ['1=1'];
@@ -5811,11 +6532,11 @@ function getSaldoVirtualAccountRows(array $req): array
         $params[':sv_ang_base'] = $thnAngkatanBase !== '' ? $thnAngkatanBase : $thnAngkatan;
     }
     if ($sekolah !== '') {
-        $where[] = '(COALESCE(NULLIF(TRIM(mk.unit), \'\'), TRIM(c.CODE02)) LIKE :sv_sek)';
-        $params[':sv_sek'] = '%' . $sekolah . '%';
+        $where[] = siswaSekolahFilterSql('c', 'mk');
+        $params[':sekolah_code'] = $sekolah;
     }
     if ($kelasId !== '') {
-        $where[] = 'TRIM(c.CODE03) = :sv_kelas';
+        $where[] = 'CAST(mk.id AS CHAR) = TRIM(:sv_kelas)';
         $params[':sv_kelas'] = $kelasId;
     }
     if ($cari !== '') {
@@ -5826,6 +6547,12 @@ function getSaldoVirtualAccountRows(array $req): array
     }
 
     $whereSql = implode(' AND ', $where);
+    if ($saldoPositif) {
+        $whereSql .= ' AND COALESCE(tr.saldo_net, 0) > 0';
+    }
+
+    $mkUi = mstKelasUiSqlExprs('mk', 'c');
+    $unitExpr = "COALESCE(NULLIF(TRIM(ms.DESC01), ''), {$mkUi['unit']})";
 
     // Agregasi sekali di sccttran (hindari subquery terkorelasi → kurang risiko error 1615).
     $sql = "
@@ -5834,13 +6561,14 @@ function getSaldoVirtualAccountRows(array $req): array
             TRIM(c.NOCUST) AS nis,
             TRIM(c.NMCUST) AS nama,
             TRIM(c.NUM2ND) AS no_pendaftaran,
-            COALESCE(NULLIF(TRIM(mk.unit), ''), TRIM(c.CODE02), '') AS unit,
-            COALESCE(NULLIF(TRIM(mk.jenjang), ''), TRIM(c.DESC02), '') AS kelas,
-            TRIM(c.DESC01) AS jenjang,
+            {$unitExpr} AS unit,
+            {$mkUi['kelas']} AS kelas,
+            {$mkUi['kelompok']} AS kelompok,
             TRIM(c.DESC04) AS angkatan,
             COALESCE(tr.saldo_net, 0) AS saldo
         FROM scctcust c
         LEFT JOIN mst_kelas mk ON CAST(mk.id AS CHAR) = TRIM(c.CODE03)
+        LEFT JOIN mst_sekolah ms ON TRIM(ms.CODE01) = TRIM(c.CODE01)
         LEFT JOIN (
             SELECT
                 CUSTID,
@@ -5876,7 +6604,7 @@ function getSaldoVirtualAccountRows(array $req): array
             'no_pendaftaran' => trim((string) ($r['no_pendaftaran'] ?? '')),
             'unit' => trim((string) ($r['unit'] ?? '')),
             'kelas' => trim((string) ($r['kelas'] ?? '')),
-            'jenjang' => trim((string) ($r['jenjang'] ?? '')),
+            'kelompok' => trim((string) ($r['kelompok'] ?? '')),
             'angkatan' => trim((string) ($r['angkatan'] ?? '')),
             'saldo' => (int) ($r['saldo'] ?? 0),
         ];
@@ -5907,16 +6635,21 @@ function getSaldoVirtualAccountMutasi(array $req): array
     $offset = max(0, (int) ($req['offset'] ?? 0));
     $fetchLimit = $limit + 1;
 
+    $mkUi = mstKelasUiSqlExprs('mk', 'c');
+    $unitExpr = "COALESCE(NULLIF(TRIM(ms.DESC01), ''), {$mkUi['unit']})";
+
     $stS = $pdo->prepare("
         SELECT
             c.CUSTID AS custid,
             TRIM(c.NOCUST) AS nis,
             TRIM(c.NMCUST) AS nama,
-            COALESCE(NULLIF(TRIM(mk.jenjang), ''), TRIM(c.DESC02), '') AS kelas,
+            {$mkUi['kelas']} AS kelas,
+            {$mkUi['kelompok']} AS kelompok,
             TRIM(c.DESC04) AS angkatan,
-            TRIM(c.CODE02) AS unit
+            {$unitExpr} AS unit
         FROM scctcust c
         LEFT JOIN mst_kelas mk ON CAST(mk.id AS CHAR) = TRIM(c.CODE03)
+        LEFT JOIN mst_sekolah ms ON TRIM(ms.CODE01) = TRIM(c.CODE01)
         WHERE c.CUSTID = :cid
         LIMIT 1
     ");
@@ -5960,15 +6693,33 @@ function getSaldoVirtualAccountMutasi(array $req): array
     $tDebet = (int) ($totRow['total_debet'] ?? 0);
     $tKredit = (int) ($totRow['total_kredit'] ?? 0);
 
+    $sortBy = strtolower(trim((string) ($req['sort_by'] ?? 'trxdate')));
+    $sortDir = strtolower(trim((string) ($req['sort_dir'] ?? 'desc')));
+    if (!in_array($sortDir, ['asc', 'desc'], true)) {
+        $sortDir = 'desc';
+    }
+    $orderCol = match ($sortBy) {
+        'metode' => 'TRIM(COALESCE(t.METODE, \'\'))',
+        'noref' => 'TRIM(COALESCE(t.NOREFF, \'\'))',
+        'debet' => 't.DEBET',
+        'kredit' => 't.KREDIT',
+        default => 't.TRXDATE',
+    };
+    if (!in_array($sortBy, ['metode', 'noref', 'debet', 'kredit', 'trxdate'], true)) {
+        $sortBy = 'trxdate';
+    }
+    $orderSql = "{$orderCol} {$sortDir}, t.TRXDATE DESC, t.METODE ASC";
+
     $sqlList = "
         SELECT
             TRIM(COALESCE(t.METODE, '')) AS metode,
+            TRIM(COALESCE(t.NOREFF, '')) AS noref,
             t.TRXDATE AS trxdate,
             CAST(COALESCE(t.DEBET, 0) AS SIGNED) AS debet,
             CAST(COALESCE(t.KREDIT, 0) AS SIGNED) AS kredit
         FROM sccttran t
         WHERE {$whereTranSql}
-        ORDER BY t.TRXDATE DESC, t.METODE ASC
+        ORDER BY {$orderSql}
         LIMIT " . (int) $fetchLimit . " OFFSET " . (int) $offset;
 
     $stL = $pdo->prepare($sqlList);
@@ -5987,6 +6738,7 @@ function getSaldoVirtualAccountMutasi(array $req): array
     foreach ($raw as $r) {
         $rows[] = [
             'metode' => trim((string) ($r['metode'] ?? '')),
+            'noref' => trim((string) ($r['noref'] ?? '')),
             'trxdate' => $r['trxdate'] ?? null,
             'debet' => (int) ($r['debet'] ?? 0),
             'kredit' => (int) ($r['kredit'] ?? 0),
@@ -5998,6 +6750,7 @@ function getSaldoVirtualAccountMutasi(array $req): array
         'nis' => $nis,
         'nama' => trim((string) ($srow['nama'] ?? '')),
         'kelas' => trim((string) ($srow['kelas'] ?? '')),
+        'kelompok' => trim((string) ($srow['kelompok'] ?? '')),
         'angkatan' => trim((string) ($srow['angkatan'] ?? '')),
         'no_va' => $noVa,
         'unit' => trim((string) ($srow['unit'] ?? '')),
@@ -6015,6 +6768,8 @@ function getSaldoVirtualAccountMutasi(array $req): array
         'meta' => [
             'has_more' => $hasMore,
             'cari' => $cari,
+            'sort_by' => $sortBy,
+            'sort_dir' => $sortDir,
         ],
     ];
 }
@@ -6069,11 +6824,11 @@ function getDataTransaksiSccttran(array $req): array
         $params[':dt_ang_base'] = $thnAngkatanBase !== '' ? $thnAngkatanBase : $thnAngkatan;
     }
     if ($sekolah !== '') {
-        $where[] = '(COALESCE(NULLIF(TRIM(mk.unit), \'\'), TRIM(c.CODE02)) LIKE :dt_sek)';
-        $params[':dt_sek'] = '%' . $sekolah . '%';
+        $where[] = siswaSekolahFilterSql('c', 'mk');
+        $params[':sekolah_code'] = $sekolah;
     }
     if ($kelasId !== '') {
-        $where[] = 'TRIM(c.CODE03) = :dt_kelas';
+        $where[] = 'CAST(mk.id AS CHAR) = TRIM(:dt_kelas)';
         $params[':dt_kelas'] = $kelasId;
     }
     if ($nis !== '') {
@@ -6102,22 +6857,19 @@ function getDataTransaksiSccttran(array $req): array
 
     $whereSql = implode(' AND ', $where);
 
-    $joinKelasSql = ($sekolah !== '')
-        ? 'LEFT JOIN mst_kelas mk ON CAST(mk.id AS CHAR) = TRIM(c.CODE03)'
-        : '';
-
     $sql = "
         SELECT
             t.CUSTID AS custid,
             TRIM(c.NOCUST) AS nis,
             TRIM(c.NMCUST) AS nama,
             TRIM(COALESCE(t.METODE, '')) AS metode,
+            TRIM(COALESCE(t.NOREFF, '')) AS noref,
             t.TRXDATE AS trxdate,
             CAST(COALESCE(t.DEBET, 0) AS SIGNED) AS debet,
             CAST(COALESCE(t.KREDIT, 0) AS SIGNED) AS kredit
         FROM sccttran t
         INNER JOIN scctcust c ON c.CUSTID = t.CUSTID
-        {$joinKelasSql}
+        LEFT JOIN mst_kelas mk ON CAST(mk.id AS CHAR) = TRIM(c.CODE03)
         WHERE {$whereSql}
         ORDER BY t.TRXDATE DESC, t.CUSTID DESC
         LIMIT " . (int) $fetchLimit . ' OFFSET ' . (int) $offset;
@@ -6150,6 +6902,7 @@ function getDataTransaksiSccttran(array $req): array
             'no_va' => '7510050' . ($digits !== '' ? $digits : '0'),
             'nama' => trim((string) ($r['nama'] ?? '')),
             'metode' => trim((string) ($r['metode'] ?? '')),
+            'noref' => trim((string) ($r['noref'] ?? '')),
             'trxdate' => $r['trxdate'] ?? null,
             'debet' => (int) ($r['debet'] ?? 0),
             'kredit' => (int) ($r['kredit'] ?? 0),
@@ -6507,7 +7260,48 @@ function updateDataTagihanUrutan(array $req): array
 }
 
 /**
- * Hapus satu tagihan belum lunas: scctbill_detail lalu scctbill.
+ * Nonaktifkan satu tagihan belum lunas dari halaman Data Tagihan (soft delete).
+ * Record tetap di database; FSTSBolehBayar di-set 0.
+ *
+ * @return array{ok: bool, message: string}
+ */
+function dataTagihanDeactivateBill(PDO $pdo, int $custid, string $billcd): array
+{
+    $billcd = trim($billcd);
+    if ($custid <= 0 || $billcd === '') {
+        return ['ok' => false, 'message' => 'custid/billcd tidak valid'];
+    }
+
+    $chk = $pdo->prepare("
+        SELECT 1 FROM scctbill
+        WHERE CUSTID = :c AND BILLCD = :b
+          AND FSTSBolehBayar = 1
+          AND (PAIDST = '0' OR PAIDST = 0 OR TRIM(CAST(PAIDST AS CHAR)) = '0')
+        LIMIT 1
+    ");
+    $chk->execute([':c' => $custid, ':b' => $billcd]);
+    if (!$chk->fetchColumn()) {
+        return ['ok' => false, 'message' => 'Tagihan tidak ditemukan, sudah lunas, atau sudah dinonaktifkan.'];
+    }
+
+    $upd = $pdo->prepare("
+        UPDATE scctbill
+        SET FSTSBolehBayar = 0
+        WHERE CUSTID = :c AND BILLCD = :b
+          AND FSTSBolehBayar = 1
+          AND (PAIDST = '0' OR PAIDST = 0 OR TRIM(CAST(PAIDST AS CHAR)) = '0')
+    ");
+    $upd->execute([':c' => $custid, ':b' => $billcd]);
+    if ($upd->rowCount() === 0) {
+        return ['ok' => false, 'message' => 'Gagal menonaktifkan tagihan.'];
+    }
+
+    return ['ok' => true, 'message' => 'Tagihan berhasil dihapus dari daftar aktif.'];
+}
+
+/**
+ * Hapus satu tagihan belum lunas: scctbill_detail lalu scctbill (hard delete).
+ * Dipakai menu Keuangan → Hapus Tagihan (batch), bukan tombol Hapus di Data Tagihan.
  *
  * @return array{ok: bool, message: string}
  */
@@ -6560,14 +7354,14 @@ function deleteDataTagihanRow(array $req): array
     }
 
     $pdo = dbConnectPdo();
-    $r = hapusTagihanDeleteUnpaidBill($pdo, $custid, $billcd);
+    $r = dataTagihanDeactivateBill($pdo, $custid, $billcd);
     if (!$r['ok']) {
         http_response_code(400);
         echo json_encode(['status' => 400, 'message' => $r['message']], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
-    return ['deleted' => 1];
+    return ['deleted' => 1, 'message' => $r['message']];
 }
 
 function createBuatTagihan(array $req): array
@@ -6601,7 +7395,7 @@ function createBuatTagihan(array $req): array
         echo json_encode(['status' => 422, 'message' => 'thn_akademik dan kelas_id wajib diisi'], JSON_UNESCAPED_UNICODE);
         exit;
     }
-    $fungsi = resolveBillacPeriodeByTagihan($tagihan, $fungsi);
+    $fungsi = resolveBillacPeriodeByTagihan($tagihan, $fungsi, $thn_akademik);
     if ($fungsi === '') {
         $fungsi = date('Ym');
     }
@@ -6801,16 +7595,8 @@ function createBuatTagihan(array $req): array
     ];
 }
 
-function resolveBillacPeriodeByTagihan(string $tagihan, string $fallback = ''): string
+function resolveBillacPeriodeByTagihan(string $tagihan, string $fallback = '', string $thnAkademik = ''): string
 {
-    $year = date('Y');
-    $currentMonth = date('m');
-    $name = mb_strtoupper(trim($tagihan));
-
-    if ($name === '') {
-        return $fallback !== '' ? $fallback : ($year . $currentMonth);
-    }
-
     $monthMap = [
         'JANUARI' => '01',
         'JANUARY' => '01',
@@ -6834,13 +7620,55 @@ function resolveBillacPeriodeByTagihan(string $tagihan, string $fallback = ''): 
         'DESEMBER' => '12',
         'DECEMBER' => '12',
     ];
+
+    $periodeBulan = date('m');
+    $name = mb_strtoupper(trim($tagihan));
     foreach ($monthMap as $key => $mm) {
-        if (str_contains($name, $key)) {
-            return $year . $mm;
+        if ($name !== '' && str_contains($name, $key)) {
+            $periodeBulan = $mm;
+            break;
         }
     }
 
-    return $year . $currentMonth;
+    $yearPair = parseThnAkademikYearPair($thnAkademik);
+    if ($yearPair !== null) {
+        [$year1, $year2] = $yearPair;
+        $year = ((int) $periodeBulan < 7) ? $year2 : $year1;
+
+        return $year . $periodeBulan;
+    }
+
+    $fallbackDigits = preg_replace('/\D+/', '', $fallback);
+    if ($fallbackDigits !== '' && strlen($fallbackDigits) >= 6) {
+        return substr($fallbackDigits, 0, 6);
+    }
+
+    if ($name === '') {
+        return $fallback !== '' ? $fallback : (date('Y') . date('m'));
+    }
+
+    return date('Y') . $periodeBulan;
+}
+
+/**
+ * @return array{0: string, 1: string}|null Pasangan tahun awal / akhir dari string thn_aka.
+ */
+function parseThnAkademikYearPair(string $thnAkademik): ?array
+{
+    $thnAkademik = trim($thnAkademik);
+    if ($thnAkademik === '') {
+        return null;
+    }
+
+    if (preg_match('/(\d{4})\s*[/\-]\s*(\d{4})/', $thnAkademik, $m)) {
+        return [$m[1], $m[2]];
+    }
+
+    if (preg_match_all('/\d{4}/', $thnAkademik, $all) && count($all[0]) >= 2) {
+        return [$all[0][0], $all[0][1]];
+    }
+
+    return null;
 }
 
 function buildTagihanBillCdByMode(string $thnAkademik, int $urutan, string $mode): string
@@ -7835,6 +8663,32 @@ try {
             "method" => "importSettingAtributSiswa",
             "message" => "Import atribut selesai",
             "data" => $result
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
+    if ($method === "resetLoginAndroid") {
+        $result = resetLoginAndroid($req);
+
+        http_response_code(200);
+        echo json_encode([
+            "status"  => 200,
+            "method"  => "resetLoginAndroid",
+            "message" => $result["message"] ?? "Login Android direset",
+            "data"    => $result
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
+    if ($method === "resetLoginAndroidBulk") {
+        $result = resetLoginAndroidBulk($req);
+
+        http_response_code(200);
+        echo json_encode([
+            "status"  => 200,
+            "method"  => "resetLoginAndroidBulk",
+            "message" => $result["message"] ?? "Reset Android berhasil",
+            "data"    => $result
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
     }

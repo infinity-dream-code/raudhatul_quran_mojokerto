@@ -4,6 +4,7 @@ namespace App\Http\Controllers\MasterData;
 
 use App\Http\Controllers\Controller;
 use App\Services\AmalFatimahApiService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -171,6 +172,34 @@ class DataSiswaController extends Controller
     public function destroy(string $id): RedirectResponse
     {
         return redirect()->route('master.data_siswa')->with('status', "Data Siswa #{$id} terhapus (dummy).");
+    }
+
+    public function resetLoginAndroid(string $id, AmalFatimahApiService $api): JsonResponse
+    {
+        $custid = (int) $id;
+        $result = $api->resetLoginAndroid($custid);
+
+        if (!$result['ok']) {
+            return response()->json(['message' => $result['message']], 422);
+        }
+
+        return response()->json(['message' => $result['message']], 200);
+    }
+
+    public function resetLoginAndroidBulk(Request $request, AmalFatimahApiService $api): JsonResponse
+    {
+        $custids = $request->input('custids', []);
+        if (!is_array($custids)) {
+            return response()->json(['message' => 'Format data tidak valid'], 422);
+        }
+
+        $result = $api->resetLoginAndroidBulk($custids);
+
+        if (!$result['ok']) {
+            return response()->json(['message' => $result['message']], 422);
+        }
+
+        return response()->json(['message' => $result['message']], 200);
     }
 
     private function extractUiFilters(Request $request): array

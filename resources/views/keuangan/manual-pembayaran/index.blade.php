@@ -295,6 +295,9 @@
     <form id="mpFormKuitansi" method="POST" action="{{ route('keu.manual.kuitansi') }}" target="_blank" style="display:none;" aria-hidden="true">
         @csrf
         <input type="hidden" name="custid" id="mpKuitansiCustid" value="{{ (int) ($manualPembayaranSuccessCustid ?? 0) }}">
+        @foreach (($manualPembayaranSuccessBillcds ?? []) as $bcd)
+            <input type="hidden" name="selected_billcds[]" value="{{ $bcd }}">
+        @endforeach
     </form>
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

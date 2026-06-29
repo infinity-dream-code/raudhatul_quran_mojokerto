@@ -333,7 +333,11 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
                     </div>
                     <div class="modal-body py-4">
-                        @if ($errors->any())
+                        @if ($errors->has('api'))
+                            <div class="modal-error">{{ $errors->first('api') }}</div>
+                        @elseif (session('error'))
+                            <div class="modal-error">{{ session('error') }}</div>
+                        @elseif ($errors->any())
                             <div class="modal-error">{{ $errors->first() }}</div>
                         @endif
 
@@ -374,13 +378,15 @@
             var modalEl = document.getElementById('modal-create-kelas');
             if (!modalEl) return;
 
-            @if (session('openCreateModal') || $errors->any())
+            @if (session('openCreateModal') || session('error') || $errors->any())
                 bootstrap.Modal.getOrCreateInstance(modalEl).show();
             @endif
 
             modalEl.addEventListener('hidden.bs.modal', function () {
+                @if (!session('openCreateModal') && !$errors->any() && !session('error'))
                 var form = document.getElementById('form-create-kelas');
                 if (form) form.reset();
+                @endif
             });
         })();
     </script>

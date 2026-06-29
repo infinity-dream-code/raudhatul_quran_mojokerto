@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\AndroidLogonFixerProcedure;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -57,6 +58,14 @@ class AmalFatimahApiService
     protected function wsConnectTimeout(): int
     {
         return max(1, (int) config('services.ws_raudhatul_quran.connect_timeout', 2));
+    }
+
+    /** Koneksi DB SIKEU (sama seperti Pindah Kelas / hapus kelas). */
+    protected function sikeuDb()
+    {
+        return $this->sikeuPindahKelas->isConfigured()
+            ? DB::connection('sikeu')
+            : DB::connection();
     }
 
     protected function wsPost(array $payload, ?int $timeout = null, ?int $connectTimeout = null): ?\Illuminate\Http\Client\Response
@@ -376,7 +385,7 @@ class AmalFatimahApiService
     protected function getKelasFromLocalDatabase(array $filters = []): array
     {
         try {
-            $query = DB::table('mst_kelas')
+            $query = $this->sikeuDb()->table('mst_kelas')
                 ->select('id', 'kelas', 'jenjang', 'unit', 'kelompok');
 
             if (!empty($filters['jenjang'])) {
@@ -417,17 +426,21 @@ class AmalFatimahApiService
         }
 
         try {
-            $exists = DB::table('mst_kelas')
+            $exists = $this->sikeuDb()->table('mst_kelas')
                 ->where('unit', $unit)
                 ->where('jenjang', $jenjang)
                 ->where('kelas', $kelas)
                 ->exists();
 
             if ($exists) {
-                return ['ok' => false, 'message' => 'Kombinasi unit, kelas, dan kelompok sudah terdaftar.', 'data' => []];
+                return [
+                    'ok' => false,
+                    'message' => "Gagal menyimpan: kombinasi unit \"{$unit}\", kelas \"{$jenjang}\", kelompok \"{$kelas}\" sudah terdaftar.",
+                    'data' => [],
+                ];
             }
 
-            $id = DB::table('mst_kelas')->insertGetId([
+            $id = $this->sikeuDb()->table('mst_kelas')->insertGetId([
                 'unit' => $unit,
                 'jenjang' => $jenjang,
                 'kelas' => $kelas,
@@ -448,7 +461,16 @@ class AmalFatimahApiService
         } catch (\Throwable $e) {
             Log::warning('[SIKEU DB] createKelas local: ' . $e->getMessage());
 
-            return ['ok' => false, 'message' => 'Gagal menyimpan ke database.', 'data' => []];
+            $msg = $e->getMessage();
+            if (str_contains($msg, 'Duplicate') || str_contains($msg, '1062')) {
+                return [
+                    'ok' => false,
+                    'message' => "Gagal menyimpan: kombinasi unit \"{$unit}\", kelas \"{$jenjang}\", kelompok \"{$kelas}\" sudah terdaftar.",
+                    'data' => [],
+                ];
+            }
+
+            return ['ok' => false, 'message' => 'Gagal menyimpan ke database: ' . $msg, 'data' => []];
         }
     }
 
@@ -462,9 +484,7 @@ class AmalFatimahApiService
         }
 
         try {
-            $conn = $this->sikeuPindahKelas->isConfigured()
-                ? DB::connection('sikeu')
-                : DB::connection();
+            $conn = $this->sikeuDb();
 
             $kelasRow = $conn->table('mst_kelas')
                 ->where('id', $id)
@@ -644,14 +664,15 @@ class AmalFatimahApiService
             'method' => 'createKelas',
             'token' => $token,
             'kelas' => trim((string) ($payload['kelas'] ?? '')),
-            'jenjang' => trim((string) ($payload['jenjang'] ?? '')),
+            'jenjang' => trim((string) ($payload['jenjang'] ?? $payload['kelas'] ?? '')),
             'unit' => trim((string) ($payload['unit'] ?? '')),
             'kelompok' => trim((string) ($payload['kelompok'] ?? '')),
         ];
 
         try {
             $response = $this->wsPost($body);
-            $json = $response?->json();
+            $json = is_array($response?->json()) ? $response->json() : [];
+            $httpStatus = (int) ($response?->status() ?? 0);
 
             if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 201) {
                 return [
@@ -661,12 +682,49 @@ class AmalFatimahApiService
                 ];
             }
 
-            Log::warning('[WS Amal Fatimah] createKelas failed', [
-                'status' => $response?->status(),
-                'body' => $response?->body(),
-            ]);
+            $wsMessage = trim((string) ($json['message'] ?? ''));
+            if ($wsMessage === '' && $response && !$response->successful()) {
+                $raw = trim((string) $response->body());
+                if ($raw !== '' && strlen($raw) <= 300) {
+                    $decoded = json_decode($raw, true);
+                    if (is_array($decoded) && !empty($decoded['message'])) {
+                        $wsMessage = trim((string) $decoded['message']);
+                    }
+                }
+            }
 
-            return $this->createKelasLocal($payload);
+            // WS versi lama bisa menolak kelompok sama walau kelas beda — coba simpan lokal (validasi lengkap).
+            if ($response !== null && in_array($httpStatus, [409, 422], true)) {
+                $local = $this->createKelasLocal($payload);
+                if ($local['ok']) {
+                    return $local;
+                }
+
+                return [
+                    'ok' => false,
+                    'message' => $local['message'] ?: ($wsMessage !== '' ? $wsMessage : 'Gagal menambahkan data kelas.'),
+                    'data' => [],
+                ];
+            }
+
+            if ($response === null || !$response->successful()) {
+                $local = $this->createKelasLocal($payload);
+                if ($local['ok']) {
+                    return $local;
+                }
+
+                return [
+                    'ok' => false,
+                    'message' => $local['message'] ?: ($wsMessage !== '' ? $wsMessage : 'Gagal menambahkan data kelas. Periksa koneksi web service.'),
+                    'data' => [],
+                ];
+            }
+
+            return [
+                'ok' => false,
+                'message' => $wsMessage !== '' ? $wsMessage : 'Gagal menambahkan data kelas.',
+                'data' => [],
+            ];
         } catch (\Throwable $e) {
             Log::error('[WS Amal Fatimah] createKelas: ' . $e->getMessage());
 
@@ -1464,7 +1522,7 @@ class AmalFatimahApiService
         return $this->importSiswaByFilePath($file->getRealPath(), $file->getClientOriginalName());
     }
 
-    public function importSiswaByFilePath(string $filePath, string $originalName = 'import.xlsx'): array
+    public function importSiswaByFilePath(string $filePath, string $originalName = 'import.xlsx', array $options = []): array
     {
         $url = config('services.ws_raudhatul_quran.url');
         $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
@@ -1484,6 +1542,8 @@ class AmalFatimahApiService
                 [
                     'method' => 'importSiswa',
                     'token' => $token,
+                    'sekolah' => trim((string) ($options['sekolah'] ?? '')),
+                    'metode' => trim((string) ($options['metode'] ?? '1')),
                 ],
                 fn ($client) => $client->attach('file', $content, $originalName),
                 120
@@ -1735,7 +1795,7 @@ class AmalFatimahApiService
                 'token' => $token,
             ]);
             if (!$response || !$response->successful()) {
-                return ['thn_akademik' => [], 'thn_angkatan' => [], 'kelas' => [], 'tagihan' => []];
+                return ['thn_akademik' => [], 'thn_angkatan' => [], 'kelas' => [], 'tagihan' => [], 'akun' => [], 'sekolah' => []];
             }
 
             $json = $response?->json();
@@ -1745,10 +1805,12 @@ class AmalFatimahApiService
                 'thn_angkatan' => is_array($inner['thn_angkatan'] ?? null) ? array_values($inner['thn_angkatan']) : [],
                 'kelas' => is_array($inner['kelas'] ?? null) ? array_values($inner['kelas']) : [],
                 'tagihan' => is_array($inner['tagihan'] ?? null) ? array_values($inner['tagihan']) : [],
+                'akun' => is_array($inner['akun'] ?? null) ? array_values($inner['akun']) : [],
+                'sekolah' => is_array($inner['sekolah'] ?? null) ? array_values($inner['sekolah']) : [],
             ];
         } catch (\Throwable $e) {
             Log::error('[WS Amal Fatimah] getFilterBuatTagihan: ' . $e->getMessage());
-            return ['thn_akademik' => [], 'thn_angkatan' => [], 'kelas' => [], 'tagihan' => []];
+            return ['thn_akademik' => [], 'thn_angkatan' => [], 'kelas' => [], 'tagihan' => [], 'akun' => [], 'sekolah' => []];
         }
     }
 
@@ -2023,6 +2085,8 @@ class AmalFatimahApiService
             'thn_akademik' => trim((string) ($filters['thn_akademik'] ?? '')),
             'kelas_id' => trim((string) ($filters['kelas_id'] ?? '')),
             'nama_tagihan' => trim((string) ($filters['nama_tagihan'] ?? '')),
+            'kode_post' => trim((string) ($filters['kode_post'] ?? '')),
+            'nama_post' => trim((string) ($filters['nama_post'] ?? '')),
             'nis' => trim((string) ($filters['nis'] ?? '')),
             'nama' => trim((string) ($filters['nama'] ?? '')),
             'siswa' => trim((string) ($filters['siswa'] ?? '')),
@@ -2173,12 +2237,16 @@ class AmalFatimahApiService
             'thn_akademik' => trim((string) ($filters['thn_akademik'] ?? '')),
             'kelas_id' => trim((string) ($filters['kelas_id'] ?? '')),
             'nama_tagihan' => trim((string) ($filters['nama_tagihan'] ?? '')),
+            'kode_post' => trim((string) ($filters['kode_post'] ?? '')),
+            'nama_post' => trim((string) ($filters['nama_post'] ?? '')),
+            'nis' => trim((string) ($filters['nis'] ?? '')),
+            'nama' => trim((string) ($filters['nama'] ?? '')),
             'siswa' => trim((string) ($filters['siswa'] ?? '')),
             'sort_urutan' => trim((string) ($filters['sort_urutan'] ?? '')),
         ], static fn ($v) => $v !== ''));
 
         try {
-            $response = $this->wsPost($body);
+            $response = $this->wsPost($body, 300, 15);
             $json = $response?->json();
             if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
                 return [
@@ -2304,6 +2372,8 @@ class AmalFatimahApiService
             'thn_akademik' => trim((string) ($filters['thn_akademik'] ?? '')),
             'kelas_id' => trim((string) ($filters['kelas_id'] ?? '')),
             'nama_tagihan' => trim((string) ($filters['nama_tagihan'] ?? '')),
+            'kode_post' => trim((string) ($filters['kode_post'] ?? '')),
+            'nama_post' => trim((string) ($filters['nama_post'] ?? '')),
             'nis' => trim((string) ($filters['nis'] ?? '')),
             'nama' => trim((string) ($filters['nama'] ?? '')),
             'cari' => trim((string) ($filters['cari'] ?? '')),
@@ -2426,7 +2496,7 @@ class AmalFatimahApiService
      * @param array<string, string> $filters
      * @return array{ok: bool, message: string, data: array{rows: array<int, mixed>, meta: array<string, mixed>}}
      */
-    public function getCekPelunasanRows(array $filters, int $limit, int $offset): array
+    public function getCekPelunasanRows(array $filters, int $limit, int $offset, bool $forExport = false): array
     {
         $url = config('services.ws_raudhatul_quran.url');
         $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
@@ -2446,9 +2516,12 @@ class AmalFatimahApiService
             'nama_tagihan' => trim((string) ($filters['nama_tagihan'] ?? '')),
             'cari' => trim((string) ($filters['cari'] ?? '')),
         ], static fn ($v) => $v !== ''));
+        if ($forExport) {
+            $body['for_export'] = 1;
+        }
 
         try {
-            $response = $this->wsPost($body);
+            $response = $this->wsPost($body, $forExport ? 300 : 180, 25);
             $json = $response?->json();
             if (!$response || !$response->successful() || (int) ($json['status'] ?? 0) !== 200) {
                 return [
@@ -2476,6 +2549,15 @@ class AmalFatimahApiService
                 'data' => ['rows' => [], 'meta' => []],
             ];
         }
+    }
+
+    /**
+     * @param array<string, string> $filters
+     * @return array{ok: bool, message: string, data: array{rows: array<int, mixed>, meta: array<string, mixed>}}
+     */
+    public function getCekPelunasanRowsExportAll(array $filters, int $maxRows = 8000): array
+    {
+        return $this->getCekPelunasanRows($filters, $maxRows, 0, true);
     }
 
     /**
@@ -2737,6 +2819,7 @@ class AmalFatimahApiService
             'sekolah' => trim((string) ($filters['sekolah'] ?? '')),
             'kelas_id' => trim((string) ($filters['kelas_id'] ?? '')),
             'cari' => trim((string) ($filters['cari'] ?? '')),
+            'saldo_positif' => trim((string) ($filters['saldo_positif'] ?? '')),
         ], static fn ($v) => $v !== ''));
 
         try {
@@ -2773,11 +2856,20 @@ class AmalFatimahApiService
     /**
      * @return array{ok: bool, message: string, data: array<string, mixed>}
      */
-    public function getSaldoVirtualAccountMutasi(int $custid, string $cari, int $limit, int $offset): array
+    public function getSaldoVirtualAccountMutasi(int $custid, string $cari, int $limit, int $offset, string $sortBy = 'trxdate', string $sortDir = 'desc'): array
     {
         $url = config('services.ws_raudhatul_quran.url');
         $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getSaldoVirtualAccountMutasi', 'rnd' => uniqid()], $jwtKey);
+
+        $sortBy = strtolower(trim($sortBy));
+        $sortDir = strtolower(trim($sortDir));
+        if (!in_array($sortBy, ['metode', 'noref', 'trxdate', 'debet', 'kredit'], true)) {
+            $sortBy = 'trxdate';
+        }
+        if (!in_array($sortDir, ['asc', 'desc'], true)) {
+            $sortDir = 'desc';
+        }
 
         $body = array_merge([
             'method' => 'getSaldoVirtualAccountMutasi',
@@ -2785,6 +2877,8 @@ class AmalFatimahApiService
             'custid' => $custid,
             'limit' => $limit,
             'offset' => $offset,
+            'sort_by' => $sortBy,
+            'sort_dir' => $sortDir,
         ], array_filter([
             'cari' => trim($cari),
         ], static fn ($v) => $v !== ''));
@@ -3000,6 +3094,8 @@ class AmalFatimahApiService
             'thn_akademik' => trim((string) ($filters['thn_akademik'] ?? '')),
             'kelas_id' => trim((string) ($filters['kelas_id'] ?? '')),
             'nama_tagihan' => trim((string) ($filters['nama_tagihan'] ?? '')),
+            'kode_post' => trim((string) ($filters['kode_post'] ?? '')),
+            'nama_post' => trim((string) ($filters['nama_post'] ?? '')),
             'nis' => trim((string) ($filters['nis'] ?? '')),
             'nama' => trim((string) ($filters['nama'] ?? '')),
             'cari' => trim((string) ($filters['cari'] ?? '')),
@@ -3066,6 +3162,8 @@ class AmalFatimahApiService
             'thn_akademik' => trim((string) ($filters['thn_akademik'] ?? '')),
             'kelas_id' => trim((string) ($filters['kelas_id'] ?? '')),
             'nama_tagihan' => trim((string) ($filters['nama_tagihan'] ?? '')),
+            'kode_post' => trim((string) ($filters['kode_post'] ?? '')),
+            'nama_post' => trim((string) ($filters['nama_post'] ?? '')),
             'nis' => trim((string) ($filters['nis'] ?? '')),
             'nama' => trim((string) ($filters['nama'] ?? '')),
             'cari' => trim((string) ($filters['cari'] ?? '')),
@@ -3152,6 +3250,8 @@ class AmalFatimahApiService
             'thn_akademik' => trim((string) ($filters['thn_akademik'] ?? '')),
             'kelas_id' => trim((string) ($filters['kelas_id'] ?? '')),
             'nama_tagihan' => trim((string) ($filters['nama_tagihan'] ?? '')),
+            'kode_post' => trim((string) ($filters['kode_post'] ?? '')),
+            'nama_post' => trim((string) ($filters['nama_post'] ?? '')),
             'nis' => trim((string) ($filters['nis'] ?? '')),
             'nama' => trim((string) ($filters['nama'] ?? '')),
             'cari' => trim((string) ($filters['cari'] ?? '')),
@@ -3207,7 +3307,7 @@ class AmalFatimahApiService
     {
         if (!$this->wsReady()) {
             return [
-                'filterOptions' => ['thn_akademik' => [], 'thn_angkatan' => [], 'kelas' => [], 'tagihan' => []],
+                'filterOptions' => ['thn_akademik' => [], 'thn_angkatan' => [], 'kelas' => [], 'tagihan' => [], 'akun' => [], 'sekolah' => []],
                 'bankOptions' => [],
             ];
         }
@@ -3238,7 +3338,7 @@ class AmalFatimahApiService
             ];
         }
 
-        $filterOptions = ['thn_akademik' => [], 'thn_angkatan' => [], 'kelas' => [], 'tagihan' => []];
+        $filterOptions = ['thn_akademik' => [], 'thn_angkatan' => [], 'kelas' => [], 'tagihan' => [], 'akun' => [], 'sekolah' => []];
         $rf = $responses['filters'] ?? null;
         if ($rf && $rf->successful()) {
             $json = $rf->json();
@@ -3248,6 +3348,8 @@ class AmalFatimahApiService
                 'thn_angkatan' => is_array($inner['thn_angkatan'] ?? null) ? array_values($inner['thn_angkatan']) : [],
                 'kelas' => is_array($inner['kelas'] ?? null) ? array_values($inner['kelas']) : [],
                 'tagihan' => is_array($inner['tagihan'] ?? null) ? array_values($inner['tagihan']) : [],
+                'akun' => is_array($inner['akun'] ?? null) ? array_values($inner['akun']) : [],
+                'sekolah' => is_array($inner['sekolah'] ?? null) ? array_values($inner['sekolah']) : [],
             ];
         }
 
@@ -3302,6 +3404,8 @@ class AmalFatimahApiService
                     'thn_angkatan' => is_array($inner['thn_angkatan'] ?? null) ? array_values($inner['thn_angkatan']) : [],
                     'kelas' => is_array($inner['kelas'] ?? null) ? array_values($inner['kelas']) : [],
                     'tagihan' => is_array($inner['tagihan'] ?? null) ? array_values($inner['tagihan']) : [],
+                    'akun' => is_array($inner['akun'] ?? null) ? array_values($inner['akun']) : [],
+                    'sekolah' => is_array($inner['sekolah'] ?? null) ? array_values($inner['sekolah']) : [],
                 ];
                 $tingkat = is_array($inner['tingkat'] ?? null) ? array_values($inner['tingkat']) : [];
 
@@ -3326,7 +3430,7 @@ class AmalFatimahApiService
         sort($tingkat, SORT_NATURAL | SORT_FLAG_CASE);
 
         return [
-            'filterOptions' => is_array($fo) ? $fo : ['thn_akademik' => [], 'thn_angkatan' => [], 'kelas' => [], 'tagihan' => []],
+            'filterOptions' => is_array($fo) ? $fo : ['thn_akademik' => [], 'thn_angkatan' => [], 'kelas' => [], 'tagihan' => [], 'akun' => [], 'sekolah' => []],
             'tingkatOptions' => $tingkat,
         ];
     }
@@ -3375,6 +3479,8 @@ class AmalFatimahApiService
             'thn_akademik' => trim((string) ($filters['thn_akademik'] ?? '')),
             'kelas_id' => trim((string) ($filters['kelas_id'] ?? '')),
             'nama_tagihan' => trim((string) ($filters['nama_tagihan'] ?? '')),
+            'kode_post' => trim((string) ($filters['kode_post'] ?? '')),
+            'nama_post' => trim((string) ($filters['nama_post'] ?? '')),
             'nis' => trim((string) ($filters['nis'] ?? '')),
             'nama' => trim((string) ($filters['nama'] ?? '')),
             'cari' => trim((string) ($filters['cari'] ?? '')),
@@ -3617,10 +3723,12 @@ class AmalFatimahApiService
             $response = $this->wsPost($body);
             $json = $response?->json();
             if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 200) {
+                $data = is_array($json['data'] ?? null) ? $json['data'] : [];
+
                 return [
                     'ok' => true,
-                    'message' => (string) ($json['message'] ?? 'Terhapus'),
-                    'data' => is_array($json['data'] ?? null) ? $json['data'] : [],
+                    'message' => (string) ($data['message'] ?? $json['message'] ?? 'Tagihan berhasil dihapus dari daftar aktif.'),
+                    'data' => $data,
                 ];
             }
 
@@ -3754,5 +3862,181 @@ class AmalFatimahApiService
             Log::error('[WS Amal Fatimah] createManualPembayaran: ' . $e->getMessage());
             return ['ok' => false, 'message' => 'Terjadi kesalahan saat menghubungi layanan', 'data' => []];
         }
+    }
+
+    /**
+     * @return array{ok: bool, message: string, nis?: string}
+     */
+    public function resetLoginAndroid(int $custid): array
+    {
+        $nisResult = $this->resolveNisByCustid($custid);
+        if (!$nisResult['ok']) {
+            return $nisResult;
+        }
+
+        $nis = $nisResult['nis'];
+
+        if ($this->sikeuPindahKelas->isConfigured()) {
+            try {
+                AndroidLogonFixerProcedure::call($nis);
+
+                return ['ok' => true, 'message' => 'Login Android direset!', 'nis' => $nis];
+            } catch (\Throwable $e) {
+                Log::warning('[SIKEU] resetLoginAndroid local: ' . $e->getMessage(), ['custid' => $custid, 'nis' => $nis]);
+            }
+        }
+
+        if (!$this->wsReady()) {
+            return ['ok' => false, 'message' => 'Koneksi database SIKEU / web service belum dikonfigurasi'];
+        }
+
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
+        $token = $this->jwt->encode(['sub' => 'resetLoginAndroid', 'rnd' => uniqid()], $jwtKey);
+
+        try {
+            $response = $this->wsPost([
+                'method' => 'resetLoginAndroid',
+                'token' => $token,
+                'CUSTID' => $custid,
+                'nis' => $nis,
+            ]);
+            $json = $response?->json();
+            if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 200) {
+                return [
+                    'ok' => true,
+                    'message' => (string) ($json['message'] ?? 'Login Android direset!'),
+                    'nis' => $nis,
+                ];
+            }
+
+            return [
+                'ok' => false,
+                'message' => (string) ($json['message'] ?? 'Gagal reset login Android'),
+            ];
+        } catch (\Throwable $e) {
+            Log::error('[WS Amal Fatimah] resetLoginAndroid: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => 'Terjadi kesalahan saat menghubungi layanan'];
+        }
+    }
+
+    /**
+     * @param list<int|string> $custids
+     * @return array{ok: bool, message: string, processed?: int}
+     */
+    public function resetLoginAndroidBulk(array $custids): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map(static fn ($id) => (int) $id, $custids), static fn ($id) => $id > 0)));
+        if ($ids === []) {
+            return ['ok' => false, 'message' => 'Tidak ada siswa yang dipilih'];
+        }
+
+        if ($this->sikeuPindahKelas->isConfigured()) {
+            $processed = 0;
+            try {
+                $conn = $this->sikeuDb();
+                $conn->beginTransaction();
+                $rows = $conn->table('scctcust')
+                    ->whereIn('CUSTID', $ids)
+                    ->get(['CUSTID', 'NOCUST']);
+
+                foreach ($rows as $row) {
+                    $nis = trim((string) ($row->NOCUST ?? $row->nocust ?? ''));
+                    if ($nis === '' || $nis === '-') {
+                        continue;
+                    }
+                    AndroidLogonFixerProcedure::call($nis);
+                    $processed++;
+                }
+                $conn->commit();
+
+                if ($processed === 0) {
+                    return ['ok' => false, 'message' => 'Tidak ada siswa valid untuk reset (NIS kosong).'];
+                }
+
+                return [
+                    'ok' => true,
+                    'message' => "Reset Android berhasil untuk {$processed} siswa.",
+                    'processed' => $processed,
+                ];
+            } catch (\Throwable $e) {
+                try {
+                    $this->sikeuDb()->rollBack();
+                } catch (\Throwable) {
+                }
+                Log::warning('[SIKEU] resetLoginAndroidBulk local: ' . $e->getMessage());
+            }
+        }
+
+        if (!$this->wsReady()) {
+            return ['ok' => false, 'message' => 'Koneksi database SIKEU / web service belum dikonfigurasi'];
+        }
+
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
+        $token = $this->jwt->encode(['sub' => 'resetLoginAndroidBulk', 'rnd' => uniqid()], $jwtKey);
+
+        try {
+            $response = $this->wsPost([
+                'method' => 'resetLoginAndroidBulk',
+                'token' => $token,
+                'custids' => $ids,
+            ]);
+            $json = $response?->json();
+            if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 200) {
+                $data = is_array($json['data'] ?? null) ? $json['data'] : [];
+
+                return [
+                    'ok' => true,
+                    'message' => (string) ($json['message'] ?? 'Reset Android berhasil'),
+                    'processed' => (int) ($data['processed'] ?? 0),
+                ];
+            }
+
+            return [
+                'ok' => false,
+                'message' => (string) ($json['message'] ?? 'Gagal reset login android massal'),
+            ];
+        } catch (\Throwable $e) {
+            Log::error('[WS Amal Fatimah] resetLoginAndroidBulk: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => 'Terjadi kesalahan saat menghubungi layanan'];
+        }
+    }
+
+    /**
+     * @return array{ok: bool, message: string, nis?: string}
+     */
+    protected function resolveNisByCustid(int $custid): array
+    {
+        if ($custid <= 0) {
+            return ['ok' => false, 'message' => 'ID siswa tidak valid'];
+        }
+
+        try {
+            $row = $this->sikeuDb()->table('scctcust')
+                ->where('CUSTID', $custid)
+                ->first(['NOCUST']);
+            if ($row) {
+                $nis = trim((string) ($row->NOCUST ?? $row->nocust ?? ''));
+                if ($nis !== '' && $nis !== '-') {
+                    return ['ok' => true, 'message' => '', 'nis' => $nis];
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::debug('[SIKEU] resolveNisByCustid: ' . $e->getMessage());
+        }
+
+        $siswa = $this->getSiswaByCustid($custid);
+        if ($siswa['ok']) {
+            $data = $siswa['data'];
+            $nis = trim((string) ($data['nocust'] ?? $data['NOCUST'] ?? ''));
+            if ($nis !== '' && $nis !== '-') {
+                return ['ok' => true, 'message' => '', 'nis' => $nis];
+            }
+
+            return ['ok' => false, 'message' => 'Siswa tidak memiliki NIS'];
+        }
+
+        return ['ok' => false, 'message' => $siswa['message'] !== '' ? $siswa['message'] : 'Siswa tidak ditemukan'];
     }
 }

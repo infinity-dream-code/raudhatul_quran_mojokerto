@@ -91,13 +91,17 @@
                         <input type="date" name="tgl_sampai" value="{{ $filters['tgl_sampai'] ?? '' }}">
                     </div>
                     <div class="dt-fld">
-                        <label>Sekolah / unit</label>
-                        <select name="sekolah">
+                        <label>Unit</label>
+                        <select name="sekolah" id="dtSekolah" title="Filter unit dari mst_sekolah">
                             <option value="">Semua</option>
-                            @foreach (($tingkatOptions ?? []) as $unit)
-                                @php $u = (string) $unit; @endphp
-                                @if ($u !== '')
-                                    <option value="{{ $u }}" {{ (($filters['sekolah'] ?? '') === $u) ? 'selected' : '' }}>{{ $u }}</option>
+                            @foreach (($filterOptions['sekolah'] ?? []) as $sk)
+                                @php
+                                    $code = trim((string) (is_array($sk) ? ($sk['code'] ?? '') : ''));
+                                    $nama = trim((string) (is_array($sk) ? ($sk['nama'] ?? '') : ''));
+                                    $lbl = $nama !== '' ? $nama : $code;
+                                @endphp
+                                @if ($code !== '')
+                                    <option value="{{ $code }}" {{ (($filters['sekolah'] ?? '') === $code) ? 'selected' : '' }}>{{ $lbl }}</option>
                                 @endif
                             @endforeach
                         </select>
@@ -120,19 +124,26 @@
                         </select>
                     </div>
                     <div class="dt-fld">
-                        <label>Kelas</label>
-                        <select name="kelas_id">
+                        <label>Kelas — Kelompok</label>
+                        <select name="kelas_id" id="dtKelasId" title="Unit - Kelas (jenjang) - Kelompok">
                             <option value="">Semua</option>
                             @foreach (($filterOptions['kelas'] ?? []) as $k)
-                                @php $id = (string) ($k['id'] ?? ''); $lbl = trim((string) (($k['unit'] ?? '') . ' ' . ($k['kelas'] ?? ''))); @endphp
-                                @if ($id !== '')
-                                    <option value="{{ $id }}" {{ (($filters['kelas_id'] ?? '') === $id) ? 'selected' : '' }}>{{ $lbl }}</option>
+                                @php
+                                    $id = (string) ($k['id'] ?? '');
+                                    $parts = array_values(array_filter([
+                                        (string) ($k['unit'] ?? ''),
+                                        (string) ($k['jenjang'] ?? ''),
+                                        (string) ($k['kelas'] ?? ''),
+                                    ], static fn ($v) => $v !== ''));
+                                    $lbl = implode(' - ', $parts);
+                                @endphp
+                                @if ($id !== '' && $lbl !== '')
+                                    <option value="{{ $id }}" data-unit="{{ (string) ($k['unit'] ?? '') }}" {{ (($filters['kelas_id'] ?? '') === $id) ? 'selected' : '' }}>{{ $lbl }}</option>
                                 @endif
                             @endforeach
                         </select>
                     </div>
                 </div>
-                <p class="dt-hint">Sumber: <strong>sccttran</strong>.</p>
                 <div class="dt-actions">
                     <div class="dt-export-dd" id="dtExportDd">
                         <button type="button" class="dt-btn dt-btn-export" id="dtBtnExport" aria-expanded="false">Export ▾</button>
@@ -170,6 +181,7 @@
                             <th>NO VA</th>
                             <th>NAMA</th>
                             <th>METODE</th>
+                            <th>NOREF</th>
                             <th>TANGGAL TRANSAKSI</th>
                             <th class="dt-num">DEBET</th>
                             <th class="dt-num">KREDIT</th>
@@ -177,7 +189,7 @@
                     </thead>
                     <tbody id="dtTbody">
                         <tr>
-                            <td colspan="8" style="text-align:center;color:#6b7280;padding:20px;">Memuat data…</td>
+                            <td colspan="9" style="text-align:center;color:#6b7280;padding:20px;">Memuat data…</td>
                         </tr>
                     </tbody>
                 </table>
@@ -202,6 +214,30 @@
             var toolbarForm = document.getElementById('dtToolbarForm');
             var kw = document.getElementById('dtKw');
             var debounceTimer;
+            var dtSekolah = document.getElementById('dtSekolah');
+            var dtKelasId = document.getElementById('dtKelasId');
+
+            function syncDtKelasBySekolah() {
+                if (!dtKelasId) return;
+                var sk = dtSekolah ? dtSekolah.value : '';
+                var skText = '';
+                if (dtSekolah && dtSekolah.selectedIndex >= 0) {
+                    skText = (dtSekolah.options[dtSekolah.selectedIndex].text || '').trim();
+                }
+                Array.prototype.forEach.call(dtKelasId.options, function (opt, idx) {
+                    if (idx === 0) { opt.hidden = false; return; }
+                    if (!sk) { opt.hidden = false; return; }
+                    var u = (opt.getAttribute('data-unit') || '').trim();
+                    opt.hidden = !(u === skText || u === sk);
+                });
+                if (dtKelasId.selectedOptions.length && dtKelasId.selectedOptions[0].hidden) {
+                    dtKelasId.value = '';
+                }
+            }
+            if (dtSekolah) {
+                dtSekolah.addEventListener('change', syncDtKelasBySekolah);
+                syncDtKelasBySekolah();
+            }
 
             if (toolbarForm && kw) {
                 kw.addEventListener('input', function () {
@@ -265,14 +301,14 @@
                                 errEl.style.display = 'block';
                                 errEl.textContent = j.message || 'Gagal memuat data.';
                             }
-                            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#b91c1c;padding:20px;">' +
+                            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#b91c1c;padding:20px;">' +
                                 esc(j.message || 'Gagal memuat data.') + '</td></tr>';
                             return;
                         }
                         if (errEl) errEl.style.display = 'none';
                         var rows = j.rows || [];
                         if (rows.length === 0) {
-                            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#6b7280;padding:20px;">Tidak ada data.</td></tr>';
+                            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#6b7280;padding:20px;">Tidak ada data.</td></tr>';
                         } else {
                             tbody.innerHTML = rows.map(function (r, idx) {
                                 var no = (j.first_item || 0) + idx;
@@ -282,6 +318,7 @@
                                     '<td>' + esc(r.no_va || '-') + '</td>' +
                                     '<td>' + esc(r.nama || '-') + '</td>' +
                                     '<td>' + esc(r.metode || '-') + '</td>' +
+                                    '<td>' + esc(r.noref || '-') + '</td>' +
                                     '<td>' + esc(fmtTrx(r.trxdate)) + '</td>' +
                                     '<td class="dt-num">' + fmtRp(r.debet) + '</td>' +
                                     '<td class="dt-num">' + fmtRp(r.kredit) + '</td></tr>';
@@ -321,7 +358,7 @@
                             errEl.style.display = 'block';
                             errEl.textContent = 'Gagal menghubungi server.';
                         }
-                        if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#b91c1c;padding:20px;">Gagal menghubungi server.</td></tr>';
+                        if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#b91c1c;padding:20px;">Gagal menghubungi server.</td></tr>';
                     });
             }
 
@@ -362,10 +399,10 @@
                                 alert((j && j.message) ? j.message : 'Gagal menyalin data.');
                                 return;
                             }
-                            var lines = ['NIS\tNO VA\tNAMA\tMETODE\tTANGGAL TRANSAKSI\tDEBET\tKREDIT'];
+                            var lines = ['NIS\tNO VA\tNAMA\tMETODE\tNOREF\tTANGGAL TRANSAKSI\tDEBET\tKREDIT'];
                             j.rows.forEach(function (r) {
                                 lines.push([
-                                    r.nis || '', r.no_va || '', r.nama || '', r.metode || '',
+                                    r.nis || '', r.no_va || '', r.nama || '', r.metode || '', r.noref || '',
                                     r.trxdate || '', String(r.debet || 0), String(r.kredit || 0)
                                 ].join('\t'));
                             });

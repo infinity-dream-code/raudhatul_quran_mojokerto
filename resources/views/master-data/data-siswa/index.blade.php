@@ -100,6 +100,91 @@
             cursor: pointer;
         }
         .ds-btn-reset-login:disabled { opacity: 0.55; cursor: not-allowed; }
+        .ds-btn-reset-login:not(:disabled):hover { background: #ecfdf5; border-color: #10b981; color: #047857; }
+        .ds-btn-bulk-reset {
+            height: 34px;
+            padding: 0 12px;
+            border-radius: 8px;
+            background: #22c55e;
+            color: #fff;
+            border: 1px solid #16a34a;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .ds-btn-bulk-reset:disabled { opacity: 0.5; cursor: not-allowed; }
+        .ds-col-chk { width: 36px; text-align: center; }
+        .ds-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(17, 24, 39, 0.4);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 14px;
+            z-index: 1200;
+        }
+        .ds-modal.open { display: flex; }
+        .ds-modal-box {
+            width: 100%;
+            max-width: 460px;
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
+        }
+        .ds-modal-h {
+            padding: 14px 18px 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .ds-modal-h h3 { margin: 0; font-size: 18px; font-weight: 700; color: #111827; }
+        .ds-modal-close {
+            border: none;
+            background: transparent;
+            font-size: 22px;
+            line-height: 1;
+            color: #6b7280;
+            cursor: pointer;
+        }
+        .ds-modal-b { padding: 0 18px 14px; }
+        .ds-modal-fields { display: grid; gap: 8px; margin-top: 8px; }
+        .ds-modal-row { display: grid; grid-template-columns: 110px 1fr; gap: 8px; font-size: 13px; align-items: center; }
+        .ds-modal-row label { color: #6b7280; font-weight: 600; }
+        .ds-modal-row input {
+            width: 100%;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 7px 10px;
+            background: #f9fafb;
+            color: #111827;
+        }
+        .ds-modal-f {
+            padding: 12px 18px 18px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .ds-modal-f button {
+            height: 38px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .ds-modal-cancel { border: 1px solid #d1d5db; background: #fff; color: #374151; }
+        .ds-modal-submit { border: 1px solid #16a34a; background: #22c55e; color: #fff; }
+        .ds-modal-submit:disabled { opacity: 0.6; cursor: wait; }
+        .ds-alert-error {
+            margin: 0 18px 12px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: #fef2f2;
+            color: #b91c1c;
+            font-size: 13px;
+            font-weight: 600;
+        }
         .ds-empty { text-align: center; color: #6b7280; padding: 24px; }
         .ds-alert {
             margin: 0 18px 12px;
@@ -281,12 +366,15 @@
             @endif
 
             <div class="ds-toolbar">
-                <div class="ds-export" id="dsExport">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <button type="button" class="ds-btn-bulk-reset" id="dsBulkResetBtn" disabled>Reset Login Android</button>
+                    <div class="ds-export" id="dsExport">
                     <button type="button" class="ds-export-btn" id="dsExportToggle">Export ▾</button>
                     <div class="ds-export-menu" id="dsExportMenu">
                         <button type="button" class="ds-export-item" id="dsCopyBtn">Copy</button>
                         <a class="ds-export-item" href="{{ route('master.data_siswa.export_excel', request()->query()) }}">Excel</a>
                         <a class="ds-export-item" href="{{ route('master.data_siswa.export_pdf', request()->query()) }}" target="_blank">Pdf</a>
+                    </div>
                     </div>
                 </div>
                 <form method="GET" action="{{ route('master.data_siswa') }}" class="ds-search">
@@ -303,6 +391,7 @@
                 <table class="ds-table">
                     <thead>
                         <tr>
+                            <th class="ds-col-chk"><input type="checkbox" id="dsSelectAllReset" title="Pilih semua"></th>
                             <th class="ds-col-no">No</th>
                             <th>NIS</th>
                             <th>NO VA</th>
@@ -329,8 +418,15 @@
                                     $unit = ($c01 !== '' && $uSek !== '') ? ($c01 . ' — ' . $uSek) : (($uSek !== '') ? $uSek : (($c01 !== '') ? $c01 : '-'));
                                 }
                                 $wali = trim((string) ($r['wali'] ?? $r['genus'] ?? ''));
+                                $custid = trim((string) ($r['custid'] ?? ''));
+                                $canReset = $custid !== '' && $nocust !== '' && $nocust !== '-';
                             @endphp
                             <tr>
+                                <td class="ds-col-chk">
+                                    @if ($canReset)
+                                        <input type="checkbox" class="ds-reset-chk" value="{{ $custid }}">
+                                    @endif
+                                </td>
                                 <td class="ds-col-no">{{ ($siswaRows->firstItem() ?? 1) + $index }}</td>
                                 <td>{{ $nocust !== '' ? $nocust : '-' }}</td>
                                 <td>{{ $vaDigits !== '' ? ('7510050' . $vaDigits) : '-' }}</td>
@@ -342,12 +438,25 @@
                                 <td>{{ trim((string) ($r['desc04'] ?? '')) !== '' ? $r['desc04'] : '-' }}</td>
                                 <td>{{ $wali !== '' ? $wali : '-' }}</td>
                                 <td class="ds-col-act">
-                                    <button type="button" class="ds-btn-reset-login" disabled title="Menunggu endpoint web service">Reset</button>
+                                    @if ($canReset)
+                                        <button
+                                            type="button"
+                                            class="ds-btn-reset-login ds-reset-one"
+                                            data-custid="{{ $custid }}"
+                                            data-nocust="{{ $nocust }}"
+                                            data-nmcust="{{ trim((string) ($r['nmcust'] ?? '')) }}"
+                                            data-desc02="{{ trim((string) ($r['desc02'] ?? '')) }}"
+                                            data-desc03="{{ trim((string) ($r['desc03'] ?? '')) }}"
+                                            data-desc04="{{ trim((string) ($r['desc04'] ?? '')) }}"
+                                        >Reset</button>
+                                    @else
+                                        <button type="button" class="ds-btn-reset-login" disabled title="NIS tidak tersedia">Reset</button>
+                                    @endif
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="11" class="ds-empty">Data siswa tidak ditemukan.</td>
+                                <td colspan="12" class="ds-empty">Data siswa tidak ditemukan.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -389,6 +498,31 @@
         </div>
     </div>
     <div class="ds-copy-toast" id="dsCopyToast">Tabel berhasil dicopy.</div>
+    <div class="ds-copy-toast" id="dsResetToast"></div>
+
+    <div class="ds-modal" id="dsResetModal" aria-hidden="true">
+        <div class="ds-modal-box" role="dialog" aria-modal="true" aria-labelledby="dsResetModalTitle">
+            <div class="ds-modal-h">
+                <h3 id="dsResetModalTitle">Reset Login Android</h3>
+                <button type="button" class="ds-modal-close" id="dsResetModalClose" aria-label="Tutup">×</button>
+            </div>
+            <div class="ds-modal-b">
+                <p style="margin:0;font-size:13px;color:#374151;">Reset login Android siswa? Akun akan dibuat/diperbarui di <strong>sm_user</strong>.</p>
+                <div class="ds-modal-fields">
+                    <div class="ds-modal-row"><label>NIS</label><input type="text" id="dsResetNocust" readonly></div>
+                    <div class="ds-modal-row"><label>Nama</label><input type="text" id="dsResetNmcust" readonly></div>
+                    <div class="ds-modal-row"><label>Kelas</label><input type="text" id="dsResetDesc02" readonly></div>
+                    <div class="ds-modal-row"><label>Kelompok</label><input type="text" id="dsResetDesc03" readonly></div>
+                    <div class="ds-modal-row"><label>Angkatan</label><input type="text" id="dsResetDesc04" readonly></div>
+                </div>
+                <input type="hidden" id="dsResetCustid" value="">
+            </div>
+            <div class="ds-modal-f">
+                <button type="button" class="ds-modal-cancel" id="dsResetCancel">Batal</button>
+                <button type="button" class="ds-modal-submit" id="dsResetSubmit">Reset</button>
+            </div>
+        </div>
+    </div>
 
     <script>
         (function () {
@@ -445,6 +579,144 @@
 
                 wrap.classList.remove('open');
             });
+        })();
+
+        (function () {
+            const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+            const modal = document.getElementById('dsResetModal');
+            const resetToast = document.getElementById('dsResetToast');
+            const bulkBtn = document.getElementById('dsBulkResetBtn');
+            const selectAll = document.getElementById('dsSelectAllReset');
+            const selected = new Set();
+
+            function showToast(msg, isError) {
+                if (!resetToast) return;
+                resetToast.textContent = msg;
+                resetToast.style.background = isError ? '#fef2f2' : '#ecfdf5';
+                resetToast.style.color = isError ? '#b91c1c' : '#047857';
+                resetToast.classList.add('show');
+                setTimeout(function () { resetToast.classList.remove('show'); }, 2200);
+            }
+
+            function openModal(btn) {
+                if (!modal) return;
+                document.getElementById('dsResetCustid').value = btn.dataset.custid || '';
+                document.getElementById('dsResetNocust').value = btn.dataset.nocust || '';
+                document.getElementById('dsResetNmcust').value = btn.dataset.nmcust || '';
+                document.getElementById('dsResetDesc02').value = btn.dataset.desc02 || '';
+                document.getElementById('dsResetDesc03').value = btn.dataset.desc03 || '';
+                document.getElementById('dsResetDesc04').value = btn.dataset.desc04 || '';
+                modal.classList.add('open');
+            }
+
+            function closeModal() {
+                if (modal) modal.classList.remove('open');
+            }
+
+            function syncBulkBtn() {
+                if (bulkBtn) bulkBtn.disabled = selected.size === 0;
+            }
+
+            document.querySelectorAll('.ds-reset-one').forEach(function (btn) {
+                btn.addEventListener('click', function () { openModal(btn); });
+            });
+
+            ['dsResetModalClose', 'dsResetCancel'].forEach(function (id) {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('click', closeModal);
+            });
+            if (modal) {
+                modal.addEventListener('click', function (e) {
+                    if (e.target === modal) closeModal();
+                });
+            }
+
+            const submitBtn = document.getElementById('dsResetSubmit');
+            if (submitBtn) {
+                submitBtn.addEventListener('click', async function () {
+                    const custid = document.getElementById('dsResetCustid')?.value || '';
+                    if (!custid) return;
+                    submitBtn.disabled = true;
+                    try {
+                        const urlTpl = @json(route('master.data_siswa.reset_login_android', ['id' => 0]));
+                        const url = urlTpl.replace(/\/0\/reset-login-android$/, '/' + encodeURIComponent(custid) + '/reset-login-android');
+                        const res = await fetch(url, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': csrf,
+                                'Accept': 'application/json',
+                            },
+                        });
+                        const data = await res.json().catch(function () { return {}; });
+                        if (!res.ok) {
+                            showToast(data.message || 'Gagal reset login Android', true);
+                            return;
+                        }
+                        closeModal();
+                        showToast(data.message || 'Login Android direset!', false);
+                    } catch (e) {
+                        showToast('Gagal menghubungi server', true);
+                    } finally {
+                        submitBtn.disabled = false;
+                    }
+                });
+            }
+
+            document.querySelectorAll('.ds-reset-chk').forEach(function (chk) {
+                chk.addEventListener('change', function () {
+                    if (chk.checked) selected.add(chk.value);
+                    else selected.delete(chk.value);
+                    syncBulkBtn();
+                    if (selectAll) {
+                        const all = document.querySelectorAll('.ds-reset-chk');
+                        selectAll.checked = all.length > 0 && Array.from(all).every(function (c) { return c.checked; });
+                    }
+                });
+            });
+
+            if (selectAll) {
+                selectAll.addEventListener('change', function () {
+                    document.querySelectorAll('.ds-reset-chk').forEach(function (chk) {
+                        chk.checked = selectAll.checked;
+                        if (selectAll.checked) selected.add(chk.value);
+                        else selected.delete(chk.value);
+                    });
+                    syncBulkBtn();
+                });
+            }
+
+            if (bulkBtn) {
+                bulkBtn.addEventListener('click', async function () {
+                    const ids = Array.from(selected);
+                    if (ids.length === 0) return;
+                    if (!window.confirm('Reset login Android untuk ' + ids.length + ' siswa terpilih?')) return;
+                    bulkBtn.disabled = true;
+                    try {
+                        const res = await fetch(@json(route('master.data_siswa.reset_login_android_bulk')), {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': csrf,
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ custids: ids }),
+                        });
+                        const data = await res.json().catch(function () { return {}; });
+                        if (!res.ok) {
+                            showToast(data.message || 'Gagal reset login android massal', true);
+                            return;
+                        }
+                        selected.clear();
+                        document.querySelectorAll('.ds-reset-chk').forEach(function (c) { c.checked = false; });
+                        if (selectAll) selectAll.checked = false;
+                        showToast(data.message || 'Reset Android berhasil', false);
+                    } catch (e) {
+                        showToast('Gagal menghubungi server', true);
+                    } finally {
+                        syncBulkBtn();
+                    }
+                });
+            }
         })();
     </script>
 @endsection

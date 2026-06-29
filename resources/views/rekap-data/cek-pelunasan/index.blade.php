@@ -34,14 +34,17 @@
             display: inline-flex; align-items: center; gap: 6px;
         }
         .cp-btn-search { background: #2563eb; border-color: #2563eb; color: #fff; }
+        .cp-btn-export { background: #e0f2fe; border-color: #7dd3fc; color: #0369a1; }
         .cp-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #eef2f7; }
         .cp-select { height: 34px; border: 1px solid #d1d5db; border-radius: 8px; padding: 0 10px; font-size: 12px; }
         .cp-search { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #4b5563; }
         .cp-search input { height: 34px; border: 1px solid #d1d5db; border-radius: 8px; padding: 0 10px; min-width: 220px; font-size: 12px; }
         .cp-table-wrap { overflow-x: auto; }
-        .cp-table { width: 100%; min-width: 980px; border-collapse: collapse; font-size: 12px; }
+        .cp-table { width: 100%; min-width: 1280px; border-collapse: collapse; font-size: 12px; }
         .cp-table th, .cp-table td { border-bottom: 1px solid #eef2f7; padding: 8px 6px; text-align: left; vertical-align: middle; }
         .cp-table th { background: #fafbfd; color: #4b5563; font-weight: 700; white-space: nowrap; }
+        .cp-check { width: 36px; text-align: center; }
+        .cp-check input { width: 16px; height: 16px; cursor: pointer; }
         .cp-num { text-align: right; white-space: nowrap; }
         .cp-center { text-align: center; }
         .cp-pill {
@@ -88,12 +91,20 @@
                         </select>
                     </div>
                     <div class="cp-fld">
-                        <label>Kelas</label>
-                        <select name="kelas_id">
+                        <label>Kelas — Kelompok</label>
+                        <select name="kelas_id" title="Unit - Kelas (jenjang) - Kelompok">
                             <option value="">Semua</option>
                             @foreach (($filterOptions['kelas'] ?? []) as $k)
-                                @php $id = (string) ($k['id'] ?? ''); $lbl = trim((string) (($k['unit'] ?? '') . ' ' . ($k['kelas'] ?? ''))); @endphp
-                                @if ($id !== '')
+                                @php
+                                    $id = (string) ($k['id'] ?? '');
+                                    $parts = array_values(array_filter([
+                                        (string) ($k['unit'] ?? ''),
+                                        (string) ($k['jenjang'] ?? ''),
+                                        (string) ($k['kelas'] ?? ''),
+                                    ], static fn ($v) => $v !== ''));
+                                    $lbl = implode(' - ', $parts);
+                                @endphp
+                                @if ($id !== '' && $lbl !== '')
                                     <option value="{{ $id }}" {{ (($filters['kelas_id'] ?? '') === $id) ? 'selected' : '' }}>{{ $lbl }}</option>
                                 @endif
                             @endforeach
@@ -121,14 +132,20 @@
                         <select name="nama_tagihan">
                             <option value="">Semua</option>
                             @foreach (($filterOptions['tagihan'] ?? []) as $tag)
-                                <option value="{{ $tag }}" {{ (($filters['nama_tagihan'] ?? '') === $tag) ? 'selected' : '' }}>{{ $tag }}</option>
+                                @php
+                                    $tname = is_array($tag) ? trim((string) ($tag['tagihan'] ?? '')) : trim((string) $tag);
+                                @endphp
+                                @if ($tname !== '')
+                                    <option value="{{ $tname }}" {{ (($filters['nama_tagihan'] ?? '') === $tname) ? 'selected' : '' }}>{{ $tname }}</option>
+                                @endif
                             @endforeach
                         </select>
                     </div>
                 </div>
 
                 <div class="cp-actions">
-                    <button type="button" class="cp-btn" id="cpBtnKartu">Cetak Kartu Siswa</button>
+                    <button type="button" class="cp-btn cp-btn-export" id="cpBtnExport">Export Excel</button>
+                    <button type="button" class="cp-btn" id="cpBtnKartu" title="Centang siswa di tabel, lalu klik untuk cetak kartu siswa terpilih">Cetak Kartu Siswa</button>
                     <a class="cp-btn" href="{{ route('rekap.cek_pelunasan') }}">Reset</a>
                     <button type="submit" class="cp-btn cp-btn-search">Cari</button>
                 </div>
@@ -157,22 +174,26 @@
             </div>
 
             <div class="cp-table-wrap">
-                <table class="cp-table">
+                <table class="cp-table" id="cpTable">
                     <thead>
                         <tr>
+                            <th class="cp-check"><input type="checkbox" id="cpSelAll" aria-label="Pilih semua di halaman ini"></th>
                             <th class="cp-center">No</th>
                             <th>Tahun Pelajaran</th>
                             <th>NIS</th>
                             <th>No Pendaftaran</th>
                             <th>NAMA</th>
                             <th>Nama Tagihan</th>
-                            <th class="cp-num">Tagihan</th>
+                            <th>Kode Post</th>
+                            <th>Nama Post</th>
+                            <th class="cp-num">Nominal</th>
+                            <th class="cp-num">Total Tagihan</th>
                             <th class="cp-center">Lunas</th>
                         </tr>
                     </thead>
                     <tbody id="cpTbody">
                         <tr>
-                            <td colspan="8" style="text-align:center;color:#6b7280;padding:20px;">Memuat data...</td>
+                            <td colspan="12" style="text-align:center;color:#6b7280;padding:20px;">Memuat data...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -191,11 +212,6 @@
 
     <form id="cpFormKartu" method="POST" action="{{ route('rekap.cek_pelunasan.kartu_siswa') }}" target="_blank" style="display:none;" aria-hidden="true">
         @csrf
-        @foreach ($filters as $fk => $fv)
-            @if ($fv !== '' && $fv !== null && $fv !== false)
-                <input type="hidden" name="{{ $fk }}" value="{{ $fv }}">
-            @endif
-        @endforeach
     </form>
 
     <script>
@@ -219,33 +235,105 @@
             function fmtRp(n) {
                 return 'Rp. ' + Number(n || 0).toLocaleString('id-ID');
             }
-            function escAttr(s) {
-                return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
+            var cpTable = document.getElementById('cpTable');
+            if (cpTable) {
+                cpTable.addEventListener('change', function (e) {
+                    var t = e.target;
+                    if (t && t.id === 'cpSelAll') {
+                        var on = t.checked;
+                        document.querySelectorAll('.cp-row-cb').forEach(function (cb) { cb.checked = on; });
+                    }
+                });
+            }
+
+            function cpCollectCheckedCustIds() {
+                var ids = [];
+                document.querySelectorAll('.cp-row-cb:checked').forEach(function (cb) {
+                    var id = parseInt(cb.getAttribute('data-custid') || '0', 10);
+                    if (id > 0) {
+                        ids.push(id);
+                    }
+                });
+                return ids.filter(function (v, i, a) { return a.indexOf(v) === i; });
+            }
+
+            function cpAppendDynHidden(form, name, value, dataAttr) {
+                var inp = document.createElement('input');
+                inp.type = 'hidden';
+                inp.name = name;
+                inp.value = value == null ? '' : String(value);
+                inp.setAttribute(dataAttr, '1');
+                form.appendChild(inp);
+            }
+
+            function cpFillKartuForm(form) {
+                var dataAttr = 'data-cp-kartu-dyn';
+                form.querySelectorAll('[' + dataAttr + ']').forEach(function (n) { n.remove(); });
+                if (filterForm) {
+                    var fd = new FormData(filterForm);
+                    fd.forEach(function (val, key) {
+                        var v = String(val || '').trim();
+                        if (v !== '') {
+                            cpAppendDynHidden(form, key, v, dataAttr);
+                        }
+                    });
+                }
+                if (quickSearch) {
+                    var cari = String(quickSearch.value || '').trim();
+                    if (cari !== '') {
+                        cpAppendDynHidden(form, 'cari', cari, dataAttr);
+                    }
+                }
             }
 
             var btnKartu = document.getElementById('cpBtnKartu');
             var formKartu = document.getElementById('cpFormKartu');
             var filterForm = document.getElementById('formCpFilter');
+            var btnExport = document.getElementById('cpBtnExport');
+            var exportBase = @json(route('rekap.cek_pelunasan'));
+
+            function cpFilterParams() {
+                var p = new URLSearchParams();
+                if (filterForm) {
+                    var fd = new FormData(filterForm);
+                    fd.forEach(function (val, key) {
+                        var v = String(val || '').trim();
+                        if (v !== '') p.set(key, v);
+                    });
+                }
+                if (quickSearch) {
+                    var cari = String(quickSearch.value || '').trim();
+                    if (cari !== '') p.set('cari', cari);
+                    else p.delete('cari');
+                }
+                return p;
+            }
+
+            if (btnExport) {
+                btnExport.addEventListener('click', function () {
+                    var p = cpFilterParams();
+                    p.set('export', 'xls');
+                    p.delete('page');
+                    window.location.href = exportBase + '?' + p.toString();
+                });
+            }
+
             if (btnKartu && formKartu) {
                 btnKartu.addEventListener('click', function () {
-                    formKartu.querySelectorAll('input[type="hidden"]:not([name="_token"])').forEach(function (el) { el.remove(); });
-                    if (filterForm) {
-                        var fd = new FormData(filterForm);
-                        fd.forEach(function (val, key) {
-                            var inp = document.createElement('input');
-                            inp.type = 'hidden';
-                            inp.name = key;
-                            inp.value = String(val || '');
-                            formKartu.appendChild(inp);
-                        });
+                    var ids = cpCollectCheckedCustIds();
+                    if (ids.length === 0) {
+                        alert('Pilih minimal satu siswa (centang di tabel).');
+                        return;
                     }
-                    if (quickSearch && String(quickSearch.value || '').trim() !== '') {
-                        var cariInp = document.createElement('input');
-                        cariInp.type = 'hidden';
-                        cariInp.name = 'cari';
-                        cariInp.value = String(quickSearch.value).trim();
-                        formKartu.appendChild(cariInp);
+                    if (ids.length > 100) {
+                        alert('Maksimal 100 siswa per cetak. Kurangi pilihan.');
+                        return;
                     }
+                    cpFillKartuForm(formKartu);
+                    ids.forEach(function (id) {
+                        cpAppendDynHidden(formKartu, 'custids[]', id, 'data-cp-kartu-dyn');
+                    });
                     formKartu.submit();
                 });
             }
@@ -278,25 +366,29 @@
                             errEl.style.display = 'block';
                             errEl.textContent = j.message || 'Gagal memuat data.';
                         }
-                        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#b91c1c;padding:20px;">' +
+                        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#b91c1c;padding:20px;">' +
                             esc(j.message || 'Gagal memuat data.') + '</td></tr>';
                         return;
                     }
 
                     var rows = j.rows || [];
                     if (rows.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#6b7280;padding:20px;">Tidak ada data untuk filter ini.</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#6b7280;padding:20px;">Tidak ada data untuk filter ini.</td></tr>';
                     } else {
                         var start = Number(j.first_item || 1);
                         tbody.innerHTML = rows.map(function (r, idx) {
                             var lunas = Number(r.lunas || 0) === 1;
                             return '<tr>' +
+                                '<td class="cp-check"><input type="checkbox" class="cp-row-cb" data-custid="' + escAttr(String(r.custid || 0)) + '"></td>' +
                                 '<td class="cp-center">' + esc(String(start + idx)) + '</td>' +
                                 '<td>' + esc(r.tahun_pelajaran || '-') + '</td>' +
                                 '<td>' + esc(r.nis || '-') + '</td>' +
                                 '<td>' + esc(r.no_pendaftaran || '-') + '</td>' +
                                 '<td>' + esc(r.nama || '-') + '</td>' +
                                 '<td>' + esc(r.nama_tagihan || '-') + '</td>' +
+                                '<td>' + esc(r.kode_post || '-') + '</td>' +
+                                '<td>' + esc(r.nama_post || '-') + '</td>' +
+                                '<td class="cp-num">' + fmtRp(r.nominal) + '</td>' +
                                 '<td class="cp-num">' + fmtRp(r.tagihan) + '</td>' +
                                 '<td class="cp-center"><span class="cp-pill ' + (lunas ? 'cp-pill-ok' : 'cp-pill-no') + '">' + (lunas ? 'LUNAS' : 'BELUM') + '</span></td>' +
                                 '</tr>';
@@ -318,7 +410,7 @@
                         errEl.style.display = 'block';
                         errEl.textContent = 'Gagal menghubungi server.';
                     }
-                    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#b91c1c;padding:20px;">Gagal menghubungi server.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#b91c1c;padding:20px;">Gagal menghubungi server.</td></tr>';
                 });
         })();
     </script>

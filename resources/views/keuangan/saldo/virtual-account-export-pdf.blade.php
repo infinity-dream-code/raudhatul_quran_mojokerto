@@ -63,7 +63,7 @@
                 <th style="width:9%">NO PENDAFTARAN</th>
                 <th style="width:14%">UNIT</th>
                 <th style="width:7%">KELAS</th>
-                <th style="width:8%">JENJANG</th>
+                <th style="width:8%">KELOMPOK</th>
                 <th style="width:9%">ANGKATAN</th>
                 <th style="width:10%">SALDO</th>
             </tr>
@@ -83,7 +83,7 @@
                     <td class="dt-center">{{ $np !== '' ? $np : '-' }}</td>
                     <td class="dt-left">{{ $r['unit'] ?? '' }}</td>
                     <td class="dt-center">{{ $r['kelas'] ?? '' }}</td>
-                    <td class="dt-center">{{ $r['jenjang'] ?? '' }}</td>
+                    <td class="dt-center">{{ $r['kelompok'] ?? '' }}</td>
                     <td class="dt-center">{{ $r['angkatan'] ?? '' }}</td>
                     <td class="dt-num">{{ $rp }}</td>
                 </tr>

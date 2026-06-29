@@ -41,7 +41,7 @@
                 <div class="rk-err">{{ $errorMsg }}</div>
             @endif
 
-            <form method="GET" action="{{ route('keu.tagihan.rekap') }}">
+            <form method="GET" action="{{ route('keu.tagihan.rekap') }}" id="rkFormFilter">
                 <div class="rk-filter">
                     <div class="rk-fld">
                         <label>Tahun Pelajaran</label>
@@ -76,6 +76,44 @@
                         <input type="date" name="tgl_sampai" value="{{ $filters['tgl_sampai'] ?? '' }}">
                     </div>
                     <div class="rk-fld">
+                        <label>Kode Post</label>
+                        <select name="kode_post">
+                            <option value="">Semua</option>
+                            @foreach (($filterOptions['akun'] ?? []) as $ak)
+                                @php
+                                    $kode = trim((string) (is_array($ak) ? ($ak['kode'] ?? '') : ''));
+                                    $namaAkun = trim((string) (is_array($ak) ? ($ak['nama'] ?? '') : ''));
+                                    $lbl = $kode . ($namaAkun !== '' ? ' — ' . $namaAkun : '');
+                                @endphp
+                                @if ($kode !== '')
+                                    <option value="{{ $kode }}" {{ (($filters['kode_post'] ?? '') === $kode) ? 'selected' : '' }}>{{ $lbl }}</option>
+                                @endif
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="rk-fld">
+                        <label>Nama Post</label>
+                        <select name="nama_post">
+                            <option value="">Semua</option>
+                            @php
+                                $namaPostSeen = [];
+                            @endphp
+                            @foreach (($filterOptions['akun'] ?? []) as $ak)
+                                @php
+                                    $namaAkun = trim((string) (is_array($ak) ? ($ak['nama'] ?? '') : ''));
+                                    $kode = trim((string) (is_array($ak) ? ($ak['kode'] ?? '') : ''));
+                                    if ($namaAkun === '') {
+                                        $namaAkun = $kode;
+                                    }
+                                @endphp
+                                @if ($namaAkun !== '' && !isset($namaPostSeen[$namaAkun]))
+                                    @php $namaPostSeen[$namaAkun] = true; @endphp
+                                    <option value="{{ $namaAkun }}" {{ (($filters['nama_post'] ?? '') === $namaAkun) ? 'selected' : '' }}>{{ $namaAkun }}</option>
+                                @endif
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="rk-fld">
                         <label>Tahun Angkatan</label>
                         <select name="thn_angkatan">
                             <option value="">Semua</option>
@@ -106,23 +144,23 @@
                     <button type="submit" class="rk-btn rk-btn-search">Cari</button>
                 </div>
             </form>
-            <form id="rkFormRekap" method="POST" action="{{ route('keu.tagihan.data_print_rekap') }}" style="display:none;">
+            <form id="rkFormRekap" method="POST" action="{{ route('keu.tagihan.data_print_rekap') }}" target="_blank" style="display:none;">
                 @csrf
-                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'siswa', 'sort_urutan'] as $fk)
+                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'kode_post', 'nama_post', 'siswa', 'sort_urutan'] as $fk)
                     <input type="hidden" name="{{ $fk }}" value="{{ $filters[$fk] ?? '' }}">
                 @endforeach
                 <input type="hidden" name="has_search_context" value="{{ !empty($hasSearchRequest) ? '1' : '0' }}">
             </form>
             <form id="rkFormKartu" method="POST" action="{{ route('keu.tagihan.data_print_kartu') }}" target="_blank" style="display:none;">
                 @csrf
-                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'siswa', 'sort_urutan'] as $fk)
+                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'kode_post', 'nama_post', 'siswa', 'sort_urutan'] as $fk)
                     <input type="hidden" name="{{ $fk }}" value="{{ $filters[$fk] ?? '' }}">
                 @endforeach
                 <input type="hidden" name="selected_rows" id="rkSelectedRowsKartu" value="">
             </form>
             <form id="rkFormPerNis" method="POST" action="{{ route('keu.tagihan.export_print') }}" target="_blank" style="display:none;">
                 @csrf
-                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'siswa', 'sort_urutan'] as $fk)
+                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'kode_post', 'nama_post', 'siswa', 'sort_urutan'] as $fk)
                     <input type="hidden" name="{{ $fk }}" value="{{ $filters[$fk] ?? '' }}">
                 @endforeach
                 <input type="hidden" name="print_mode" value="by_custid">
@@ -208,11 +246,8 @@
             </div>
         </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
     <script>
         (function () {
-            const rekapExportUrl = @json(route('keu.tagihan.data_print_rekap'));
-            const csrfToken = @json(csrf_token());
             const btnRekap = document.getElementById('rkCetakRekapBtn');
             const btnKartu = document.getElementById('rkCetakKartuBtn');
             const btnPerNis = document.getElementById('rkCetakPerNisBtn');
@@ -240,202 +275,63 @@
                 return Object.keys(bucket).map(function (k) { return parseInt(k, 10); });
             }
 
-            function parseIsoDate(str) {
-                if (!str || str === '-') return '-';
-                const parts = String(str).split('-');
-                if (parts.length !== 3) return str;
-                const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12);
-                return isNaN(d.getTime()) ? str : d;
+            function rkAppendDynHidden(form, name, value, dataAttr) {
+                if (!form) return;
+                const inp = document.createElement('input');
+                inp.type = 'hidden';
+                inp.name = name;
+                inp.value = value == null ? '' : String(value);
+                inp.setAttribute(dataAttr, '1');
+                form.appendChild(inp);
             }
 
-            function fullBorder() {
-                return {
-                    top: { style: 'thin' },
-                    left: { style: 'thin' },
-                    bottom: { style: 'thin' },
-                    right: { style: 'thin' }
-                };
-            }
-
-            function cellBGColor() {
-                return {
-                    type: 'pattern',
-                    pattern: 'solid',
-                    fgColor: { argb: 'FFEBE1FF' }
-                };
-            }
-
-            async function exportRekapTagihanExcel(matrix, meta) {
-                if (!matrix || !matrix.rows || matrix.rows.length === 0 || typeof ExcelJS === 'undefined') return;
-                const wbTitle = 'REKAP TAGIHAN';
-                const wb = new ExcelJS.Workbook();
-                const ws = wb.addWorksheet(wbTitle);
-                const rows = matrix.rows;
-                const kelasOrder = matrix.kelasOrder || [];
-                const kelompokOrder = matrix.kelompokOrder || [];
-                meta = meta || {};
-
-                ws.insertRow(1, [wbTitle]);
-                ws.insertRow(2, ['Sekolah', meta.sekolah || 'Semua']);
-                ws.insertRow(3, ['Tahun Pelajaran', meta.tahun_pelajaran || 'Semua']);
-                ws.insertRow(4, ['Periode Mulai', meta.periode_mulai || '-']);
-                ws.insertRow(5, ['Periode Akhir', meta.periode_akhir || '-']);
-                ws.insertRow(6, ['Dari Tanggal', parseIsoDate(meta.dari_tanggal || '-')]);
-                ws.insertRow(7, ['Sampai Tanggal', parseIsoDate(meta.sampai_tanggal || '-')]);
-
-                [6, 7].forEach(function (rowNumber) {
-                    const cell = ws.getRow(rowNumber).getCell(2);
-                    if (cell.value instanceof Date) cell.numFmt = 'dddd, dd mmmm yyyy';
+            function rkFillExportForm(form, dataAttr) {
+                if (!form) return;
+                form.querySelectorAll('[' + dataAttr + ']').forEach(function (n) { n.remove(); });
+                const ff = document.getElementById('rkFormFilter');
+                if (!ff) return;
+                ff.querySelectorAll('input[name], select[name]').forEach(function (el) {
+                    const ty = (el.type || '').toLowerCase();
+                    if (ty === 'button' || ty === 'submit') return;
+                    const existing = form.querySelector('input[name="' + el.name + '"]:not([' + dataAttr + '])');
+                    if (existing) {
+                        existing.value = el.value || '';
+                    } else {
+                        rkAppendDynHidden(form, el.name, el.value || '', dataAttr);
+                    }
                 });
-                [1, 2, 3, 4, 5, 6, 7].forEach(function (rowNumber) {
-                    ws.getRow(rowNumber).eachCell({ includeEmpty: true }, function (cell) { cell.font = { bold: true }; });
-                });
-
-                ws.insertRow(9, []);
-                const headerRow1Number = 10;
-                const headerRow1 = ws.getRow(headerRow1Number);
-                const headerRow2 = ws.getRow(headerRow1Number + 1);
-
-                let col = 1;
-                headerRow1.getCell(col).value = 'Thn Akademik'; ws.mergeCells(headerRow1Number, col, headerRow1Number + 1, col); col++;
-                headerRow1.getCell(col).value = 'Kode'; ws.mergeCells(headerRow1Number, col, headerRow1Number + 1, col); col++;
-                headerRow1.getCell(col).value = 'Nama'; ws.mergeCells(headerRow1Number, col, headerRow1Number + 1, col); col++;
-
-                kelasOrder.forEach(function (kelas) {
-                    const startCol = col;
-                    kelompokOrder.forEach(function (k) {
-                        headerRow2.getCell(col).value = k;
-                        col++;
-                    });
-                    headerRow2.getCell(col).value = 'Sum';
-                    const endCol = col;
-                    ws.mergeCells(headerRow1Number, startCol, headerRow1Number, endCol);
-                    headerRow1.getCell(startCol).value = kelas;
-                    col++;
-                });
-
-                headerRow1.getCell(col).value = 'Total';
-                ws.mergeCells(headerRow1Number, col, headerRow1Number + 1, col);
-                const lastCol = col;
-
-                for (let i = 1; i <= lastCol; i++) {
-                    ws.getColumn(i).width = i <= 3 ? [12, 10, 26][i - 1] : 14;
-                    [headerRow1, headerRow2].forEach(function (r) {
-                        const cell = r.getCell(i);
-                        cell.font = { bold: true };
-                        cell.alignment = { horizontal: 'center', vertical: 'middle' };
-                        cell.border = fullBorder();
-                        cell.fill = cellBGColor();
-                    });
-                }
-
-                const dataStartRow = headerRow1Number + 2;
-                let currentRow = dataStartRow;
-                rows.forEach(function (r, idx) {
-                    const row = ws.getRow(currentRow);
-                    row.getCell(1).value = idx === 0 ? (r.tahun || '') : '';
-                    row.getCell(2).value = r.kode;
-                    row.getCell(3).value = r.nama;
-                    let c = 4;
-                    kelasOrder.forEach(function (kelas) {
-                        let subtotalKelas = 0;
-                        kelompokOrder.forEach(function (k) {
-                            const val = Number((r.byClass && r.byClass[kelas] && r.byClass[kelas][k]) || 0);
-                            subtotalKelas += val;
-                            row.getCell(c).value = val;
-                            row.getCell(c).numFmt = '#,##0';
-                            row.getCell(c).alignment = { horizontal: 'right' };
-                            c++;
-                        });
-                        row.getCell(c).value = subtotalKelas;
-                        row.getCell(c).numFmt = '#,##0';
-                        row.getCell(c).alignment = { horizontal: 'right' };
-                        c++;
-                    });
-                    row.getCell(c).value = Number(r.total || 0);
-                    row.getCell(c).numFmt = '#,##0';
-                    row.getCell(c).alignment = { horizontal: 'right' };
-                    for (let i = 1; i <= lastCol; i++) row.getCell(i).border = fullBorder();
-                    currentRow++;
-                });
-
-                const totalRow = ws.getRow(currentRow);
-                totalRow.getCell(3).value = 'Total';
-                totalRow.getCell(3).font = { bold: true };
-                for (let i = 4; i <= lastCol; i++) {
-                    const colLetter = ws.getColumn(i).letter;
-                    totalRow.getCell(i).value = { formula: 'SUM(' + colLetter + dataStartRow + ':' + colLetter + (currentRow - 1) + ')' };
-                    totalRow.getCell(i).numFmt = '#,##0';
-                    totalRow.getCell(i).font = { bold: true };
-                    totalRow.getCell(i).alignment = { horizontal: 'right' };
-                }
-                for (let i = 1; i <= lastCol; i++) {
-                    totalRow.getCell(i).border = fullBorder();
-                    totalRow.getCell(i).fill = cellBGColor();
-                }
-
-                const buffer = await wb.xlsx.writeBuffer();
-                const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = wbTitle + '.xlsx';
-                a.click();
             }
 
             function submitPrintForm(form, btn, label) {
                 if (!form) return;
                 const buttons = [btnRekap, btnKartu, btnPerNis].filter(Boolean);
-                buttons.forEach(function (b) { b.disabled = true; });
+                const prevLabels = new Map();
+                buttons.forEach(function (b) {
+                    prevLabels.set(b, b.textContent);
+                    b.disabled = true;
+                });
                 if (btn) {
-                    btn.dataset.prevLabel = btn.textContent;
                     btn.textContent = label || 'Memproses…';
                 }
                 form.submit();
                 window.setTimeout(function () {
-                    buttons.forEach(function (b) { b.disabled = false; });
-                    if (btn && btn.dataset.prevLabel) {
-                        btn.textContent = btn.dataset.prevLabel;
-                    }
-                }, 180000);
+                    buttons.forEach(function (b) {
+                        b.disabled = false;
+                        if (prevLabels.has(b)) {
+                            b.textContent = prevLabels.get(b);
+                        }
+                    });
+                }, 4000);
             }
 
             if (btnRekap && formRekap) {
-                btnRekap.addEventListener('click', async function () {
+                btnRekap.addEventListener('click', function () {
                     if (rowChecks.length === 0) {
                         alert('Data masih kosong. Klik Cari dulu sebelum cetak rekap.');
                         return;
                     }
-                    const buttons = [btnRekap, btnKartu, btnPerNis].filter(Boolean);
-                    buttons.forEach(function (b) { b.disabled = true; });
-                    btnRekap.dataset.prevLabel = btnRekap.textContent;
-                    btnRekap.textContent = 'Mengekspor rekap…';
-
-                    const body = new FormData(formRekap);
-                    try {
-                        const res = await fetch(rekapExportUrl, {
-                            method: 'POST',
-                            headers: {
-                                'Accept': 'application/json',
-                                'X-CSRF-TOKEN': csrfToken,
-                                'X-Requested-With': 'XMLHttpRequest'
-                            },
-                            body: body,
-                            credentials: 'same-origin'
-                        });
-                        const json = await res.json().catch(function () { return {}; });
-                        if (!res.ok || !json.ok) {
-                            alert(json.message || 'Gagal mengekspor rekap tagihan.');
-                            return;
-                        }
-                        await exportRekapTagihanExcel(json.matrix, json.meta);
-                    } catch (e) {
-                        alert('Gagal mengekspor rekap tagihan. Pastikan ws.php terbaru sudah di-upload.');
-                    } finally {
-                        buttons.forEach(function (b) { b.disabled = false; });
-                        if (btnRekap.dataset.prevLabel) {
-                            btnRekap.textContent = btnRekap.dataset.prevLabel;
-                        }
-                    }
+                    rkFillExportForm(formRekap, 'data-rk-export-dyn');
+                    submitPrintForm(formRekap, btnRekap, 'Membuat PDF rekap…');
                 });
             }
 
@@ -447,6 +343,7 @@
                         return;
                     }
                     inputKartu.value = JSON.stringify(picked);
+                    rkFillExportForm(formKartu, 'data-rk-export-dyn');
                     submitPrintForm(formKartu, btnKartu, 'Memproses kartu…');
                 });
             }
@@ -459,6 +356,7 @@
                         return;
                     }
                     inputPerNis.value = JSON.stringify(picked);
+                    rkFillExportForm(formPerNis, 'data-rk-export-dyn');
                     submitPrintForm(formPerNis, btnPerNis, 'Memproses per NIS…');
                 });
             }

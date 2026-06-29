@@ -154,7 +154,7 @@
         <div class="eid-card">
             <div class="eid-head">
                 <div class="eid-title">Buat Tagihan Excel</div>
-                <div class="eid-sub">Periode diisi otomatis dari <strong>billac</strong> (sama logika <strong>fungsi</strong> pada menu Buat Tagihan). Nominal per siswa diambil dari file excel.</div>
+                <div class="eid-sub">Periode dan <strong>Kode Post</strong> diisi otomatis dari tagihan yang dipilih (kolom <strong>kode</strong> di Master Tagihan). Excel cukup berisi <strong>NIS</strong> dan <strong>NOMINAL</strong>; detail tagihan (<code>scctbill_detail</code>) dibuat otomatis saat simpan.</div>
             </div>
 
             @if (session('status'))
@@ -187,9 +187,10 @@
                         @foreach (($filterOptions['tagihan'] ?? []) as $bta)
                             @php
                                 $tagihanValue = is_array($bta) ? (string) ($bta['tagihan'] ?? $bta['nama'] ?? '') : (string) $bta;
+                                $kodeValue = is_array($bta) ? (string) ($bta['kode'] ?? '') : '';
                             @endphp
                             @if ($tagihanValue !== '')
-                                <option value="{{ $tagihanValue }}" {{ $selTag === $tagihanValue ? 'selected' : '' }}>{{ $tagihanValue }}</option>
+                                <option value="{{ $tagihanValue }}" data-kode="{{ $kodeValue }}" {{ $selTag === $tagihanValue ? 'selected' : '' }}>{{ $tagihanValue }}</option>
                             @endif
                         @endforeach
                     </select>
@@ -197,6 +198,10 @@
                 <div class="eid-fld">
                     <label>Periode (billac)</label>
                     <input type="text" id="filter-periode" value="{{ $selPeriode }}" placeholder="Otomatis" readonly>
+                </div>
+                <div class="eid-fld">
+                    <label>Kode Post</label>
+                    <input type="text" id="filter-kode-akun" value="{{ (string) ($excelMeta['kode_akun'] ?? '') }}" placeholder="Otomatis dari tagihan" readonly>
                 </div>
             </div>
 
@@ -232,6 +237,7 @@
                     <thead>
                         <tr>
                             <th>No</th>
+                            <th>ID</th>
                             <th>NIS</th>
                             <th>NAMA</th>
                             <th>SEKOLAH</th>
@@ -246,9 +252,12 @@
                             @php
                                 $ok = !empty($row['ok']);
                                 $nom = (int) ($row['nominal'] ?? 0);
+                                $cid = (int) ($row['custid'] ?? 0);
+                                $stcust = $row['stcust'] ?? null;
                             @endphp
                             <tr class="{{ $ok ? '' : 'eid-row-bad' }}">
                                 <td>{{ ($importRows->firstItem() ?? 1) + $index }}</td>
+                                <td>{{ $cid > 0 ? $cid : '-' }}</td>
                                 <td>{{ $row['nis'] ?? '-' }}</td>
                                 <td>{{ $row['nama'] ?? '-' }}</td>
                                 <td>{{ $row['sekolah'] ?? '-' }}</td>
@@ -259,7 +268,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="eid-empty">Tidak ada data yang tersedia pada tabel ini</td>
+                                <td colspan="9" class="eid-empty">Tidak ada data yang tersedia pada tabel ini</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -354,6 +363,7 @@
             const selThn = document.getElementById('filter-thn-akademik');
             const selTag = document.getElementById('filter-tagihan');
             const inpPeriode = document.getElementById('filter-periode');
+            const inpKode = document.getElementById('filter-kode-akun');
             const btnOpen = document.getElementById('teOpenImport');
             const modal = document.getElementById('teImportModal');
             const closeBtn = document.getElementById('teCloseImport');
@@ -419,23 +429,87 @@
                 return '';
             }
 
+            function selectedTagihanKode() {
+                if (!selTag) return '';
+                const opt = selTag.options[selTag.selectedIndex];
+                return opt ? String(opt.getAttribute('data-kode') || '').trim() : '';
+            }
+
+            const bulanDariNama = {
+                JANUARI: '01', FEBRUARI: '02', MARET: '03', APRIL: '04',
+                MEI: '05', JUNI: '06', JULI: '07', AGUSTUS: '08',
+                SEPTEMBER: '09', OKTOBER: '10', NOVEMBER: '11', DESEMBER: '12',
+            };
+
+            function parseThnAkademikYears(thnAkademik) {
+                const s = String(thnAkademik || '').trim();
+                if (!s) return null;
+                const slash = s.match(/(\d{4})\s*[/\-]\s*(\d{4})/);
+                if (slash) {
+                    return { year1: slash[1], year2: slash[2] };
+                }
+                const years = s.match(/\d{4}/g);
+                if (years && years.length >= 2) {
+                    return { year1: years[0], year2: years[1] };
+                }
+                return null;
+            }
+
+            /** Sama logika Buat Tagihan / Bintang Juara createPeriode(). */
+            function computePeriodeLocal(thnAkademik, tagihan) {
+                const pair = parseThnAkademikYears(thnAkademik);
+                if (!pair) return '';
+                let periodeBulan = String(new Date().getMonth() + 1).padStart(2, '0');
+                const namaTagihan = String(tagihan || '').toUpperCase();
+                for (const [bulan, kode] of Object.entries(bulanDariNama)) {
+                    if (namaTagihan.includes(bulan)) {
+                        periodeBulan = kode;
+                        break;
+                    }
+                }
+                const year = parseInt(periodeBulan, 10) < 7 ? pair.year2 : pair.year1;
+                return year + periodeBulan;
+            }
+
+            function applyPeriodeValue(val) {
+                const v = String(val || '').trim();
+                if (inpPeriode) inpPeriode.value = v;
+                if (inPer) inPer.value = v;
+            }
+
             async function refreshPeriode() {
                 const thn = selThn && selThn.value ? selThn.value.trim() : '';
                 const tag = selTag && selTag.value ? selTag.value.trim() : '';
-                if (!thn || !inpPeriode) {
+                const kode = selectedTagihanKode();
+                if (inpKode) inpKode.value = kode;
+                if (inKode) inKode.value = kode;
+
+                if (!thn) {
+                    applyPeriodeValue('');
                     return;
                 }
                 if (!tag) {
-                    inpPeriode.value = '';
+                    applyPeriodeValue('');
                     return;
                 }
-                const url = fungsiUrl + '?thn_akademik=' + encodeURIComponent(thn) + '&tagihan=' + encodeURIComponent(tag);
+
+                const local = computePeriodeLocal(thn, tag);
+                if (local) {
+                    applyPeriodeValue(local);
+                }
+
                 try {
-                    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    const url = fungsiUrl + '?thn_akademik=' + encodeURIComponent(thn) + '&tagihan=' + encodeURIComponent(tag) + '&_t=' + Date.now();
+                    const res = await fetch(url, { cache: 'no-store', headers: { 'Accept': 'application/json' } });
                     const data = await res.json();
-                    inpPeriode.value = (data.periode || data.fungsi || '').toString();
+                    const server = String((data && (data.periode || data.fungsi)) || '').trim();
+                    if (/^\d{6}$/.test(server)) {
+                        applyPeriodeValue(server);
+                    } else if (!local) {
+                        applyPeriodeValue('');
+                    }
                 } catch (e) {
-                    inpPeriode.value = '';
+                    if (!local) applyPeriodeValue('');
                 }
             }
 
@@ -445,6 +519,8 @@
             function filtersOk() {
                 return selThn && selThn.value && selTag && selTag.value && inpPeriode && inpPeriode.value.trim() !== '';
             }
+
+            refreshPeriode();
 
             if (btnOpen) {
                 btnOpen.addEventListener('click', function () {
@@ -475,12 +551,25 @@
                     inThn.value = selThn.value;
                     inTag.value = selTag.value;
                     inPer.value = inpPeriode.value.trim();
-                    if (inKode) inKode.value = '';
+                    if (inKode) inKode.value = selectedTagihanKode() || (inpKode ? inpKode.value.trim() : '');
                     if (!rawRowsInput.value || rawRowsInput.value === '[]') {
                         e.preventDefault();
                         alert('Pilih file excel terlebih dahulu.');
                     }
                 });
+            }
+
+            function excelRowMarkedInactive(rx) {
+                if (Object.prototype.hasOwnProperty.call(rx, 'STCUST')) {
+                    const v = String(rx.STCUST).trim();
+                    if (v === '0') return true;
+                }
+                const statusSiswa = rx['STATUS SISWA'] ?? rx.STATUS_SISWA ?? null;
+                if (statusSiswa !== null && statusSiswa !== '') {
+                    const s = String(statusSiswa).trim().toLowerCase();
+                    if (s === '0' || s === 'nonaktif' || s === 'tidak aktif') return true;
+                }
+                return false;
             }
 
             if (fileInput) {
@@ -504,6 +593,9 @@
                             const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
                             const normalized = rows.map(function (r) {
                                 const rx = normalizeExcelHeaderKeys(r);
+                                if (excelRowMarkedInactive(rx)) {
+                                    return null;
+                                }
                                 let nis = cellNis(rx.NIS ?? rx['NIS ']);
                                 const noDaft = cellNis(rx['NO DAFT'] ?? rx['NO_DAFT'] ?? rx.NODAF ?? rx.NUM2ND ?? '');
                                 const noVa = rx['NO VA'] ?? rx['NO_VA'] ?? rx.NOVA;
@@ -527,7 +619,7 @@
                                 }
                                 return row;
                             }).filter(function (r) {
-                                return r.nis !== '' || (r.custid && r.custid > 0);
+                                return r && (r.nis !== '' || (r.custid && r.custid > 0));
                             });
                             rawRowsInput.value = JSON.stringify(normalized);
                         } catch (err) {

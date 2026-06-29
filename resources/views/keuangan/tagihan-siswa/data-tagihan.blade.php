@@ -168,7 +168,7 @@
                 $sortUrutanQuery = array_merge(request()->query(), ['sort_urutan' => $sortUrutanNext, 'page' => 1]);
             @endphp
 
-            <form method="GET" action="{{ route('keu.tagihan.data') }}">
+            <form method="GET" action="{{ route('keu.tagihan.data') }}" id="dtFormFilter">
                 <input type="hidden" name="sort_urutan" value="{{ $sortUrutanCur }}">
                 <div class="dt-filter">
                     <div class="dt-fld">
@@ -268,31 +268,31 @@
                 </div>
             </div>
 
-            <form id="dtFormExcel" class="dt-sr-only" method="POST" action="{{ route('keu.tagihan.data_export_excel') }}" aria-hidden="true">
+            <form id="dtFormExcel" class="dt-sr-only" method="POST" action="{{ route('keu.tagihan.data_export_excel') }}" target="_blank" aria-hidden="true">
                 @csrf
                 @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'nis', 'nama', 'siswa', 'sort_urutan'] as $fk)
                     <input type="hidden" name="{{ $fk }}" value="{{ $filters[$fk] ?? '' }}">
                 @endforeach
             </form>
-            <form id="dtFormPdf" class="dt-sr-only" method="POST" action="{{ route('keu.tagihan.data_export_pdf') }}" aria-hidden="true">
+            <form id="dtFormPdf" class="dt-sr-only" method="POST" action="{{ route('keu.tagihan.data_export_pdf') }}" target="_blank" aria-hidden="true">
                 @csrf
                 @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'nis', 'nama', 'siswa', 'sort_urutan'] as $fk)
                     <input type="hidden" name="{{ $fk }}" value="{{ $filters[$fk] ?? '' }}">
                 @endforeach
             </form>
-            <form id="dtFormKartu" class="dt-sr-only" method="POST" action="{{ route('keu.tagihan.data_print_kartu') }}" aria-hidden="true">
+            <form id="dtFormKartu" class="dt-sr-only" method="POST" action="{{ route('keu.tagihan.data_print_kartu') }}" target="_blank" aria-hidden="true">
                 @csrf
                 @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'nis', 'nama', 'siswa', 'sort_urutan'] as $fk)
                     <input type="hidden" name="{{ $fk }}" value="{{ $filters[$fk] ?? '' }}">
                 @endforeach
                 <input type="hidden" name="selected_rows" id="dtSelectedRows" value="">
             </form>
-            <form id="dtFormRekap" class="dt-sr-only" method="POST" action="{{ route('keu.tagihan.data_print_rekap') }}" aria-hidden="true">
+            <form id="dtFormRekap" class="dt-sr-only" method="POST" action="{{ route('keu.tagihan.data_print_rekap') }}" target="_blank" aria-hidden="true">
                 @csrf
                 @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'nis', 'nama', 'siswa', 'sort_urutan'] as $fk)
                     <input type="hidden" name="{{ $fk }}" value="{{ $filters[$fk] ?? '' }}">
                 @endforeach
-                <input type="hidden" name="has_search_context" value="1">
+                <input type="hidden" name="has_search_context" id="dtHasSearchContext" value="{{ request()->query->count() > 0 ? '1' : '0' }}">
             </form>
 
             <div class="dt-table-wrap">
@@ -432,6 +432,45 @@
             const urlHapus = @json(route('keu.tagihan.data_hapus'));
             const urlDetail = @json(route('keu.tagihan.data_detail'));
 
+            function dtAppendDynHidden(form, name, value, dataAttr) {
+                if (!form) return;
+                var inp = document.createElement('input');
+                inp.type = 'hidden';
+                inp.name = name;
+                inp.value = value == null ? '' : String(value);
+                inp.setAttribute(dataAttr, '1');
+                form.appendChild(inp);
+            }
+
+            function dtFillExportForm(form, dataAttr) {
+                if (!form) return;
+                form.querySelectorAll('[' + dataAttr + ']').forEach(function (n) { n.remove(); });
+                var ff = document.getElementById('dtFormFilter');
+                if (!ff) return;
+                ff.querySelectorAll('input[name], select[name]').forEach(function (el) {
+                    var ty = (el.type || '').toLowerCase();
+                    if (ty === 'button' || ty === 'submit') return;
+                    var existing = form.querySelector('input[name="' + el.name + '"]:not([' + dataAttr + '])');
+                    if (existing) {
+                        existing.value = el.value || '';
+                    } else {
+                        dtAppendDynHidden(form, el.name, el.value || '', dataAttr);
+                    }
+                });
+            }
+
+            function dtHasSearchContext() {
+                var ff = document.getElementById('dtFormFilter');
+                if (!ff) return false;
+                var hasFilter = false;
+                ff.querySelectorAll('input[name], select[name]').forEach(function (el) {
+                    if (el.name === 'sort_urutan') return;
+                    if (String(el.value || '').trim() !== '') hasFilter = true;
+                });
+                var hasRows = document.querySelectorAll('#dtTable tbody .dt-row-sel').length > 0;
+                return hasFilter || hasRows || window.location.search.length > 1;
+            }
+
             const selPage = document.getElementById('dtSelectPage');
             if (selPage) {
                 selPage.addEventListener('change', function () {
@@ -478,6 +517,11 @@
                     itemX.addEventListener('click', function (e) {
                         e.stopPropagation();
                         close();
+                        if (!dtHasSearchContext()) {
+                            alert('Klik Cari dulu untuk memuat data sebelum export.');
+                            return;
+                        }
+                        dtFillExportForm(formX, 'data-dt-export-dyn');
                         formX.submit();
                     });
                 }
@@ -485,6 +529,11 @@
                     itemP.addEventListener('click', function (e) {
                         e.stopPropagation();
                         close();
+                        if (!dtHasSearchContext()) {
+                            alert('Klik Cari dulu untuk memuat data sebelum export.');
+                            return;
+                        }
+                        dtFillExportForm(formP, 'data-dt-export-dyn');
                         formP.submit();
                     });
                 }
@@ -523,6 +572,7 @@
                             alert('Pilih minimal 1 siswa dari centang kiri tabel.');
                             return;
                         }
+                        dtFillExportForm(formKartu, 'data-dt-export-dyn');
                         selectedRowsInput.value = JSON.stringify(ids);
                         formKartu.submit();
                     });
@@ -533,10 +583,24 @@
                         const thn = (inpThnAka && inpThnAka.value || '').trim();
                         const kelas = (inpKelas && inpKelas.value || '').trim();
                         if (!thn || !kelas) {
-                            alert('Cetak Rekap wajib pilih Tahun Akademik dan Kelas.');
+                            alert('Cetak Rekap wajib pilih Tahun Akademik dan Kelas, lalu klik Cari.');
                             return;
                         }
+                        if (!dtHasSearchContext()) {
+                            alert('Klik Cari dulu untuk memuat data sebelum cetak rekap.');
+                            return;
+                        }
+                        dtFillExportForm(formRekap, 'data-dt-export-dyn');
+                        var ctx = document.getElementById('dtHasSearchContext');
+                        if (ctx) ctx.value = '1';
+                        btnRekap.disabled = true;
+                        var prev = btnRekap.textContent;
+                        btnRekap.textContent = 'Membuat rekap…';
                         formRekap.submit();
+                        window.setTimeout(function () {
+                            btnRekap.disabled = false;
+                            btnRekap.textContent = prev;
+                        }, 120000);
                     });
                 }
             })();

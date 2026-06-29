@@ -33,71 +33,8 @@
 </head>
 <body>
     @php
-        $logoDataUri = null;
-        $logoCandidates = [
-            public_path('logo.jpg'),
-            public_path('logo.png'),
-            public_path('logo.jpg'),
-            public_path('logo.jpeg'),
-            public_path('images/logo.png'),
-        ];
-
-        foreach ($logoCandidates as $lp) {
-            if (is_string($lp) && $lp !== '' && file_exists($lp)) {
-                $ext = strtolower((string) pathinfo($lp, PATHINFO_EXTENSION));
-                $mime = match ($ext) {
-                    'png' => 'image/png',
-                    'jpg', 'jpeg' => 'image/jpeg',
-                    'webp' => 'image/webp',
-                    default => 'application/octet-stream',
-                };
-                $raw = @file_get_contents($lp);
-                if ($raw !== false) {
-                    $logoDataUri = 'data:' . $mime . ';base64,' . base64_encode($raw);
-                    break;
-                }
-            }
-        }
-
-        // Fallback: scan recursive di public untuk file gambar yang namanya mengandung logo/amal/fatimah.
-        if ($logoDataUri === null && is_dir(public_path())) {
-            try {
-                $it = new RecursiveIteratorIterator(
-                    new RecursiveDirectoryIterator(public_path(), FilesystemIterator::SKIP_DOTS)
-                );
-                foreach ($it as $f) {
-                    if (!$f instanceof SplFileInfo || !$f->isFile()) {
-                        continue;
-                    }
-                    $ext = strtolower((string) $f->getExtension());
-                    if (!in_array($ext, ['png', 'jpg', 'jpeg', 'webp'], true)) {
-                        continue;
-                    }
-                    $name = strtolower((string) $f->getFilename());
-                    if (
-                        !str_contains($name, 'logo')
-                        && !str_contains($name, 'amal')
-                        && !str_contains($name, 'fatimah')
-                        && !str_contains($name, 'fataimah')
-                    ) {
-                        continue;
-                    }
-                    $mime = match ($ext) {
-                        'png' => 'image/png',
-                        'jpg', 'jpeg' => 'image/jpeg',
-                        'webp' => 'image/webp',
-                        default => 'application/octet-stream',
-                    };
-                    $raw = @file_get_contents($f->getPathname());
-                    if ($raw !== false) {
-                        $logoDataUri = 'data:' . $mime . ';base64,' . base64_encode($raw);
-                        break;
-                    }
-                }
-            } catch (Throwable $e) {
-                // abaikan jika scanning gagal
-            }
-        }
+        use App\Support\BrandLogo;
+        $logoDataUri = BrandLogo::dataUri();
     @endphp
     @foreach ($cards as $c)
         <div class="sheet">

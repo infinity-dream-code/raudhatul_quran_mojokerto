@@ -13,16 +13,16 @@
         .yayasan { font-size: 16px; font-weight: 700; margin: 0; }
         .sub { font-size: 8px; margin: 2px 0 0; }
         .title { font-size: 11pt; font-weight: 700; text-align: center; margin: 0 0 6px; }
+        .doc-title { font-size: 11pt; font-weight: 700; text-align: center; margin: 0 0 6px; }
         .meta { margin: 0 0 8px; font-size: 7pt; }
         .meta table { width: 100%; border-collapse: collapse; }
         .meta td { border: 0; padding: 1px 6px 1px 0; vertical-align: top; }
-        .meta .k { font-weight: 700; white-space: nowrap; width: 18%; }
+        .meta .k { font-weight: 700; white-space: nowrap; width: 22%; }
         table.tbl { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 3px; }
         .tbl th, .tbl td { border: 1px solid #000; padding: 2px 2px; vertical-align: middle; word-wrap: break-word; }
         .tbl th { background: #ededed; font-size: 6pt; text-align: center; font-weight: 700; }
         .num { text-align: right; white-space: nowrap; }
         .tot-row td { font-weight: 700; background: #f3f4f6; }
-        .hint { font-size: 6pt; color: #6b7280; margin-top: 6px; }
     </style>
 </head>
 <body>
@@ -31,9 +31,9 @@
         $rows = is_array($matrix['rows'] ?? null) ? $matrix['rows'] : [];
         $kelasOrder = is_array($matrix['kelasOrder'] ?? null) ? $matrix['kelasOrder'] : [];
         $kelompokOrder = is_array($matrix['kelompokOrder'] ?? null) ? $matrix['kelompokOrder'] : [];
-        $filterSummary = is_array($filterSummary ?? null) ? $filterSummary : [];
-        if (!function_exists('rekap_matrix_rp')) {
-            function rekap_matrix_rp(int $n): string
+        $meta = is_array($meta ?? null) ? $meta : [];
+        if (!function_exists('dt_rekap_matrix_rp')) {
+            function dt_rekap_matrix_rp(int $n): string
             {
                 return 'Rp. ' . number_format($n, 0, ',', '.');
             }
@@ -43,26 +43,20 @@
         $prevTahun = null;
     @endphp
 
-    @include('partials.pdf-letterhead', ['docTitle' => 'REKAP PEMBAYARAN SISWA'])
+    @include('partials.pdf-letterhead', ['docTitle' => 'REKAP TAGIHAN'])
 
     <div class="meta">
         <table>
-            <tr>
-                <td class="k">Unit_Kelas</td>
-                <td>: {{ $filterSummary['unit_kelas'] ?? '-' }}</td>
-            </tr>
-            <tr>
-                <td class="k">Tahun Akademik</td>
-                <td>: {{ $filterSummary['thn_akademik'] ?? '-' }}</td>
-            </tr>
-            <tr>
-                <td class="k">Dari</td>
-                <td>: {{ $filterSummary['dari'] ?? '-' }}</td>
-            </tr>
-            <tr>
-                <td class="k">Hingga</td>
-                <td>: {{ $filterSummary['hingga'] ?? '-' }}</td>
-            </tr>
+            <tr><td class="k">Sekolah</td><td>: {{ $meta['sekolah'] ?? 'Semua' }}</td></tr>
+            <tr><td class="k">Tahun Pelajaran</td><td>: {{ $meta['tahun_pelajaran'] ?? 'Semua' }}</td></tr>
+            <tr><td class="k">Periode Mulai</td><td>: {{ $meta['periode_mulai'] ?? '-' }}</td></tr>
+            <tr><td class="k">Periode Akhir</td><td>: {{ $meta['periode_akhir'] ?? '-' }}</td></tr>
+            <tr><td class="k">Dari Tanggal</td><td>: {{ $meta['dari_tanggal'] ?? '-' }}</td></tr>
+            <tr><td class="k">Sampai Tanggal</td><td>: {{ $meta['sampai_tanggal'] ?? '-' }}</td></tr>
+            <tr><td class="k">Kelas</td><td>: {{ $meta['kelas'] ?? 'Semua' }}</td></tr>
+            <tr><td class="k">Kode Post</td><td>: {{ $meta['kode_post'] ?? 'Semua' }}</td></tr>
+            <tr><td class="k">Nama Post</td><td>: {{ $meta['nama_post'] ?? 'Semua' }}</td></tr>
+            <tr><td class="k">Nama Tagihan</td><td>: {{ $meta['nama_tagihan'] ?? 'Semua' }}</td></tr>
         </table>
     </div>
 
@@ -73,9 +67,8 @@
             <thead>
                 <tr>
                     <th rowspan="2" style="width:9%;">Thn Akademik</th>
-                    <th rowspan="2" style="width:5%;">Kode</th>
-                    <th rowspan="2" style="width:12%;">Nama Post</th>
-                    <th rowspan="2" style="width:14%;">Nama Tagihan</th>
+                    <th rowspan="2" style="width:6%;">Kode</th>
+                    <th rowspan="2" style="width:16%;">Nama</th>
                     @foreach ($kelasOrder as $kelas)
                         <th colspan="{{ count($kelompokOrder) + 1 }}">{{ $kelas }}</th>
                     @endforeach
@@ -100,9 +93,8 @@
                     @endphp
                     <tr>
                         <td>{{ $showTahun !== '' ? $showTahun : '' }}</td>
-                        <td class="num" style="text-align:left;">{{ $r['kode'] ?? '-' }}</td>
-                        <td>{{ $r['nama_post'] ?? '-' }}</td>
-                        <td>{{ $r['nama_tagihan'] ?? '-' }}</td>
+                        <td style="text-align:left;">{{ $r['kode'] ?? '-' }}</td>
+                        <td>{{ $r['nama'] ?? '-' }}</td>
                         @foreach ($kelasOrder as $ki => $kelas)
                             @php $sub = 0; @endphp
                             @foreach ($kelompokOrder as $kj => $k)
@@ -112,38 +104,36 @@
                                     $key = ($ki * 1000) + $kj;
                                     $colTotals[$key] = ($colTotals[$key] ?? 0) + $v;
                                 @endphp
-                                <td class="num">{{ rekap_matrix_rp($v) }}</td>
+                                <td class="num">{{ dt_rekap_matrix_rp($v) }}</td>
                             @endforeach
                             @php
                                 $sumKey = 'sum_' . $ki;
                                 $colTotals[$sumKey] = ($colTotals[$sumKey] ?? 0) + $sub;
                             @endphp
-                            <td class="num">{{ rekap_matrix_rp($sub) }}</td>
+                            <td class="num">{{ dt_rekap_matrix_rp($sub) }}</td>
                         @endforeach
                         @php
                             $rowTotal = (int) ($r['total'] ?? 0);
                             $grandTotal += $rowTotal;
                         @endphp
-                        <td class="num">{{ rekap_matrix_rp($rowTotal) }}</td>
+                        <td class="num">{{ dt_rekap_matrix_rp($rowTotal) }}</td>
                     </tr>
                 @endforeach
                 <tr class="tot-row">
-                    <td colspan="4" class="num" style="text-align:right;padding-right:4px;">Total</td>
+                    <td colspan="3" class="num" style="text-align:right;padding-right:4px;">Total</td>
                     @foreach ($kelasOrder as $ki => $kelas)
                         @foreach ($kelompokOrder as $kj => $k)
                             @php $key = ($ki * 1000) + $kj; @endphp
-                            <td class="num">{{ rekap_matrix_rp((int) ($colTotals[$key] ?? 0)) }}</td>
+                            <td class="num">{{ dt_rekap_matrix_rp((int) ($colTotals[$key] ?? 0)) }}</td>
                         @endforeach
-                        <td class="num">{{ rekap_matrix_rp((int) ($colTotals['sum_' . $ki] ?? 0)) }}</td>
+                        <td class="num">{{ dt_rekap_matrix_rp((int) ($colTotals['sum_' . $ki] ?? 0)) }}</td>
                     @endforeach
-                    <td class="num">{{ rekap_matrix_rp($grandTotal) }}</td>
+                    <td class="num">{{ dt_rekap_matrix_rp($grandTotal) }}</td>
                 </tr>
             </tbody>
         </table>
     @endif
 
-    @if (!empty($maybeTruncated))
-        <p class="hint">Catatan: data dibatasi maksimal 50.000 baris agregasi per cetak. Persempit filter bila perlu.</p>
-    @endif
+    <p style="font-size:6pt;color:#6b7280;margin-top:6px;">Dicetak {{ now('Asia/Jakarta')->format('d/m/Y H:i') }} WIB</p>
 </body>
 </html>

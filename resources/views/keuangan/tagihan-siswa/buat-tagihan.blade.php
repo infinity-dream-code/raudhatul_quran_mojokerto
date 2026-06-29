@@ -240,16 +240,55 @@
             const kelasFilterSelect = document.querySelector('form[method="GET"] select[name="kelas_id"]');
 
             const fetchFungsi = async () => {
-                if (!thnAkademikSelect || !tagihanSelect || !fungsiInput) return;
+                if (!thnAkademikSelect || !fungsiInput) return;
+                const hiddenFungsiEl = document.getElementById('hidden-fungsi');
+
                 const thnAkademik = (thnAkademikSelect.value || '').trim();
-                const tagihan = (tagihanSelect.value || '').trim();
+                const tagihan = (tagihanSelect?.value || '').trim();
 
                 if (!thnAkademik) {
                     fungsiInput.value = '';
+                    if (hiddenFungsiEl) hiddenFungsiEl.value = '';
                     return;
                 }
 
-                fungsiInput.value = '...';
+                const bulanDariNama = {
+                    JANUARI: '01', FEBRUARI: '02', MARET: '03', APRIL: '04',
+                    MEI: '05', JUNI: '06', JULI: '07', AGUSTUS: '08',
+                    SEPTEMBER: '09', OKTOBER: '10', NOVEMBER: '11', DESEMBER: '12',
+                };
+
+                const matchThn = thnAkademik.match(/(\d{4})\s*[/\-]\s*(\d{4})/);
+                let parts = matchThn ? [matchThn[0], matchThn[1], matchThn[2]] : null;
+                if (!parts) {
+                    const years = thnAkademik.match(/\d{4}/g);
+                    if (years && years.length >= 2) {
+                        parts = [years[0] + '/' + years[1], years[0], years[1]];
+                    }
+                }
+                if (!parts) {
+                    fungsiInput.value = '';
+                    if (hiddenFungsiEl) hiddenFungsiEl.value = '';
+                    return;
+                }
+
+                const partsSplit = parts[0].split(/[/\-]/);
+                const year1 = partsSplit[0] ? partsSplit[0].replace(/\D/g, '').slice(0, 4) : parts[1];
+                const year2 = partsSplit[1] ? partsSplit[1].replace(/\D/g, '').slice(0, 4) : parts[2];
+                let periodeBulan = String(new Date().getMonth() + 1).padStart(2, '0');
+                const namaTagihan = tagihan.toUpperCase();
+                for (const [bulan, kode] of Object.entries(bulanDariNama)) {
+                    if (namaTagihan.includes(bulan)) {
+                        periodeBulan = kode;
+                        break;
+                    }
+                }
+
+                const year = parseInt(periodeBulan, 10) < 7 ? year2 : year1;
+                const fungsi = year + periodeBulan;
+                fungsiInput.value = fungsi;
+                if (hiddenFungsiEl) hiddenFungsiEl.value = fungsi;
+
                 try {
                     const url = new URL('{{ route('keu.tagihan.fungsi') }}', window.location.origin);
                     url.searchParams.set('thn_akademik', thnAkademik);
@@ -260,16 +299,15 @@
                         headers: { 'Accept': 'application/json' },
                     });
                     const json = await res.json();
-                    fungsiInput.value = (json && json.fungsi) ? json.fungsi : '';
+                    const serverFungsi = (json && json.fungsi) ? String(json.fungsi).trim() : '';
+                    if (/^\d{6}$/.test(serverFungsi)) {
+                        fungsiInput.value = serverFungsi;
+                        if (hiddenFungsiEl) hiddenFungsiEl.value = serverFungsi;
+                    }
                 } catch (e) {
-                    fungsiInput.value = '';
+                    // tetap pakai perhitungan lokal
                 }
             };
-
-            if (thnAkademikSelect) thnAkademikSelect.addEventListener('change', fetchFungsi);
-            if (tagihanSelect) tagihanSelect.addEventListener('change', fetchFungsi);
-            if (kelasFilterSelect) kelasFilterSelect.addEventListener('change', fetchFungsi);
-            fetchFungsi();
 
             const siswaChecks = Array.from(document.querySelectorAll('.check-siswa'));
             const akunSection = document.getElementById('akun-section');
@@ -487,6 +525,21 @@
                 });
                 updateAkunVisibility();
             }
+
+            const onBillFilterChange = () => {
+                if (hiddenTagihan && tagihanSelect) hiddenTagihan.value = (tagihanSelect.value || '').trim();
+                if (hiddenAkademik && thnAkademikSelect) hiddenAkademik.value = (thnAkademikSelect.value || '').trim();
+                fetchFungsi();
+                const kelasId = (kelasFilterSelect?.value || '').trim();
+                if (kelasId) {
+                    loadDaftarHarga(kelasId, angkatanSelect?.value || '');
+                }
+            };
+
+            if (thnAkademikSelect) thnAkademikSelect.addEventListener('change', onBillFilterChange);
+            if (tagihanSelect) tagihanSelect.addEventListener('change', onBillFilterChange);
+            if (kelasFilterSelect) kelasFilterSelect.addEventListener('change', fetchFungsi);
+            fetchFungsi();
         })();
     </script>
 @endsection

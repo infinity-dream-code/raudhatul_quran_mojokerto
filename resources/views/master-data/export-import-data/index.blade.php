@@ -78,7 +78,7 @@
                         <tr>
                             <td>{{ ($importRows->firstItem() ?? 1) + $index }}</td>
                             <td>{{ $row['nis'] ?? '-' }}</td>
-                            <td>{{ $row['nodaf'] ?? '-' }}</td>
+                            <td>{{ ($row['nodaf'] ?? '') !== '' ? $row['nodaf'] : '-' }}</td>
                             <td>{{ $row['nama'] ?? '-' }}</td>
                             <td>{{ $row['unit'] ?? '-' }}</td>
                             <td>{{ $row['kelas'] ?? '-' }}</td>
@@ -102,9 +102,9 @@
                     <form method="POST" action="{{ route('master.export_import.clear') }}">@csrf
                         <button type="submit" class="btn btn-outline-danger btn-sm"><i class="ri-delete-bin-line me-1"></i> Bersihkan Data</button>
                     </form>
-                    <form method="POST" action="{{ route('master.export_import.save') }}">@csrf
-                        <button type="submit" class="btn btn-primary btn-sm"><i class="ri-save-line me-1"></i> Simpan Data</button>
-                    </form>
+                    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modal-save-siswa">
+                        <i class="ri-save-line me-1"></i> Simpan Data
+                    </button>
                 </div>
             </div>
         @endif
@@ -124,7 +124,7 @@
                         <ul class="list-group list-group-timeline mb-3">
                             <li class="list-group-item">File harus berformat <strong>XLSX</strong>.</li>
                             <li class="list-group-item">Ukuran file tidak boleh lebih dari <strong>1024KB / 1MB</strong>.</li>
-                            <li class="list-group-item">Kolom wajib: <strong>NIS</strong>. Opsional: NODAF, NAMA, UNIT, KELAS, KELOMPOK, ANGKATAN, GENDER, ALAMAT, WALI.</li>
+                            <li class="list-group-item">Kolom wajib: <strong>NIS</strong> atau <strong>NODAF / NODAFTAR</strong>, plus <strong>NAMA, UNIT, KELAS, KELOMPOK, ANGKATAN</strong> saat simpan.</li>
                             <li class="list-group-item">
                                 Contoh file:
                                 <a href="{{ asset('format.xlsx') }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary ms-1">
@@ -150,6 +150,63 @@
             </div>
         </div>
     </form>
+
+    <form method="POST" action="{{ route('master.export_import.save') }}" id="form-save-siswa">
+        @csrf
+        <div class="modal modal-blur fade" id="modal-save-siswa" tabindex="-1" aria-labelledby="modal-save-siswa-label" aria-hidden="true" data-bs-backdrop="static">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="modal-save-siswa-label">Simpan Data Siswa</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                    </div>
+                    <div class="modal-body py-4">
+                        <p class="text-center mb-3">Anda yakin ingin menyimpan data siswa yang telah diimport?</p>
+                        @if ($errors->has('sekolah') || $errors->has('metode'))
+                            <div class="alert alert-danger py-2">{{ $errors->first('sekolah') ?: $errors->first('metode') }}</div>
+                        @endif
+                        <fieldset class="form-fieldset mb-0">
+                            <div class="mb-3">
+                                <label class="form-label required" for="save-sekolah">Sekolah</label>
+                                <select class="form-select" id="save-sekolah" name="sekolah" required>
+                                    <option value="" disabled {{ old('sekolah') ? '' : 'selected' }}>Pilih Sekolah</option>
+                                    @foreach (($sekolahList ?? []) as $sk)
+                                        @php
+                                            $code = is_array($sk) ? trim((string) ($sk['code01'] ?? $sk['CODE01'] ?? '')) : '';
+                                            $name = is_array($sk) ? trim((string) ($sk['desc01'] ?? $sk['DESC01'] ?? $code)) : '';
+                                        @endphp
+                                        @if ($code !== '')
+                                            <option value="{{ $code }}" {{ old('sekolah') === $code ? 'selected' : '' }}>{{ $name }}</option>
+                                        @endif
+                                    @endforeach
+                                </select>
+                                @if (count($sekolahList ?? []) === 0)
+                                    <div class="form-text text-danger">Data sekolah kosong. Tambahkan dulu di Master Sekolah.</div>
+                                @endif
+                            </div>
+                            <div class="mb-0">
+                                <label class="form-label required" for="save-metode">Metode Penyimpanan</label>
+                                <select class="form-select" id="save-metode" name="metode" required>
+                                    <option value="1" {{ old('metode', '1') === '1' ? 'selected' : '' }}>Simpan data siswa dengan NIS</option>
+                                    <option value="2" {{ old('metode') === '2' ? 'selected' : '' }}>Simpan data siswa dengan Nomor Pendaftaran</option>
+                                    <option value="3" {{ old('metode') === '3' ? 'selected' : '' }}>Update kelas siswa (by NIS)</option>
+                                    <option value="4" {{ old('metode') === '4' ? 'selected' : '' }}>Upgrade nomor pendaftaran ke NIS</option>
+                                </select>
+                            </div>
+                        </fieldset>
+                    </div>
+                    <div class="modal-footer">
+                        <div class="w-100">
+                            <div class="row g-2">
+                                <div class="col"><button type="button" class="btn btn-outline-secondary w-100" data-bs-dismiss="modal">Batal</button></div>
+                                <div class="col"><button type="submit" class="btn btn-primary w-100">Simpan Data</button></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
 @endsection
 
 @section('script')
@@ -165,6 +222,24 @@
                 bootstrap.Modal.getOrCreateInstance(modalEl).show();
             @endif
 
+            var saveModal = document.getElementById('modal-save-siswa');
+            @if ($errors->has('sekolah') || $errors->has('metode'))
+                if (saveModal) bootstrap.Modal.getOrCreateInstance(saveModal).show();
+            @endif
+
+            var metodeEl = document.getElementById('save-metode');
+            var sekolahEl = document.getElementById('save-sekolah');
+            function syncSekolahRequired() {
+                if (!metodeEl || !sekolahEl) return;
+                var need = ['1', '2'].indexOf(metodeEl.value) >= 0;
+                sekolahEl.required = need;
+                sekolahEl.disabled = !need;
+            }
+            if (metodeEl) {
+                metodeEl.addEventListener('change', syncSekolahRequired);
+                syncSekolahRequired();
+            }
+
             fileInput.addEventListener('change', function (event) {
                 var file = event.target.files && event.target.files[0];
                 if (!file || typeof XLSX === 'undefined') { previewInput.value = '[]'; return; }
@@ -175,17 +250,30 @@
                         var ws = wb.Sheets[wb.SheetNames[0]];
                         var rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
                         var normalized = rows.map(function (r) {
+                            var keys = {};
+                            Object.keys(r).forEach(function (k) {
+                                keys[String(k).trim().toUpperCase().replace(/\s+/g, ' ')] = r[k];
+                            });
+                            function g() {
+                                for (var i = 0; i < arguments.length; i++) {
+                                    var v = keys[arguments[i]];
+                                    if (v !== undefined && v !== null && String(v).trim() !== '') {
+                                        return String(v).trim();
+                                    }
+                                }
+                                return '';
+                            }
                             return {
-                                nis: String(r.NIS || '').trim(),
-                                nodaf: String(r.NODAF || '').trim(),
-                                nama: String(r.Nama || r.NAMA || '').trim(),
-                                unit: String(r.UNIT || '').trim(),
-                                kelas: String(r.KELAS || '').trim(),
-                                kelompok: String(r.KELOMPOK || '').trim(),
-                                angkatan: String(r.ANGKATAN || '').trim(),
-                                gender: String(r.GENDER || '').trim(),
-                                alamat: String(r.ALAMAT || '').trim(),
-                                wali: String(r.WALI || r.Wali || '').trim()
+                                nis: g('NIS'),
+                                nodaf: g('NODAF', 'NODAFTAR', 'NO PEND', 'NO_PEND', 'NO DAFT'),
+                                nama: g('NAMA', 'Nama'),
+                                unit: g('UNIT'),
+                                kelas: g('KELAS'),
+                                kelompok: g('KELOMPOK'),
+                                angkatan: g('ANGKATAN'),
+                                gender: g('GENDER'),
+                                alamat: g('ALAMAT'),
+                                wali: g('WALI', 'ORTU', 'AYAH', 'GENUS')
                             };
                         });
                         previewInput.value = JSON.stringify(normalized);

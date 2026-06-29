@@ -5,7 +5,8 @@
     <title>Export Tagihan</title>
     <style>
         body { font-family: DejaVu Sans, sans-serif; font-size: 10px; color: #111; margin: 0; padding: 10px; }
-        .sheet { width: 100%; }
+        .sheet { width: 100%; page-break-after: always; }
+        .sheet:last-child { page-break-after: auto; }
         .head { border-bottom: 3px solid #111; padding-bottom: 6px; margin-bottom: 6px; }
         .row { width: 100%; border-collapse: collapse; }
         .row td { border: 0; vertical-align: middle; }
@@ -34,137 +35,134 @@
 </head>
 <body>
     @php
-        $logoDataUri = null;
-        $logoCandidates = [
-            public_path('logo.jpg'),
-            public_path('logo.png'),
-            public_path('logo.jpg'),
-            public_path('logo.jpeg'),
-            public_path('images/logo.png'),
-        ];
-        foreach ($logoCandidates as $lp) {
-            if (is_string($lp) && $lp !== '' && file_exists($lp)) {
-                $ext = strtolower((string) pathinfo($lp, PATHINFO_EXTENSION));
-                $mime = match ($ext) { 'png' => 'image/png', 'jpg', 'jpeg' => 'image/jpeg', 'webp' => 'image/webp', default => 'application/octet-stream' };
-                $raw = @file_get_contents($lp);
-                if ($raw !== false) { $logoDataUri = 'data:' . $mime . ';base64,' . base64_encode($raw); break; }
-            }
-        }
-        if ($logoDataUri === null && is_dir(public_path())) {
-            try {
-                $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(public_path(), FilesystemIterator::SKIP_DOTS));
-                foreach ($it as $f) {
-                    if (!$f instanceof SplFileInfo || !$f->isFile()) { continue; }
-                    $ext = strtolower((string) $f->getExtension());
-                    if (!in_array($ext, ['png', 'jpg', 'jpeg', 'webp'], true)) { continue; }
-                    $name = strtolower((string) $f->getFilename());
-                    if (!str_contains($name, 'logo') && !str_contains($name, 'amal') && !str_contains($name, 'fatimah') && !str_contains($name, 'fataimah')) { continue; }
-                    $mime = match ($ext) { 'png' => 'image/png', 'jpg', 'jpeg' => 'image/jpeg', 'webp' => 'image/webp', default => 'application/octet-stream' };
-                    $raw = @file_get_contents($f->getPathname());
-                    if ($raw !== false) { $logoDataUri = 'data:' . $mime . ';base64,' . base64_encode($raw); break; }
-                }
-            } catch (Throwable $e) {
-                // ignore
-            }
-        }
-        $first = (is_array($rows) && count($rows) > 0 && is_array($rows[0] ?? null)) ? $rows[0] : [];
+        use App\Support\BrandLogo;
+
+        $logoDataUri = BrandLogo::dataUri();
         $cleanMeta = static function ($v): string {
             $s = trim((string) $v);
             $s = ltrim($s, ": \t\n\r\0\x0B");
+
             return trim($s);
         };
-        $nisDigits = preg_replace('/\D+/', '', (string) ($first['nis'] ?? ''));
-        $noVa = trim((string) ($first['no_va'] ?? ''));
-        if ($noVa === '') {
-            $noVa = '7510050' . ($nisDigits !== '' ? $nisDigits : '0');
-        }
-        $angkatan = $cleanMeta($first['angkatan'] ?? '');
-        if ($angkatan === '') {
-            $angkatan = trim((string) ($filters['thn_angkatan'] ?? ''));
-        }
-        if ($angkatan === '') {
-            $tahunAka = trim((string) ($first['tahun_aka'] ?? ''));
-            if (preg_match('/^\d{4}/', $tahunAka, $m) === 1) {
-                $angkatan = $m[0];
-            }
-        }
-        if ($angkatan === '') {
-            $angkatan = '-';
-        }
         $todayId = \Carbon\Carbon::now('Asia/Jakarta')->locale('id');
-        $totalTagihan = 0;
-        foreach ($rows as $row) {
-            if (is_array($row)) { $totalTagihan += (int) ($row['tagihan'] ?? 0); }
-        }
+        $sheetList = is_array($sheets ?? null) && ($sheets ?? []) !== []
+            ? $sheets
+            : [['rows' => is_array($rows ?? null) ? $rows : []]];
     @endphp
 
-    <div class="sheet">
-        <div class="head">
-            <table class="row">
-                <tr>
-                    <td class="logo-cell">@if ($logoDataUri)<img class="logo" src="{{ $logoDataUri }}" alt="Logo">@endif</td>
-                    <td class="mid">
-                        <p class="nm">MA'HAD TAHFIDZ RAUDHATUL QUR'AN</p>
-                        <p class="addr">Mojokerto, Jawa Timur</p>
-                    </td>
-                    <td class="logo-cell"></td>
-                </tr>
-            </table>
-        </div>
-
-        <div class="title">Tagihan Siswa</div>
-
-        <table class="meta-wrap">
-            <tr>
-                <td class="lbl">NIS</td><td class="val">: {{ $cleanMeta($first['nis'] ?? '') !== '' ? $cleanMeta($first['nis'] ?? '') : '-' }}</td>
-                <td class="lbl-r">Kelas</td><td class="val-r">: {{ $cleanMeta($first['kelas'] ?? '') !== '' ? $cleanMeta($first['kelas'] ?? '') : '-' }}</td>
-            </tr>
-            <tr>
-                <td class="lbl">NO VA</td><td class="val">: {{ $noVa }}</td>
-                <td class="lbl-r">Unit</td><td class="val-r">: {{ $cleanMeta($first['unit'] ?? '') !== '' ? $cleanMeta($first['unit'] ?? '') : '-' }}</td>
-            </tr>
-            <tr>
-                <td class="lbl">Nama Siswa</td><td class="val">: {{ $cleanMeta($first['nama'] ?? '') !== '' ? $cleanMeta($first['nama'] ?? '') : '-' }}</td>
-                <td class="lbl-r">Angkatan</td><td class="val-r">: {{ $angkatan }}</td>
-            </tr>
-        </table>
-
-        @if (($errorMessage ?? '') !== '')
-            <div class="err">{{ $errorMessage }}</div>
-        @endif
-
-        <table class="tbl">
-            <thead>
-                <tr>
-                    <th style="width:5%">#</th>
-                    <th style="width:20%">Tahun Akademik</th>
-                    <th>Nama Tagihan</th>
-                    <th style="width:23%">Jumlah</th>
-                    <th style="width:18%">Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse ($rows as $idx => $r)
-                    @php $st = strtoupper((string) ($r['status'] ?? '-')); @endphp
+    @if (($errorMessage ?? '') !== '' && (($sheetList[0]['rows'] ?? []) === []))
+        <div class="sheet">
+            <div class="head">
+                <table class="row">
                     <tr>
-                        <td class="ctr">{{ $idx + 1 }}</td>
-                        <td class="ctr">{{ trim((string) ($r['tahun_aka'] ?? '')) !== '' ? $r['tahun_aka'] : '-' }}</td>
-                        <td>{{ trim((string) ($r['nama_tagihan'] ?? '')) !== '' ? $r['nama_tagihan'] : '-' }}</td>
-                        <td class="num">Rp {{ number_format((int) ($r['tagihan'] ?? 0), 0, ',', '.') }}</td>
-                        <td class="ctr {{ $st === 'BELUM LUNAS' ? 'status-belum' : '' }}">{{ $st }}</td>
+                        <td class="logo-cell">@if ($logoDataUri)<img class="logo" src="{{ $logoDataUri }}" alt="Logo">@endif</td>
+                        <td class="mid">
+                            <p class="nm">MA'HAD TAHFIDZ RAUDHATUL QUR'AN</p>
+                            <p class="addr">Mojokerto, Jawa Timur</p>
+                        </td>
+                        <td class="logo-cell"></td>
                     </tr>
-                @empty
-                    <tr><td colspan="5" class="ctr" style="padding: 14px; color:#6b7280;">Tidak ada data</td></tr>
-                @endforelse
-                <tr class="total-row">
-                    <td colspan="3">Total Tagihan</td>
-                    <td class="num">Rp {{ number_format($totalTagihan, 0, ',', '.') }}</td>
-                    <td></td>
-                </tr>
-            </tbody>
-        </table>
+                </table>
+            </div>
+            <div class="title">Tagihan Siswa</div>
+            <div class="err">{{ $errorMessage }}</div>
+        </div>
+    @else
+        @foreach ($sheetList as $sheet)
+            @php
+                $sheetRows = is_array($sheet['rows'] ?? null) ? $sheet['rows'] : [];
+                $first = (count($sheetRows) > 0 && is_array($sheetRows[0] ?? null)) ? $sheetRows[0] : [];
+                $nisDigits = preg_replace('/\D+/', '', (string) ($first['nis'] ?? ''));
+                $noVa = trim((string) ($first['no_va'] ?? ''));
+                if ($noVa === '') {
+                    $noVa = '7510050' . ($nisDigits !== '' ? $nisDigits : '0');
+                }
+                $angkatan = $cleanMeta($first['angkatan'] ?? '');
+                if ($angkatan === '') {
+                    $angkatan = trim((string) ($filters['thn_angkatan'] ?? ''));
+                }
+                if ($angkatan === '') {
+                    $tahunAka = trim((string) ($first['tahun_aka'] ?? ''));
+                    if (preg_match('/^\d{4}/', $tahunAka, $m) === 1) {
+                        $angkatan = $m[0];
+                    }
+                }
+                if ($angkatan === '') {
+                    $angkatan = '-';
+                }
+                $totalTagihan = 0;
+                foreach ($sheetRows as $row) {
+                    if (is_array($row)) {
+                        $totalTagihan += (int) ($row['tagihan'] ?? 0);
+                    }
+                }
+            @endphp
 
-        <div class="foot">Mojokerto, {{ $todayId->translatedFormat('l, d F Y') }}</div>
-    </div>
+            <div class="sheet">
+                <div class="head">
+                    <table class="row">
+                        <tr>
+                            <td class="logo-cell">@if ($logoDataUri)<img class="logo" src="{{ $logoDataUri }}" alt="Logo">@endif</td>
+                            <td class="mid">
+                                <p class="nm">MA'HAD TAHFIDZ RAUDHATUL QUR'AN</p>
+                                <p class="addr">Mojokerto, Jawa Timur</p>
+                            </td>
+                            <td class="logo-cell"></td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="title">Tagihan Siswa</div>
+
+                <table class="meta-wrap">
+                    <tr>
+                        <td class="lbl">NIS</td><td class="val">: {{ $cleanMeta($first['nis'] ?? '') !== '' ? $cleanMeta($first['nis'] ?? '') : '-' }}</td>
+                        <td class="lbl-r">Kelas</td><td class="val-r">: {{ $cleanMeta($first['kelas'] ?? '') !== '' ? $cleanMeta($first['kelas'] ?? '') : '-' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="lbl">NO VA</td><td class="val">: {{ $noVa }}</td>
+                        <td class="lbl-r">Unit</td><td class="val-r">: {{ $cleanMeta($first['unit'] ?? '') !== '' ? $cleanMeta($first['unit'] ?? '') : '-' }}</td>
+                    </tr>
+                    <tr>
+                        <td class="lbl">Nama Siswa</td><td class="val">: {{ $cleanMeta($first['nama'] ?? '') !== '' ? $cleanMeta($first['nama'] ?? '') : '-' }}</td>
+                        <td class="lbl-r">Angkatan</td><td class="val-r">: {{ $angkatan }}</td>
+                    </tr>
+                </table>
+
+                <table class="tbl">
+                    <thead>
+                        <tr>
+                            <th style="width:5%">#</th>
+                            <th style="width:20%">Tahun Akademik</th>
+                            <th>Nama Tagihan</th>
+                            <th style="width:23%">Jumlah</th>
+                            <th style="width:18%">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($sheetRows as $idx => $r)
+                            @php $st = strtoupper((string) ($r['status'] ?? '-')); @endphp
+                            <tr>
+                                <td class="ctr">{{ $idx + 1 }}</td>
+                                <td class="ctr">{{ trim((string) ($r['tahun_aka'] ?? '')) !== '' ? $r['tahun_aka'] : '-' }}</td>
+                                <td>{{ trim((string) ($r['nama_tagihan'] ?? '')) !== '' ? $r['nama_tagihan'] : '-' }}</td>
+                                <td class="num">Rp {{ number_format((int) ($r['tagihan'] ?? 0), 0, ',', '.') }}</td>
+                                <td class="ctr {{ $st === 'BELUM LUNAS' ? 'status-belum' : '' }}">{{ $st }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="5" class="ctr" style="padding: 14px; color:#6b7280;">Tidak ada data</td></tr>
+                        @endforelse
+                        <tr class="total-row">
+                            <td colspan="3">Total Tagihan</td>
+                            <td class="num">Rp {{ number_format($totalTagihan, 0, ',', '.') }}</td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="foot">Mojokerto, {{ $todayId->translatedFormat('l, d F Y') }}</div>
+            </div>
+        @endforeach
+    @endif
 </body>
 </html>

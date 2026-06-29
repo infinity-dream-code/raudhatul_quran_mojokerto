@@ -134,7 +134,7 @@
         }
         a.em-page:hover { background: #f3f4f6; }
         .em-side label { display: block; font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 6px; }
-        .em-side select, .em-side input[type="text"] {
+        .em-side select, .em-side input[type="text"]:not(.em-nominal-input) {
             width: 100%;
             height: 38px;
             border: 1px solid #d1d5db;
@@ -144,16 +144,53 @@
             background: #fff;
         }
         .em-side .em-field { margin-bottom: 12px; }
+        .em-nominal-input,
+        .em-line-am {
+            width: 100%;
+            min-width: 110px;
+            height: 38px;
+            border: 1px solid #94a3b8;
+            border-radius: 8px;
+            padding: 0 12px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #111827;
+            background: #fff;
+            box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.06);
+            font-variant-numeric: tabular-nums;
+        }
+        .em-nominal-input { text-align: right; }
+        .em-line-am { text-align: right; }
+        .em-nominal-input:focus,
+        .em-line-am:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+        }
+        .em-nominal-input:disabled,
+        .em-line-am:disabled {
+            background: #f3f4f6;
+            color: #9ca3af;
+            border-color: #e5e7eb;
+            box-shadow: none;
+        }
+        .em-jumlah-cell {
+            font-weight: 700;
+            font-size: 13px;
+            color: #0f172a;
+            background: #f1f5f9;
+        }
         .em-detail-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 12px; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
-        .em-detail-table th, .em-detail-table td { border-bottom: 1px solid #eef2f7; padding: 8px 10px; text-align: left; }
+        .em-detail-table th, .em-detail-table td { border-bottom: 1px solid #eef2f7; padding: 8px 10px; text-align: left; vertical-align: middle; }
         .em-detail-table th { background: #f1f5f9; font-weight: 700; color: #475569; }
+        .em-detail-table th.em-num,
+        .em-detail-table td.em-num { min-width: 130px; }
         .em-detail-table tbody tr:last-child td { border-bottom: none; }
         .em-detail-empty { color: #9ca3af; font-style: italic; text-align: center; padding: 16px !important; }
         .em-bill-row { cursor: pointer; }
         .em-bill-row:hover { background: #f8fafc; }
         .em-bill-row.em-bill-selected { background: #eff6ff; }
-        .em-line-kode { width: 100%; min-width: 140px; height: 34px; font-size: 12px; }
-        .em-line-am { width: 100%; text-align: right; height: 34px; font-size: 12px; }
+        .em-line-kode { width: 100%; min-width: 140px; height: 38px; font-size: 12px; border: 1px solid #d1d5db; border-radius: 8px; padding: 0 8px; background: #fff; }
         .em-btn-ghost { background: #fff; color: #b91c1c; border-color: #fecaca; font-size: 12px; padding: 0 10px; height: 32px; }
         .em-btn-ghost:hover { background: #fef2f2; }
         .em-alert { margin: 0 18px 12px; padding: 10px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; }
@@ -268,7 +305,7 @@
                     </div>
                     <div class="em-field">
                         <label for="emNominal">NOMINAL</label>
-                        <input type="text" id="emNominal" placeholder="0" inputmode="numeric" autocomplete="off">
+                        <input type="text" id="emNominal" class="em-nominal-input" placeholder="0" inputmode="numeric" autocomplete="off">
                     </div>
                     <button type="button" class="em-btn em-btn-primary" id="emBtnBuatDetail" style="width:100%;justify-content:center;">Buat Detail</button>
 
@@ -502,7 +539,7 @@
                     var ps = paidSt ? '1' : '0';
                     return '<tr class="em-bill-row" data-billcd="' + bcd + '" data-paidst="' + ps + '" data-jumlah="' + escAttr(String(r.jumlah || 0)) + '">'
                         + '<td>' + esc(r.nama_tagihan || '-') + '</td>'
-                        + '<td class="em-num">' + esc(fmtRp(r.jumlah || 0)) + '</td>'
+                        + '<td class="em-num em-jumlah-cell">' + esc(fmtRp(r.jumlah || 0)) + '</td>'
                         + '<td>' + esc(r.tahun_pelajaran || '-') + '</td>'
                         + '<td class="em-ctr">' + esc(r.bayar || '') + '</td>'
                         + '</tr>';
