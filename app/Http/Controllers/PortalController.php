@@ -67,7 +67,7 @@ class PortalController extends Controller
             if ($useSignedToken) {
                 $token = $this->signToken();
                 if ($token === '') {
-                    return redirect()->route('portal')->with('portal_info', 'SSO Cashless belum aktif: SSO_SHARED_SECRET belum diisi.');
+                    return redirect()->away($targetUrl);
                 }
                 return redirect()->away($this->buildTargetUrl($targetUrl, [
                     'sso' => 1,
@@ -98,7 +98,7 @@ class PortalController extends Controller
         if ($useSignedToken) {
             $token = $this->signToken();
             if ($token === '') {
-                return redirect()->route('portal')->with('portal_info', 'SSO Presensi belum aktif: SSO_SHARED_SECRET belum diisi.');
+                return redirect()->away($targetUrl);
             }
             $params = [
                 'sso' => 1,
