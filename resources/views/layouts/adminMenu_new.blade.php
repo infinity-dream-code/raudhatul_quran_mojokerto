@@ -165,6 +165,27 @@
                 <li class="menu-item {{ request()->routeIs('smartcard.batasan_kartu*') ? 'active' : '' }}">
                     <a href="{{ route('smartcard.batasan_kartu') }}" class="menu-link"><div>Setting Batasan Kartu</div></a>
                 </li>
+                <li class="menu-item {{ request()->routeIs('smartcard.transaksi_belanja') ? 'active' : '' }}">
+                    <a href="{{ route('smartcard.transaksi_belanja') }}" class="menu-link"><div>Transaksi Belanja</div></a>
+                </li>
+                <li class="menu-item {{ request()->routeIs('smartcard.rekap_pencairan_kantin') ? 'active' : '' }}">
+                    <a href="{{ route('smartcard.rekap_pencairan_kantin') }}" class="menu-link"><div>Rekap Pencairan Kantin</div></a>
+                </li>
+                <li class="menu-item {{ request()->routeIs('smartcard.rekap_topup') ? 'active' : '' }}">
+                    <a href="{{ route('smartcard.rekap_topup') }}" class="menu-link"><div>Rekap TOPUP</div></a>
+                </li>
+                <li class="menu-item {{ request()->routeIs('smartcard.topup_cash') ? 'active' : '' }}">
+                    <a href="{{ route('smartcard.topup_cash') }}" class="menu-link"><div>TOPUP Cash</div></a>
+                </li>
+                <li class="menu-item {{ request()->routeIs('smartcard.rekap_keluar_uang_saku') ? 'active' : '' }}">
+                    <a href="{{ route('smartcard.rekap_keluar_uang_saku') }}" class="menu-link"><div>Rekap Keluar Uang Saku</div></a>
+                </li>
+                <li class="menu-item {{ request()->routeIs('smartcard.keluar_uang_saku') ? 'active' : '' }}">
+                    <a href="{{ route('smartcard.keluar_uang_saku') }}" class="menu-link"><div>Keluar Uang Saku</div></a>
+                </li>
+                <li class="menu-item {{ request()->routeIs('smartcard.tap_ambil_rutin') ? 'active' : '' }}">
+                    <a href="{{ route('smartcard.tap_ambil_rutin') }}" class="menu-link"><div>TAP Ambil Rutin</div></a>
+                </li>
             </ul>
         </li>
 
