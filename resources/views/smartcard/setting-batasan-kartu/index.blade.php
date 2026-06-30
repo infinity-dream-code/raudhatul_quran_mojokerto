@@ -23,8 +23,8 @@
                         <div class="sc-field">
                             <label for="periodeInput">Periode</label>
                             <div class="sc-control-wrap sc-control-kartu">
-                                <input type="text" id="periodeInput" name="periode" value="{{ old('periode', $periode ?? '') }}"
-                                       placeholder="Contoh: 202606 atau 2026-06" maxlength="20">
+                                <input type="month" id="periodeInput" name="periode"
+                                       value="{{ old('periode', $periode ?? '') }}">
                             </div>
                         </div>
                         <div class="sc-field">
@@ -45,12 +45,12 @@
                         </div>
                         <div class="sc-field">
                             <label for="aktifInput">Aktif</label>
-                            <div class="sc-control-wrap sc-control-check">
-                                <label class="sc-check-label">
-                                    <input type="checkbox" id="aktifInput" name="aktif" value="1"
-                                        @checked(old('aktif', $aktif ?? false))>
-                                    <span>Periode aktif</span>
-                                </label>
+                            <div class="sc-control-wrap sc-control-select">
+                                <select id="aktifInput" name="aktif">
+                                    <option value="" @selected(old('aktif', $aktif ?? '') === '')>— Pilih status —</option>
+                                    <option value="1" @selected((string) old('aktif', $aktif ?? '') === '1')>Aktif</option>
+                                    <option value="0" @selected((string) old('aktif', $aktif ?? '') === '0')>Tidak Aktif</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -93,14 +93,22 @@
                                 @forelse (($batasanRows ?? null) as $index => $row)
                                     <tr>
                                         <td>{{ ($batasanRows->firstItem() ?? 0) + $index }}</td>
-                                        <td>{{ $row->periode ?? '—' }}</td>
+                                        <td>
+                                            @php
+                                                $p = trim((string) ($row->periode ?? ''));
+                                                $periodeLabel = (strlen($p) === 6 && ctype_digit($p))
+                                                    ? substr($p, 0, 4) . '-' . substr($p, 4, 2)
+                                                    : ($p !== '' ? $p : '—');
+                                            @endphp
+                                            {{ $periodeLabel }}
+                                        </td>
                                         <td>{{ number_format((int) ($row->batas_belanja_hari ?? 0), 0, ',', '.') }}</td>
                                         <td>{{ number_format((int) ($row->batas_cash ?? 0), 0, ',', '.') }}</td>
                                         <td>
                                             @if ((int) ($row->aktif ?? 0) === 1)
                                                 <span class="sc-badge sc-badge-success">Aktif</span>
                                             @else
-                                                <span class="sc-badge sc-badge-muted">Nonaktif</span>
+                                                <span class="sc-badge sc-badge-muted">Tidak Aktif</span>
                                             @endif
                                         </td>
                                     </tr>
@@ -155,25 +163,24 @@
     @include('smartcard.partials.styles')
 
     <style>
-        .sc-control-check {
-            min-height: 44px;
-            display: flex;
-            align-items: center;
+        .sc-control-select select {
+            width: 100%;
+            height: 44px;
+            border: 0;
             padding: 0 14px;
-        }
-        .sc-check-label {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            margin: 0;
             font-size: 14px;
-            font-weight: 600;
+            background: #fff;
             color: #374151;
             cursor: pointer;
         }
-        .sc-check-label input {
-            width: 18px;
-            height: 18px;
+        .sc-field input[type="month"] {
+            width: 100%;
+            height: 44px;
+            border: 0;
+            padding: 0 14px;
+            font-size: 14px;
+            background: #fffbeb;
+            color: #374151;
             cursor: pointer;
         }
         .sc-footnote {
@@ -219,15 +226,14 @@
                 if (periodeSave && periodeInput) periodeSave.value = periodeInput.value;
                 if (batasBelanjaSave && batasBelanjaInput) batasBelanjaSave.value = digitsOnly(batasBelanjaInput.value);
                 if (batasCashSave && batasCashInput) batasCashSave.value = digitsOnly(batasCashInput.value);
-                if (aktifSave) aktifSave.value = aktifInput && aktifInput.checked ? '1' : '0';
+                if (aktifSave && aktifInput) aktifSave.value = aktifInput.value !== '' ? aktifInput.value : '';
             }
 
             document.getElementById('formSave')?.addEventListener('submit', function (e) {
                 syncSaveFields();
-                const periodeDigits = digitsOnly(periodeSave?.value || '');
-                if (periodeDigits.length !== 6) {
+                if (!periodeSave?.value || digitsOnly(periodeSave.value).length !== 6) {
                     e.preventDefault();
-                    alert('Periode wajib diisi dengan format 6 digit, contoh: 202606.');
+                    alert('Periode wajib dipilih (tahun dan bulan).');
                     return;
                 }
                 if (batasBelanjaSave?.value === '') {
@@ -239,6 +245,10 @@
                     e.preventDefault();
                     alert('Batas cash wajib diisi.');
                     return;
+                }
+                if (aktifSave?.value !== '0' && aktifSave?.value !== '1') {
+                    e.preventDefault();
+                    alert('Status aktif wajib dipilih.');
                 }
             });
 

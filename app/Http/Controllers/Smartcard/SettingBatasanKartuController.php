@@ -19,15 +19,15 @@ class SettingBatasanKartuController extends Controller
         $periode = $isSearch ? $this->normalizePeriode((string) $request->query('periode', '')) : '';
         $batasBelanjaHari = $isSearch ? $this->parseAmount($request->query('batas_belanja_hari', '')) : '';
         $batasCash = $isSearch ? $this->parseAmount($request->query('batas_cash', '')) : '';
-        $aktif = $isSearch && $request->boolean('aktif');
+        $aktif = $isSearch ? (string) $request->query('aktif', '') : '';
 
         return view('smartcard.setting-batasan-kartu.index', [
             'batasanRows' => $this->fetchRows($periode, $isSearch),
             'isSearch' => $isSearch,
-            'periode' => $isSearch ? trim((string) $request->query('periode', '')) : '',
+            'periode' => $isSearch ? $this->formatPeriodeForInput((string) $request->query('periode', '')) : '',
             'batasBelanjaHari' => $batasBelanjaHari,
             'batasCash' => $batasCash,
-            'aktif' => $aktif,
+            'aktif' => in_array($aktif, ['0', '1'], true) ? $aktif : '',
         ]);
     }
 
@@ -37,11 +37,13 @@ class SettingBatasanKartuController extends Controller
             'periode' => ['required', 'string', 'max:20'],
             'batas_belanja_hari' => ['required', 'string', 'max:30'],
             'batas_cash' => ['required', 'string', 'max:30'],
-            'aktif' => ['nullable', 'boolean'],
+            'aktif' => ['required', 'in:0,1'],
         ], [
             'periode.required' => 'Periode wajib diisi.',
             'batas_belanja_hari.required' => 'Batas belanja harian wajib diisi.',
             'batas_cash.required' => 'Batas cash wajib diisi.',
+            'aktif.required' => 'Status aktif wajib dipilih.',
+            'aktif.in' => 'Status aktif tidak valid.',
         ]);
 
         $periode = $this->normalizePeriode($validated['periode']);
@@ -49,7 +51,7 @@ class SettingBatasanKartuController extends Controller
             return redirect()
                 ->back()
                 ->withInput()
-                ->with('smartcard_error', 'Format periode tidak valid. Contoh: 202606 atau 2026-06.');
+                ->with('smartcard_error', 'Format periode tidak valid. Pilih tahun dan bulan.');
         }
 
         $batasBelanjaHari = $this->parseAmount($validated['batas_belanja_hari']);
@@ -78,7 +80,7 @@ class SettingBatasanKartuController extends Controller
             'periode' => $periode,
             'batas_belanja_hari' => (int) $batasBelanjaHari,
             'batas_cash' => (int) $batasCash,
-            'aktif' => $request->boolean('aktif') ? 1 : 0,
+            'aktif' => (int) $validated['aktif'],
             'kelompok_kantin' => null,
             'urut' => null,
         ]);
@@ -107,6 +109,20 @@ class SettingBatasanKartuController extends Controller
             ->orderByDesc('periode')
             ->paginate(self::PER_PAGE)
             ->withQueryString();
+    }
+
+    private function formatPeriodeForInput(string $value): string
+    {
+        $normalized = $this->normalizePeriode($value);
+        if ($normalized !== '') {
+            return substr($normalized, 0, 4) . '-' . substr($normalized, 4, 2);
+        }
+
+        if (preg_match('/^\d{4}-\d{2}$/', $value)) {
+            return $value;
+        }
+
+        return '';
     }
 
     private function normalizePeriode(string $value): string
