@@ -77,18 +77,6 @@ class DataKartuSiswaController extends Controller
                 ->with('smartcard_error', 'Siswa tidak ditemukan di database.');
         }
 
-        $existsCustid = DB::connection('sikeu')
-            ->table('sm_pin')
-            ->where('CUSTID', $custid)
-            ->exists();
-
-        if ($existsCustid) {
-            return redirect()
-                ->back()
-                ->withInput()
-                ->with('smartcard_error', 'Siswa ini sudah memiliki kartu. Gunakan pencarian untuk melihat data.');
-        }
-
         $existsPid = DB::connection('sikeu')
             ->table('sm_pin')
             ->where('PID', $noKartu)
@@ -98,7 +86,7 @@ class DataKartuSiswaController extends Controller
             return redirect()
                 ->back()
                 ->withInput()
-                ->with('smartcard_error', 'Nomor kartu sudah digunakan siswa lain.');
+                ->with('smartcard_error', 'Nomor kartu sudah digunakan. Setiap nomor kartu harus unik.');
         }
 
         DB::connection('sikeu')->table('sm_pin')->insert([
