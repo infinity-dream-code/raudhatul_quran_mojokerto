@@ -21,14 +21,14 @@
                     <input type="hidden" id="custidHidden" name="custid" value="{{ (int) ($custid ?? 0) }}">
 
                     <div class="sc-form-grid">
-                        <div class="sc-field">
+                        <div class="sc-field sc-field-nis">
                             <label for="siswaSearchInput">No Induk Siswa</label>
-                            <div class="sc-control-wrap">
-                                <div id="siswaAutoWrap">
+                            <div id="siswaAutoWrap" class="sc-siswa-wrap">
+                                <div class="sc-control-wrap">
                                     <input type="text" id="siswaSearchInput" name="siswa_search" autocomplete="off"
                                            value="{{ $siswaLabel ?? '' }}" placeholder="Ketik NIS / nama, pilih dari dropdown">
-                                    <div id="siswaAutoList"></div>
                                 </div>
+                                <div id="siswaAutoList"></div>
                             </div>
                         </div>
                         <div class="sc-field">
@@ -117,7 +117,7 @@
         .sc-card {
             border-radius: 14px;
             box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-            overflow: hidden;
+            overflow: visible;
         }
         .sc-card-body {
             padding: 28px 28px 32px;
@@ -169,7 +169,16 @@
             border-top: 0;
             border-radius: 0 0 10px 10px;
             background: #fff;
-            overflow: hidden;
+        }
+        .sc-field-nis {
+            position: relative;
+            z-index: 1;
+        }
+        .sc-field-nis.sc-dropdown-open {
+            z-index: 50;
+        }
+        .sc-siswa-wrap {
+            position: relative;
         }
         .sc-field input[type="text"],
         .sc-field input[readonly] {
@@ -184,14 +193,13 @@
         .sc-control-readonly input { background: #f8fafc; }
         .sc-control-kartu { background: #fffbeb; }
         .sc-control-kartu input { background: #fffbeb; }
-        #siswaAutoWrap { position: relative; }
         #siswaAutoList {
             display: none;
             position: absolute;
             left: 0;
             right: 0;
             top: calc(100% + 6px);
-            z-index: 50;
+            z-index: 200;
             background: #fff;
             border: 1px solid #d1d5db;
             border-radius: 10px;
@@ -290,6 +298,8 @@
             const pinInput = document.getElementById('pinInput');
             const pinSave = document.getElementById('pinSave');
             const siswaList = document.getElementById('siswaAutoList');
+            const siswaWrap = document.getElementById('siswaAutoWrap');
+            const nisField = document.querySelector('.sc-field-nis');
             let searchTimer = null;
             let searchSeq = 0;
 
@@ -319,16 +329,22 @@
                 }
             });
 
-            if (!siswaInput || !custidHidden || !siswaList) {
+            if (!siswaInput || !custidHidden || !siswaList || !siswaWrap) {
                 return;
             }
+
+            const openDropdown = function () {
+                if (nisField) nisField.classList.add('sc-dropdown-open');
+            };
 
             const closeList = function () {
                 siswaList.style.display = 'none';
                 siswaList.innerHTML = '';
+                if (nisField) nisField.classList.remove('sc-dropdown-open');
             };
 
             const renderRows = function (matched) {
+                openDropdown();
                 if (!matched.length) {
                     siswaList.innerHTML = '<div style="padding:10px 14px;color:#6b7280;font-size:13px;">Siswa tidak ditemukan.</div>';
                     siswaList.style.display = 'block';
@@ -355,35 +371,52 @@
                 });
             };
 
-            siswaInput.addEventListener('input', function () {
-                const q = siswaInput.value.trim();
-                if (q === '') {
-                    custidHidden.value = '';
-                    if (namaSiswa) namaSiswa.value = '';
-                    syncSaveFields();
+            const fetchSiswa = function (q) {
+                const query = String(q || '').trim();
+                if (query.length < 1) {
                     closeList();
                     return;
                 }
-                clearTimeout(searchTimer);
                 const seq = ++searchSeq;
-                searchTimer = setTimeout(function () {
-                    fetch(siswaSearchUrl + '?q=' + encodeURIComponent(q) + '&mode=nis', {
-                        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+                openDropdown();
+                siswaList.innerHTML = '<div style="padding:10px 14px;color:#6b7280;font-size:13px;">Mencari…</div>';
+                siswaList.style.display = 'block';
+                const url = siswaSearchUrl + '?mode=nis&q=' + encodeURIComponent(query);
+                fetch(url, {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin',
+                })
+                    .then(function (res) { return res.json(); })
+                    .then(function (json) {
+                        if (seq !== searchSeq) return;
+                        renderRows(Array.isArray(json.rows) ? json.rows : []);
                     })
-                        .then(function (res) { return res.json(); })
-                        .then(function (data) {
-                            if (seq !== searchSeq) return;
-                            renderRows(Array.isArray(data.rows) ? data.rows : []);
-                        })
-                        .catch(function () {
-                            if (seq !== searchSeq) return;
-                            closeList();
-                        });
+                    .catch(function () {
+                        if (seq !== searchSeq) return;
+                        openDropdown();
+                        siswaList.innerHTML = '<div style="padding:10px 14px;color:#b91c1c;font-size:13px;">Gagal memuat data siswa.</div>';
+                        siswaList.style.display = 'block';
+                    });
+            };
+
+            siswaInput.addEventListener('input', function () {
+                custidHidden.value = '';
+                if (namaSiswa) namaSiswa.value = '';
+                syncSaveFields();
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(function () {
+                    fetchSiswa(siswaInput.value);
                 }, 280);
             });
 
+            siswaInput.addEventListener('focus', function () {
+                if (String(siswaInput.value || '').trim() !== '') {
+                    fetchSiswa(siswaInput.value);
+                }
+            });
+
             document.addEventListener('click', function (e) {
-                if (!document.getElementById('siswaAutoWrap')?.contains(e.target)) {
+                if (!siswaWrap.contains(e.target)) {
                     closeList();
                 }
             });
