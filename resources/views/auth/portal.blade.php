@@ -1,3 +1,4 @@
+@php use App\Support\BrandLogo; @endphp
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -7,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer" />
     <style>
         :root {
             --primary: #15803d;
@@ -53,10 +55,9 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 18px;
-            font-weight: 800;
-            color: #fff;
+            overflow: hidden;
         }
+        .brand .logo img { width: 100%; height: 100%; object-fit: cover; }
         .brand .title { font-size: 15px; font-weight: 800; color: var(--text); line-height: 1.2; }
         .brand .subtitle { font-size: 12px; color: var(--muted); }
         .user-box { display: flex; align-items: center; gap: 12px; }
@@ -235,7 +236,7 @@
     <header class="topbar">
         <div class="topbar-inner">
             <div class="brand">
-                <div class="logo">RQ</div>
+            <div class="logo"><img src="{{ BrandLogo::assetUrl() }}" alt="Logo Raudhatul Quran"></div>
                 <div>
                     <div class="title">{{ config('app.name') }}</div>
                     <div class="subtitle">Portal Layanan Digital</div>
@@ -276,7 +277,7 @@
         <div class="grid">
             <a class="card" href="{{ route('portal.sikeu') }}" style="--accent:#0ea5e9;">
                 <div class="card-top">
-                    <div class="icon" style="background:#0ea5e9;">💰</div>
+                    <div class="icon" style="background:#0ea5e9;"><i class="fa-solid fa-wallet"></i></div>
                 </div>
                 <h3>SIKEU</h3>
                 <p>Sistem Informasi Keuangan.</p>
@@ -286,7 +287,7 @@
             @if(($modules['cashless']['enabled'] ?? false))
                 <a class="card" href="{{ route('portal.cashless') }}" style="--accent:#8b5cf6;">
                     <div class="card-top">
-                        <div class="icon" style="background:#8b5cf6;">💳</div>
+                        <div class="icon" style="background:#8b5cf6;"><i class="fa-solid fa-credit-card"></i></div>
                         @if(($modules['cashless']['use_signed_token'] ?? false))
                             <span class="badge">SSO</span>
                         @endif
@@ -300,7 +301,7 @@
             @if(($modules['presensi']['enabled'] ?? false))
                 <a class="card" href="{{ route('portal.presensi') }}" style="--accent:#22c55e;">
                     <div class="card-top">
-                        <div class="icon" style="background:#22c55e;">🧾</div>
+                        <div class="icon" style="background:#22c55e;"><i class="fa-solid fa-clipboard-check"></i></div>
                         @if(($modules['presensi']['use_signed_token'] ?? true))
                             <span class="badge">SSO</span>
                         @endif
@@ -312,7 +313,7 @@
             @else
                 <div class="card" style="--accent:#94a3b8; opacity:.7; cursor:not-allowed;">
                     <div class="card-top">
-                        <div class="icon" style="background:#94a3b8;">🧾</div>
+                        <div class="icon" style="background:#94a3b8;"><i class="fa-solid fa-clipboard"></i></div>
                     </div>
                     <h3>Absensi</h3>
                     <p>Modul absensi belum aktif.</p>

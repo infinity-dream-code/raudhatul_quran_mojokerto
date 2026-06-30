@@ -3,7 +3,7 @@
         <a href="{{ route('dashboard') }}" class="app-brand-link">
             <span class="app-brand-logo">
                 <span style="color: var(--bs-primary)">
-                    <img width="50" height="50" src="{{ asset('mojokerto.png') }}" alt="logo">
+                    <img width="50" height="50" src="{{ \App\Support\BrandLogo::assetUrl() }}" alt="logo">
                 </span>
             </span>
             <span class="app-brand-text demo menu-text fw-bold ms-2">
@@ -26,14 +26,14 @@
     <ul class="menu-inner py-1">
         <li class="menu-item {{ request()->routeIs('dashboard') ? 'active' : '' }}">
             <a href="{{ route('dashboard') }}" class="menu-link">
-                <i class="menu-icon ri-home-5-line"></i>
+                <i class="menu-icon fa-solid fa-house"></i>
                 <div>Beranda</div>
             </a>
         </li>
 
         <li class="menu-item {{ request()->routeIs('master.*') ? 'active open' : '' }}">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
-                <i class="menu-icon ri-database-2-line"></i>
+                <i class="menu-icon fa-solid fa-database"></i>
                 <div>Master Data</div>
             </a>
             <ul class="menu-sub">
@@ -68,7 +68,7 @@
 
         <li class="menu-item {{ request()->routeIs('keu.*') ? 'active open' : '' }}">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
-                <i class="menu-icon ri-bank-line"></i>
+                <i class="menu-icon fa-solid fa-building-columns"></i>
                 <div>Keuangan</div>
             </a>
             <ul class="menu-sub">
@@ -128,7 +128,7 @@
 
         <li class="menu-item {{ request()->routeIs('manual_input.*') ? 'active open' : '' }}">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
-                <i class="menu-icon ri-keyboard-line"></i>
+                <i class="menu-icon fa-solid fa-keyboard"></i>
                 <div>Manual Input</div>
             </a>
             <ul class="menu-sub">
@@ -140,7 +140,7 @@
 
         <li class="menu-item {{ request()->routeIs('rekap.*') ? 'active open' : '' }}">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
-                <i class="menu-icon ri-file-list-3-line"></i>
+                <i class="menu-icon fa-solid fa-clipboard-list"></i>
                 <div>Rekap Data</div>
             </a>
             <ul class="menu-sub">
@@ -152,7 +152,7 @@
 
         <li class="menu-item {{ request()->routeIs('smartcard.*') ? 'active open' : '' }}">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
-                <i class="menu-icon ri-bank-card-line"></i>
+                <i class="menu-icon fa-regular fa-credit-card"></i>
                 <div>Smartcard</div>
             </a>
             <ul class="menu-sub">
@@ -191,7 +191,7 @@
 
         <li class="menu-item mt-auto pb-2">
             <a href="{{ route('logout') }}" class="menu-link btn-danger text-white" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
-                <i class="menu-icon ri-logout-box-r-line"></i>
+                <i class="menu-icon fa-solid fa-right-from-bracket"></i>
                 <div>Logout</div>
             </a>
         </li>

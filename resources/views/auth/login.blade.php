@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿@php use App\Support\BrandLogo; @endphp
+<!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="utf-8">
@@ -65,10 +66,9 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
-            font-weight: 800;
-            color: #fff;
+            overflow: hidden;
         }
+        .hero-panel .brand .logo img { width: 100%; height: 100%; object-fit: cover; }
         .hero-panel .brand .name { font-size: 16px; font-weight: 800; }
         .hero-panel .hero-text { position: relative; z-index: 1; }
         .hero-panel .hero-text h2 { font-size: 30px; font-weight: 800; line-height: 1.25; letter-spacing: -0.5px; }
@@ -91,10 +91,9 @@
             background: linear-gradient(135deg, var(--primary-light), var(--primary));
             align-items: center;
             justify-content: center;
-            font-size: 20px;
-            font-weight: 800;
-            color: #fff;
+            overflow: hidden;
         }
+        .form-card .mobile-logo img { width: 100%; height: 100%; object-fit: cover; }
         .form-card h1 { font-size: 23px; font-weight: 800; }
         .form-card .sub { color: var(--muted); font-size: 14px; margin-top: 6px; margin-bottom: 24px; }
         label { display: block; font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 7px; }
@@ -160,7 +159,7 @@
 <body>
     <div class="hero-panel">
         <div class="brand">
-            <div class="logo">RQ</div>
+            <div class="logo"><img src="{{ BrandLogo::assetUrl() }}" alt="Logo Raudhatul Quran"></div>
             <div class="name">{{ config('app.name') }}</div>
         </div>
         <div class="hero-text">
@@ -172,7 +171,7 @@
 
     <div class="form-panel">
         <div class="form-card">
-            <div class="mobile-logo">RQ</div>
+            <div class="mobile-logo"><img src="{{ BrandLogo::assetUrl() }}" alt="Logo Raudhatul Quran"></div>
             <h1>Masuk ke Portal</h1>
             <p class="sub">Silakan masuk menggunakan akun Anda</p>
 

@@ -1,4 +1,7 @@
-@php use Carbon\Carbon; @endphp
+@php
+    use App\Support\BrandLogo;
+    use Carbon\Carbon;
+@endphp
     <!DOCTYPE html>
 
 <html
@@ -19,8 +22,8 @@
     <meta name="description" content="Core system ICT "/>
     <meta name="theme-color" content="#282a42">
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="{{ asset('mojokerto.png') }}"/>
-    <link rel="apple-touch-icon" href="{{ asset('mojokerto.png') }}"/>
+    <link rel="icon" type="image/png" href="{{ BrandLogo::assetUrl() }}"/>
+    <link rel="apple-touch-icon" href="{{ BrandLogo::assetUrl() }}"/>
 
     <!-- Icons -->
 
@@ -219,7 +222,7 @@
                 id="layout-navbar">
                 <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
                     <a class="nav-item nav-link px-0 me-xl-4" href="javascript:void(0)">
-                        <i class="ri-menu-fill ri-xl"></i>
+                        <i class="fa-solid fa-bars"></i>
                     </a>
                 </div>
 
@@ -247,19 +250,19 @@
                             <ul class="dropdown-menu dropdown-menu-end dropdown-styles">
                                 <li>
                                     <a class="dropdown-item" href="javascript:void(0);" data-theme="light">
-                                        <span class="align-middle"><i class='ri-sun-line ri-xl me-3'></i>Terang</span>
+                                        <span class="align-middle"><i class='fa-regular fa-sun me-3'></i>Terang</span>
                                     </a>
                                 </li>
                                 <li>
                                     <a class="dropdown-item" href="javascript:void(0);" data-theme="dark">
                                         <span class="align-middle"><i
-                                                class="ri-moon-clear-line ri-xl me-3"></i>Gelap</span>
+                                                class="fa-regular fa-moon me-3"></i>Gelap</span>
                                     </a>
                                 </li>
                                 <li>
                                     <a class="dropdown-item" href="javascript:void(0);" data-theme="system">
                                         <span class="align-middle"><i
-                                                class="ri-computer-line ri-xl me-3"></i>Sistem</span>
+                                                class="fa-solid fa-desktop me-3"></i>Sistem</span>
                                     </a>
                                 </li>
                             </ul>
@@ -271,7 +274,7 @@
                             <a class="nav-link dropdown-toggle hide-arrow" href="javascript:void(0);"
                                data-bs-toggle="dropdown">
                                 <div class="avatar avatar-online">
-                                    <img src="{{asset('mojokerto.png')}}" alt class="rounded-circle">
+                                    <img src="{{ BrandLogo::assetUrl() }}" alt class="rounded-circle">
                                 </div>
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end">
@@ -280,7 +283,7 @@
                                         <div class="d-flex">
                                             <div class="flex-shrink-0 me-2">
                                                 <div class="avatar avatar-online">
-                                                    <img src="{{asset('mojokerto.png')}}" alt
+                                                    <img src="{{ BrandLogo::assetUrl() }}" alt
                                                          class="rounded-circle">
                                                 </div>
                                             </div>
@@ -302,7 +305,7 @@
                                 {{--                                </li>--}}
                                 <li>
                                     <a class="dropdown-item" href="{{ route('portal.switch') }}">
-                                        <i class="ri-apps-line ri-xl me-3"></i><span class="align-middle">Ganti Modul</span>
+                                        <i class="fa-solid fa-grip me-3"></i><span class="align-middle">Ganti Modul</span>
                                     </a>
                                 </li>
                                 <li>
@@ -313,7 +316,7 @@
                                         <a class="btn btn-sm btn-danger d-flex" href="{{route('logout')}}" onclick="event.preventDefault();
                                                       document.getElementById('logout-form').submit();">
                                             <small class="align-middle">Logout</small>
-                                            <i class="ri-logout-box-r-line ms-2 ri-16px"></i>
+                                            <i class="fa-solid fa-right-from-bracket ms-2"></i>
                                         </a>
 
                                         <form id="logout-form" action="{{ route('logout') }}" method="POST"
@@ -348,7 +351,7 @@
                                 <script>
                                     document.write(new Date().getFullYear());
                                 </script>
-                                , made with <span class="text-danger"><i class="tf-icons ri ri-heart-3-fill"></i></span>
+                                , made with <span class="text-danger"><i class="fa-solid fa-heart"></i></span>
                                 by
                                 <a href="{{ route('dashboard') }}" target="_blank"
                                    class="footer-link fw-medium">MA'HAD TAHFIDZ RAUDHATUL QUR'AN</a>
@@ -360,7 +363,7 @@
 
                 <button type="button" href="#" id="backToTopBtn" class="btn btn-lg px-3 back-to-top " role="button"
                         aria-label="Ke Atas" title="Ke Atas">
-                    <i class="ri ri-arrow-up-line ri-2x"></i>
+                    <i class="fa-solid fa-arrow-up"></i>
                 </button>
 
                 <div class="content-backdrop fade"></div>
@@ -396,7 +399,7 @@
 <script src="{{asset('js/main.js')}}"></script>
 
 <script src="{{asset('js/alerts.min.js')}}"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer"/>
 
 <style>
     .back-to-top {
