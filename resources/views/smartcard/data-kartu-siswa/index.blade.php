@@ -65,7 +65,12 @@
                 </form>
 
                 <div class="sc-table-section">
-                    <div class="sc-table-title">Daftar Kartu Siswa</div>
+                    <div class="sc-table-title">
+                        Daftar Kartu Siswa
+                        @if ($isSearch ?? false)
+                            <span class="sc-table-subtitle">— hasil pencarian</span>
+                        @endif
+                    </div>
                     <div class="sc-table-wrap">
                         <table class="sc-table">
                             <thead>
@@ -77,9 +82,9 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse (($rows ?? collect()) as $i => $row)
+                                @forelse (($kartuRows ?? null) as $index => $row)
                                     <tr>
-                                        <td>{{ $i + 1 }}</td>
+                                        <td>{{ ($kartuRows->firstItem() ?? 0) + $index }}</td>
                                         <td>{{ $row->nis ?? '—' }}</td>
                                         <td>{{ $row->nama ?? '—' }}</td>
                                         <td>{{ $row->no_kartu ?? '—' }}</td>
@@ -92,6 +97,43 @@
                             </tbody>
                         </table>
                     </div>
+
+                    @if (isset($kartuRows) && method_exists($kartuRows, 'hasPages'))
+                        <div class="sc-pagination-wrap">
+                            <div class="sc-pagination-info">
+                                Menampilkan {{ $kartuRows->firstItem() ?? 0 }} sampai {{ $kartuRows->lastItem() ?? 0 }} dari {{ $kartuRows->total() ?? 0 }} entri
+                            </div>
+                            @if ($kartuRows->hasPages())
+                                <div class="sc-pagination">
+                                    @php
+                                        $current = $kartuRows->currentPage();
+                                        $last = $kartuRows->lastPage();
+                                        $start = max(1, $current - 2);
+                                        $end = min($last, $current + 2);
+                                    @endphp
+                                    @if ($kartuRows->onFirstPage())
+                                        <span class="sc-page-link disabled">Sebelumnya</span>
+                                    @else
+                                        <a class="sc-page-link" href="{{ $kartuRows->previousPageUrl() }}">Sebelumnya</a>
+                                    @endif
+
+                                    @for ($page = $start; $page <= $end; $page++)
+                                        @if ($page === $current)
+                                            <span class="sc-page-link active">{{ $page }}</span>
+                                        @else
+                                            <a class="sc-page-link" href="{{ $kartuRows->url($page) }}">{{ $page }}</a>
+                                        @endif
+                                    @endfor
+
+                                    @if ($kartuRows->hasMorePages())
+                                        <a class="sc-page-link" href="{{ $kartuRows->nextPageUrl() }}">Selanjutnya</a>
+                                    @else
+                                        <span class="sc-page-link disabled">Selanjutnya</span>
+                                    @endif
+                                </div>
+                            @endif
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>
@@ -248,6 +290,58 @@
             color: #374151;
             margin-bottom: 14px;
             letter-spacing: 0.02em;
+        }
+        .sc-table-subtitle {
+            font-weight: 600;
+            color: #6b7280;
+            font-size: 13px;
+        }
+        .sc-pagination-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 14px;
+            padding: 4px 2px 0;
+        }
+        .sc-pagination-info {
+            font-size: 13px;
+            color: #6b7280;
+        }
+        .sc-pagination {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+        }
+        .sc-page-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 36px;
+            height: 36px;
+            padding: 0 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            background: #fff;
+            text-decoration: none;
+        }
+        .sc-page-link:hover:not(.disabled):not(.active) {
+            background: #f3f4f6;
+        }
+        .sc-page-link.active {
+            background: #7c3aed;
+            border-color: #7c3aed;
+            color: #fff;
+        }
+        .sc-page-link.disabled {
+            color: #9ca3af;
+            background: #f9fafb;
+            cursor: not-allowed;
         }
         .sc-table-wrap {
             overflow: auto;

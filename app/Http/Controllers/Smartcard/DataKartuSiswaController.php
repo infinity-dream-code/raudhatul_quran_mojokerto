@@ -5,24 +5,27 @@ namespace App\Http\Controllers\Smartcard;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class DataKartuSiswaController extends Controller
 {
+    private const PER_PAGE = 10;
+
     public function index(Request $request): View
     {
-        $custid = (int) $request->query('custid', 0);
-        $noKartu = trim((string) $request->query('no_kartu', ''));
+        $isSearch = $request->boolean('search');
+        $custid = $isSearch ? (int) $request->query('custid', 0) : 0;
+        $noKartu = $isSearch ? trim((string) $request->query('no_kartu', '')) : '';
         $pin = trim((string) $request->query('pin', '123'));
         if ($pin === '') {
             $pin = '123';
         }
 
         $nama = '';
-        $siswaLabel = trim((string) $request->query('siswa_search', ''));
-        if ($custid > 0) {
+        $siswaLabel = $isSearch ? trim((string) $request->query('siswa_search', '')) : '';
+        if ($isSearch && $custid > 0) {
             $siswa = DB::connection('sikeu')
                 ->table('scctcust')
                 ->where('CUSTID', $custid)
@@ -37,7 +40,8 @@ class DataKartuSiswaController extends Controller
         }
 
         return view('smartcard.data-kartu-siswa.index', [
-            'rows' => $this->fetchRows($custid, $noKartu),
+            'kartuRows' => $this->fetchRows($custid, $noKartu, $isSearch),
+            'isSearch' => $isSearch,
             'custid' => $custid,
             'noKartu' => $noKartu,
             'pin' => $pin,
@@ -97,25 +101,12 @@ class DataKartuSiswaController extends Controller
             'urut' => null,
         ]);
 
-        $nis = trim((string) ($siswa->NOCUST ?? ''));
-        $nama = trim((string) ($siswa->NMCUST ?? ''));
-        $label = $nis !== '' && $nama !== '' ? $nis . ' - ' . $nama : ($nis !== '' ? $nis : $nama);
-
         return redirect()
-            ->route('smartcard.data_kartu', [
-                'search' => 1,
-                'custid' => $custid,
-                'no_kartu' => $noKartu,
-                'pin' => $pin,
-                'siswa_search' => $label,
-            ])
+            ->route('smartcard.data_kartu')
             ->with('smartcard_success', 'Data kartu siswa berhasil disimpan.');
     }
 
-    /**
-     * @return Collection<int, object>
-     */
-    private function fetchRows(int $custid, string $noKartu): Collection
+    private function fetchRows(int $custid, string $noKartu, bool $isSearch): LengthAwarePaginator
     {
         $query = DB::connection('sikeu')
             ->table('sm_pin')
@@ -126,17 +117,19 @@ class DataKartuSiswaController extends Controller
                 'sm_pin.PID as no_kartu',
             ]);
 
-        if ($custid > 0) {
-            $query->where('sm_pin.CUSTID', $custid);
-        }
-
-        if ($noKartu !== '') {
-            $query->where('sm_pin.PID', $noKartu);
+        if ($isSearch) {
+            if ($custid > 0) {
+                $query->where('sm_pin.CUSTID', $custid);
+            }
+            if ($noKartu !== '') {
+                $query->where('sm_pin.PID', $noKartu);
+            }
         }
 
         return $query
             ->orderByDesc('scctcust.NOCUST')
-            ->limit(1000)
-            ->get();
+            ->orderByDesc('sm_pin.PID')
+            ->paginate(self::PER_PAGE)
+            ->withQueryString();
     }
 }
