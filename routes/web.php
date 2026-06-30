@@ -28,6 +28,7 @@ use App\Http\Controllers\ManualInput\RekapDataController;
 use App\Http\Controllers\RekapData\CekPelunasanController;
 use App\Http\Controllers\RekapData\RekapDataController as RekapDataMenuController;
 use App\Http\Controllers\Smartcard\DataKartuSiswaController;
+use App\Http\Controllers\Smartcard\SettingBlokirKartuController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -218,6 +219,8 @@ Route::middleware(['web', 'dummy.auth'])->group(function () {
     Route::prefix('smartcard')->name('smartcard.')->group(function () {
         Route::get('/data-kartu-siswa', [DataKartuSiswaController::class, 'index'])->name('data_kartu');
         Route::post('/data-kartu-siswa', [DataKartuSiswaController::class, 'store'])->name('data_kartu.store');
+        Route::get('/setting-blokir-kartu', [SettingBlokirKartuController::class, 'index'])->name('blokir_kartu');
+        Route::post('/setting-blokir-kartu/update', [SettingBlokirKartuController::class, 'updateBlokir'])->name('blokir_kartu.update');
     });
 });
 

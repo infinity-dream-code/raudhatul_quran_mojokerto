@@ -159,6 +159,9 @@
                 <li class="menu-item {{ request()->routeIs('smartcard.data_kartu*') ? 'active' : '' }}">
                     <a href="{{ route('smartcard.data_kartu') }}" class="menu-link"><div>Data Kartu Siswa</div></a>
                 </li>
+                <li class="menu-item {{ request()->routeIs('smartcard.blokir_kartu*') ? 'active' : '' }}">
+                    <a href="{{ route('smartcard.blokir_kartu') }}" class="menu-link"><div>Setting Blokir Kartu</div></a>
+                </li>
             </ul>
         </li>
 
