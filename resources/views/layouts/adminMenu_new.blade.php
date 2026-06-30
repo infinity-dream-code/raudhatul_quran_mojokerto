@@ -138,6 +138,18 @@
             </ul>
         </li>
 
+        <li class="menu-item {{ request()->routeIs('smartcard.*') ? 'active open' : '' }}">
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+                <i class="menu-icon ri-bank-card-line"></i>
+                <div>Smartcard</div>
+            </a>
+            <ul class="menu-sub">
+                <li class="menu-item {{ request()->routeIs('smartcard.data_kartu*') ? 'active' : '' }}">
+                    <a href="{{ route('smartcard.data_kartu') }}" class="menu-link"><div>Data Kartu Siswa</div></a>
+                </li>
+            </ul>
+        </li>
+
         <li class="menu-item {{ request()->routeIs('rekap.*') ? 'active open' : '' }}">
             <a href="javascript:void(0);" class="menu-link menu-toggle">
                 <i class="menu-icon ri-file-list-3-line"></i>

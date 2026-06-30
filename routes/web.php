@@ -27,6 +27,7 @@ use App\Http\Controllers\ManualInput\EditManualController;
 use App\Http\Controllers\ManualInput\RekapDataController;
 use App\Http\Controllers\RekapData\CekPelunasanController;
 use App\Http\Controllers\RekapData\RekapDataController as RekapDataMenuController;
+use App\Http\Controllers\Smartcard\DataKartuSiswaController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -212,6 +213,11 @@ Route::middleware(['web', 'dummy.auth'])->group(function () {
         Route::get('/cek-pelunasan', [CekPelunasanController::class, 'index'])->name('cek_pelunasan');
         Route::get('/cek-pelunasan/rows', [CekPelunasanController::class, 'rows'])->name('cek_pelunasan.rows');
         Route::post('/cek-pelunasan/kartu-siswa', [CekPelunasanController::class, 'printKartuSiswa'])->name('cek_pelunasan.kartu_siswa');
+    });
+
+    Route::prefix('smartcard')->name('smartcard.')->group(function () {
+        Route::get('/data-kartu-siswa', [DataKartuSiswaController::class, 'index'])->name('data_kartu');
+        Route::post('/data-kartu-siswa', [DataKartuSiswaController::class, 'store'])->name('data_kartu.store');
     });
 });
 
