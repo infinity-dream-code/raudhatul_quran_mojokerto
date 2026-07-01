@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+    @include('partials.table-sort-styles')
     @php
         use App\Support\TableSort;
 
@@ -454,7 +455,7 @@
                         <tr>
                             <th class="ds-col-chk"><input type="checkbox" id="dsSelectAllReset" title="Pilih semua"></th>
                             <th class="ds-col-no">No</th>
-                            <th class="ds-th-sort{{ $sortActive('nocust') }}"><a href="{{ $sortLink('nocust') }}">NIS <i class="{{ $sortIcon('nocust') }}"></i></a></th>
+                            @include('partials.table-sort-th', ['routeName' => 'master.data_siswa', 'column' => 'nocust', 'label' => 'NIS', 'sortBy' => $sortBy ?? 'nocust', 'sortDir' => $sortDir ?? 'asc'])
                             <th>NO VA</th>
                             <th>NAMA</th>
                             <th>No Pendaftaran</th>

@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+    @include('partials.table-sort-styles')
     <style>
         .tp-card {
             background: #fff;
@@ -101,6 +102,8 @@
 
         <div class="tp-toolbar">
             <form method="GET" action="{{ route('master.tahun_pelajaran') }}" class="tp-left">
+                <input type="hidden" name="sort_by" value="{{ $sortBy ?? 'thn_aka' }}">
+                <input type="hidden" name="sort_dir" value="{{ $sortDir ?? 'desc' }}">
                 <span>Tampilkan</span>
                 <select class="tp-select" name="per_page" onchange="this.form.submit()">
                     <option value="10" {{ (int) ($perPage ?? 10) === 10 ? 'selected' : '' }}>10</option>
@@ -113,6 +116,8 @@
                 <span>entri</span>
             </form>
             <form method="GET" action="{{ route('master.tahun_pelajaran') }}" class="tp-right">
+                <input type="hidden" name="sort_by" value="{{ $sortBy ?? 'thn_aka' }}">
+                <input type="hidden" name="sort_dir" value="{{ $sortDir ?? 'desc' }}">
                 <input type="hidden" name="per_page" value="{{ (int) ($perPage ?? 10) }}">
                 <span>Cari:</span>
                 <input type="text" name="q" value="{{ $keyword ?? '' }}" placeholder="kata kunci pencarian">
@@ -125,7 +130,13 @@
                 <thead>
                     <tr>
                         <th class="tp-col-no">No</th>
-                        <th>Tahun Pelajaran</th>
+                        @include('partials.table-sort-th', [
+                            'routeName' => 'master.tahun_pelajaran',
+                            'column' => 'thn_aka',
+                            'label' => 'Tahun Pelajaran',
+                            'sortBy' => $sortBy ?? 'thn_aka',
+                            'sortDir' => $sortDir ?? 'desc',
+                        ])
                     </tr>
                 </thead>
                 <tbody>

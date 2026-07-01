@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+    @include('partials.table-sort-styles')
     <style>
         .ms-card { background: #fff; border: 1px solid #e4eaf0; border-radius: 14px; box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06); margin-top: 16px; }
         .ms-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 18px 8px; }
@@ -40,6 +41,8 @@
 
         <div class="ms-toolbar">
             <form method="GET" action="{{ route('master.sekolah') }}" class="ms-search">
+                <input type="hidden" name="sort_by" value="{{ $sortBy ?? 'code01' }}">
+                <input type="hidden" name="sort_dir" value="{{ $sortDir ?? 'asc' }}">
                 <span>Cari:</span>
                 <input type="text" name="q" value="{{ $keyword ?? '' }}" placeholder="kata kunci pencarian">
             </form>
@@ -50,8 +53,8 @@
                 <thead>
                     <tr>
                         <th class="ms-col-no">No</th>
-                        <th>Code</th>
-                        <th>Unit</th>
+                        @include('partials.table-sort-th', ['routeName' => 'master.sekolah', 'column' => 'code01', 'label' => 'Code', 'sortBy' => $sortBy ?? 'code01', 'sortDir' => $sortDir ?? 'asc'])
+                        @include('partials.table-sort-th', ['routeName' => 'master.sekolah', 'column' => 'desc01', 'label' => 'Unit', 'sortBy' => $sortBy ?? 'code01', 'sortDir' => $sortDir ?? 'asc'])
                         <th class="ms-col-action">Aksi</th>
                     </tr>
                 </thead>

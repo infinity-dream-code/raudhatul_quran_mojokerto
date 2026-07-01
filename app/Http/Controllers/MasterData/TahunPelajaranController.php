@@ -4,6 +4,7 @@ namespace App\Http\Controllers\MasterData;
 
 use App\Http\Controllers\Controller;
 use App\Services\AmalFatimahApiService;
+use App\Support\TableSort;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -14,7 +15,11 @@ class TahunPelajaranController extends Controller
     public function index(Request $request, AmalFatimahApiService $api): View
     {
         $keyword = trim((string) $request->query('q', ''));
+        $sort = TableSort::resolve($request->query(), 'thn_aka', 'desc');
         $rows = $api->getThnAka($keyword !== '' ? $keyword : null);
+        $rows = TableSort::sortRows($rows, $sort['sort_by'], $sort['sort_dir'], [
+            'thn_aka' => 'thn_aka',
+        ], 'thn_aka');
 
         $perPage = (int) $request->query('per_page', 10);
         if (!in_array($perPage, [10, 25, 50], true)) {
@@ -41,6 +46,8 @@ class TahunPelajaranController extends Controller
             'tahunRows' => $tahunRows,
             'keyword' => $keyword,
             'perPage' => $perPage,
+            'sortBy' => $sort['sort_by'],
+            'sortDir' => $sort['sort_dir'],
         ]);
     }
 

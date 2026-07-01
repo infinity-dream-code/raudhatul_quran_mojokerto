@@ -4,6 +4,7 @@ namespace App\Http\Controllers\MasterData;
 
 use App\Http\Controllers\Controller;
 use App\Services\AmalFatimahApiService;
+use App\Support\TableSort;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -14,6 +15,7 @@ class MasterSekolahController extends Controller
     public function index(Request $request, AmalFatimahApiService $api): View
     {
         $keyword = trim((string) $request->query('q', ''));
+        $sort = TableSort::resolve($request->query(), 'code01', 'asc');
         $rows = $api->getSekolah();
 
         if ($keyword !== '') {
@@ -26,6 +28,13 @@ class MasterSekolahController extends Controller
                     || str_contains($desc01, $keywordLower);
             }));
         }
+
+        $rows = TableSort::sortRows($rows, $sort['sort_by'], $sort['sort_dir'], [
+            'code01' => 'code01',
+            'code' => 'code01',
+            'desc01' => 'desc01',
+            'unit' => 'desc01',
+        ], 'code01');
 
         $perPage = 10;
         $currentPage = max(1, (int) $request->query('page', 1));
@@ -48,6 +57,8 @@ class MasterSekolahController extends Controller
             'pageTitle' => 'Master Sekolah',
             'sekolahRows' => $sekolahRows,
             'keyword' => $keyword,
+            'sortBy' => $sort['sort_by'],
+            'sortDir' => $sort['sort_dir'],
         ]);
     }
 

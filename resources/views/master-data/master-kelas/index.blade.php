@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+    @include('partials.table-sort-styles')
     <style>
         .mk-card {
             background: #fff;
@@ -92,19 +93,6 @@
             font-weight: 700;
             background: #fafbfd;
         }
-        .mk-th-sort a {
-            color: inherit;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            cursor: pointer;
-            white-space: nowrap;
-        }
-        .mk-th-sort a:hover { color: #4f46e5; }
-        .mk-th-sort.is-active a { color: #4f46e5; }
-        .mk-th-sort i { font-size: 11px; opacity: 0.75; }
-        .mk-th-sort.is-active i { opacity: 1; }
 
         .mk-col-no {
             width: 56px;
@@ -236,23 +224,6 @@
         }
     </style>
 
-    @php
-        use App\Support\TableSort;
-
-        $sortBy = $sortBy ?? 'unit';
-        $sortDir = $sortDir ?? 'asc';
-        $sortQuery = request()->query();
-        $mkSortLink = static function (string $column) use ($sortQuery) {
-            return route('master.kelas', TableSort::toggleQuery($sortQuery, $column));
-        };
-        $mkSortIcon = static function (string $column) use ($sortBy, $sortDir) {
-            return TableSort::iconClass($column, $sortBy, $sortDir);
-        };
-        $mkSortActive = static function (string $column) use ($sortBy) {
-            return $sortBy === $column ? ' is-active' : '';
-        };
-    @endphp
-
     <div class="page-heading">
         <h2>Master Kelas</h2>
         <p>Data master kelas.</p>
@@ -275,8 +246,8 @@
 
         <div class="mk-toolbar">
             <form method="GET" action="{{ route('master.kelas') }}" class="mk-search">
-                <input type="hidden" name="sort_by" value="{{ $sortBy }}">
-                <input type="hidden" name="sort_dir" value="{{ $sortDir }}">
+                <input type="hidden" name="sort_by" value="{{ $sortBy ?? 'unit' }}">
+                <input type="hidden" name="sort_dir" value="{{ $sortDir ?? 'asc' }}">
                 <span>Cari:</span>
                 <input type="text" name="q" value="{{ $keyword ?? '' }}" placeholder="kata kunci pencarian">
             </form>
@@ -287,9 +258,9 @@
                 <thead>
                     <tr>
                         <th class="mk-col-no">No</th>
-                        <th class="mk-th-sort{{ $mkSortActive('unit') }}"><a href="{{ $mkSortLink('unit') }}">Unit <i class="{{ $mkSortIcon('unit') }}"></i></a></th>
-                        <th class="mk-th-sort{{ $mkSortActive('kelas') }}"><a href="{{ $mkSortLink('kelas') }}">Kelas <i class="{{ $mkSortIcon('kelas') }}"></i></a></th>
-                        <th class="mk-th-sort{{ $mkSortActive('kelompok') }}"><a href="{{ $mkSortLink('kelompok') }}">Kelompok <i class="{{ $mkSortIcon('kelompok') }}"></i></a></th>
+                        @include('partials.table-sort-th', ['routeName' => 'master.kelas', 'column' => 'unit', 'label' => 'Unit', 'sortBy' => $sortBy ?? 'unit', 'sortDir' => $sortDir ?? 'asc'])
+                        @include('partials.table-sort-th', ['routeName' => 'master.kelas', 'column' => 'kelas', 'label' => 'Kelas', 'sortBy' => $sortBy ?? 'unit', 'sortDir' => $sortDir ?? 'asc'])
+                        @include('partials.table-sort-th', ['routeName' => 'master.kelas', 'column' => 'kelompok', 'label' => 'Kelompok', 'sortBy' => $sortBy ?? 'unit', 'sortDir' => $sortDir ?? 'asc'])
                         <th class="mk-col-action"></th>
                     </tr>
                 </thead>

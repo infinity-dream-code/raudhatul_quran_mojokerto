@@ -4,6 +4,7 @@ namespace App\Http\Controllers\MasterData;
 
 use App\Http\Controllers\Controller;
 use App\Services\AmalFatimahApiService;
+use App\Support\TableSort;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -18,6 +19,7 @@ class BebanPostController extends Controller
         $kodeAkun = trim((string) $request->query('kode_akun', ''));
         $nominal = trim((string) $request->query('nominal', ''));
         $keyword = trim((string) $request->query('q', ''));
+        $sort = TableSort::resolve($request->query(), 'kodeakun', 'asc');
         $page = max(1, (int) $request->query('page', 1));
         $perPage = 10;
 
@@ -38,6 +40,14 @@ class BebanPostController extends Controller
                 return str_contains($kode, $needle) || str_contains($nama, $needle) || str_contains($nml, $needle);
             }));
         }
+
+        $allRows = TableSort::sortRows($allRows, $sort['sort_by'], $sort['sort_dir'], [
+            'kodeakun' => 'kodeakun',
+            'kode' => 'kodeakun',
+            'namaakun' => 'namaakun',
+            'nama_post' => 'namaakun',
+            'nominal' => 'nominal',
+        ], 'kodeakun');
 
         $total = count($allRows);
         $offset = ($page - 1) * $perPage;
@@ -73,6 +83,8 @@ class BebanPostController extends Controller
             'kodeAkun' => $kodeAkun,
             'nominal' => $nominal,
             'keyword' => $keyword,
+            'sortBy' => $sort['sort_by'],
+            'sortDir' => $sort['sort_dir'],
         ]);
     }
 

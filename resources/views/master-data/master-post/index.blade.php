@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+    @include('partials.table-sort-styles')
     <style>
         .mp-card {
             background: #fff;
@@ -134,6 +135,8 @@
 
         <div class="mp-toolbar">
             <form method="GET" action="{{ route('master.post') }}" class="mp-search">
+                <input type="hidden" name="sort_by" value="{{ $sortBy ?? 'kodeakun' }}">
+                <input type="hidden" name="sort_dir" value="{{ $sortDir ?? 'asc' }}">
                 <span>Cari nama:</span>
                 <input type="text" name="q" value="{{ $keyword ?? '' }}" placeholder="nama post">
                 <span>Kode:</span>
@@ -147,9 +150,9 @@
                 <thead>
                     <tr>
                         <th class="mp-col-no">No</th>
-                        <th>Kode</th>
-                        <th>Nama Post</th>
-                        <th>Nomor Rekening</th>
+                        @include('partials.table-sort-th', ['routeName' => 'master.post', 'column' => 'kodeakun', 'label' => 'Kode', 'sortBy' => $sortBy ?? 'kodeakun', 'sortDir' => $sortDir ?? 'asc'])
+                        @include('partials.table-sort-th', ['routeName' => 'master.post', 'column' => 'namaakun', 'label' => 'Nama Post', 'sortBy' => $sortBy ?? 'kodeakun', 'sortDir' => $sortDir ?? 'asc'])
+                        @include('partials.table-sort-th', ['routeName' => 'master.post', 'column' => 'norek', 'label' => 'Nomor Rekening', 'sortBy' => $sortBy ?? 'kodeakun', 'sortDir' => $sortDir ?? 'asc'])
                     </tr>
                 </thead>
                 <tbody>

@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+    @include('partials.table-sort-styles')
     <style>
         .bp-card { background:#fff; border:1px solid #e4eaf0; border-radius:14px; box-shadow:0 6px 18px rgba(15,23,42,.06); margin-top:16px; }
         .bp-head { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:16px 18px 8px; }
@@ -50,6 +51,8 @@
         <div class="bp-filter-wrap">
             <div class="bp-filter-title">Filter</div>
             <form method="GET" action="{{ route('master.beban_post') }}">
+                <input type="hidden" name="sort_by" value="{{ $sortBy ?? 'kodeakun' }}">
+                <input type="hidden" name="sort_dir" value="{{ $sortDir ?? 'asc' }}">
                 @if (($keyword ?? '') !== '')
                     <input type="hidden" name="q" value="{{ $keyword }}">
                 @endif
@@ -116,6 +119,8 @@
 
         <div class="bp-toolbar">
             <form method="GET" action="{{ route('master.beban_post') }}" class="bp-search">
+                <input type="hidden" name="sort_by" value="{{ $sortBy ?? 'kodeakun' }}">
+                <input type="hidden" name="sort_dir" value="{{ $sortDir ?? 'asc' }}">
                 @if (($thnMasuk ?? '') !== '')<input type="hidden" name="thn_masuk" value="{{ $thnMasuk }}">@endif
                 @if (($kodeProd ?? '') !== '')<input type="hidden" name="kode_prod" value="{{ $kodeProd }}">@endif
                 @if (($kodeAkun ?? '') !== '')<input type="hidden" name="kode_akun" value="{{ $kodeAkun }}">@endif
@@ -130,9 +135,9 @@
                 <thead>
                     <tr>
                         <th class="bp-col-no">No</th>
-                        <th>Kode</th>
-                        <th>Nama Post</th>
-                        <th>Nominal</th>
+                        @include('partials.table-sort-th', ['routeName' => 'master.beban_post', 'column' => 'kodeakun', 'label' => 'Kode', 'sortBy' => $sortBy ?? 'kodeakun', 'sortDir' => $sortDir ?? 'asc'])
+                        @include('partials.table-sort-th', ['routeName' => 'master.beban_post', 'column' => 'namaakun', 'label' => 'Nama Post', 'sortBy' => $sortBy ?? 'kodeakun', 'sortDir' => $sortDir ?? 'asc'])
+                        @include('partials.table-sort-th', ['routeName' => 'master.beban_post', 'column' => 'nominal', 'label' => 'Nominal', 'sortBy' => $sortBy ?? 'kodeakun', 'sortDir' => $sortDir ?? 'asc'])
                     </tr>
                 </thead>
                 <tbody>

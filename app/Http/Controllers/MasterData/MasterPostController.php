@@ -4,6 +4,7 @@ namespace App\Http\Controllers\MasterData;
 
 use App\Http\Controllers\Controller;
 use App\Services\AmalFatimahApiService;
+use App\Support\TableSort;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -15,10 +16,18 @@ class MasterPostController extends Controller
     {
         $keyword = trim((string) $request->query('q', ''));
         $kode = trim((string) $request->query('kode', ''));
+        $sort = TableSort::resolve($request->query(), 'kodeakun', 'asc');
         $rows = $api->getAkun(
             $keyword !== '' ? $keyword : null,
             $kode !== '' ? $kode : null
         );
+        $rows = TableSort::sortRows($rows, $sort['sort_by'], $sort['sort_dir'], [
+            'kodeakun' => 'kodeakun',
+            'kode' => 'kodeakun',
+            'namaakun' => 'namaakun',
+            'nama_post' => 'namaakun',
+            'norek' => 'norek',
+        ], 'kodeakun');
 
         $perPage = 10;
         $currentPage = max(1, (int) $request->query('page', 1));
@@ -42,6 +51,8 @@ class MasterPostController extends Controller
             'postRows' => $postRows,
             'keyword' => $keyword,
             'kode' => $kode,
+            'sortBy' => $sort['sort_by'],
+            'sortDir' => $sort['sort_dir'],
         ]);
     }
 
