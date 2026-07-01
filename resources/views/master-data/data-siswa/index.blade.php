@@ -8,7 +8,7 @@
         $sortDir = $sortDir ?? 'asc';
         $sortQuery = request()->query();
         $sortLink = static function (string $column) use ($sortQuery) {
-            return route('master.data_siswa', TableSort::toggleQuery($sortQuery, $column));
+            return route('master.data_siswa', TableSort::toggleQuery($sortQuery, 'nocust'));
         };
         $sortIcon = static function (string $column) use ($sortBy, $sortDir) {
             return TableSort::iconClass($column, $sortBy, $sortDir);
@@ -339,9 +339,6 @@
             <form method="GET" action="{{ route('master.data_siswa') }}">
                 <input type="hidden" name="sort_by" value="{{ $sortBy }}">
                 <input type="hidden" name="sort_dir" value="{{ $sortDir }}">
-                @if (($keyword ?? '') !== '')
-                    <input type="hidden" name="q" value="{{ $keyword }}">
-                @endif
                 @if (($perPage ?? 10) !== 10)
                     <input type="hidden" name="per_page" value="{{ (int) ($perPage ?? 10) }}">
                 @endif
@@ -405,8 +402,8 @@
                         </select>
                     </div>
                     <div class="ds-fld">
-                        <label for="siswa">Siswa (NIS / Nama)</label>
-                        <input id="siswa" type="text" name="siswa" value="{{ $siswa ?? '' }}" placeholder="Masukkan NIS/NAMA Siswa">
+                        <label for="nis">NIS</label>
+                        <input id="nis" type="text" name="nis" value="{{ $nis ?? '' }}" placeholder="Masukkan NIS">
                     </div>
                 </div>
                 <div class="ds-filter-actions">
@@ -440,8 +437,7 @@
                     @if (($sekolah ?? '') !== '')<input type="hidden" name="sekolah" value="{{ $sekolah }}">@endif
                     @if (($kelas ?? '') !== '')<input type="hidden" name="kelas" value="{{ $kelas }}">@endif
                     @if (($kelompok ?? '') !== '')<input type="hidden" name="kelompok" value="{{ $kelompok }}">@endif
-                    @if (($siswa ?? '') !== '')<input type="hidden" name="siswa" value="{{ $siswa }}">@endif
-                    @if (($keyword ?? '') !== '')<input type="hidden" name="q" value="{{ $keyword }}">@endif
+                    @if (($nis ?? '') !== '')<input type="hidden" name="nis" value="{{ $nis }}">@endif
                     <span>Tampilkan</span>
                     <select name="per_page" onchange="this.form.submit()" style="height:34px;border:1px solid #d1d5db;border-radius:8px;padding:0 8px;font-size:12px;">
                         @foreach ([10, 25, 50, 100] as $pp)
@@ -449,18 +445,6 @@
                         @endforeach
                     </select>
                     <span>entri</span>
-                </form>
-                <form method="GET" action="{{ route('master.data_siswa') }}" class="ds-search">
-                    <input type="hidden" name="sort_by" value="{{ $sortBy }}">
-                    <input type="hidden" name="sort_dir" value="{{ $sortDir }}">
-                    @if (($angkatan ?? '') !== '')<input type="hidden" name="angkatan" value="{{ $angkatan }}">@endif
-                    @if (($sekolah ?? '') !== '')<input type="hidden" name="sekolah" value="{{ $sekolah }}">@endif
-                    @if (($kelas ?? '') !== '')<input type="hidden" name="kelas" value="{{ $kelas }}">@endif
-                    @if (($kelompok ?? '') !== '')<input type="hidden" name="kelompok" value="{{ $kelompok }}">@endif
-                    @if (($siswa ?? '') !== '')<input type="hidden" name="siswa" value="{{ $siswa }}">@endif
-                    <input type="hidden" name="per_page" value="{{ (int) ($perPage ?? 10) }}">
-                    <span>Cari:</span>
-                    <input type="text" name="q" value="{{ $keyword ?? '' }}" placeholder="kata kunci pencarian">
                 </form>
             </div>
 
@@ -471,17 +455,17 @@
                             <th class="ds-col-chk"><input type="checkbox" id="dsSelectAllReset" title="Pilih semua"></th>
                             <th class="ds-col-no">No</th>
                             <th class="ds-th-sort{{ $sortActive('nocust') }}"><a href="{{ $sortLink('nocust') }}">NIS <i class="{{ $sortIcon('nocust') }}"></i></a></th>
-                            <th class="ds-th-sort{{ $sortActive('no_va') }}"><a href="{{ $sortLink('no_va') }}">NO VA <i class="{{ $sortIcon('no_va') }}"></i></a></th>
-                            <th class="ds-th-sort{{ $sortActive('nmcust') }}"><a href="{{ $sortLink('nmcust') }}">NAMA <i class="{{ $sortIcon('nmcust') }}"></i></a></th>
-                            <th class="ds-th-sort{{ $sortActive('num2nd') }}"><a href="{{ $sortLink('num2nd') }}">No Pendaftaran <i class="{{ $sortIcon('num2nd') }}"></i></a></th>
-                            <th class="ds-th-sort{{ $sortActive('unit') }}"><a href="{{ $sortLink('unit') }}">Unit <i class="{{ $sortIcon('unit') }}"></i></a></th>
-                            <th class="ds-th-sort{{ $sortActive('kelas') }}"><a href="{{ $sortLink('kelas') }}">Kelas <i class="{{ $sortIcon('kelas') }}"></i></a></th>
-                            <th class="ds-th-sort{{ $sortActive('kelompok') }}"><a href="{{ $sortLink('kelompok') }}">Kelompok <i class="{{ $sortIcon('kelompok') }}"></i></a></th>
-                            <th class="ds-th-sort{{ $sortActive('angkatan') }}"><a href="{{ $sortLink('angkatan') }}">Angkatan <i class="{{ $sortIcon('angkatan') }}"></i></a></th>
-                            <th class="ds-th-sort{{ $sortActive('stcust') }}"><a href="{{ $sortLink('stcust') }}">Status <i class="{{ $sortIcon('stcust') }}"></i></a></th>
-                            <th class="ds-th-sort{{ $sortActive('gender') }}"><a href="{{ $sortLink('gender') }}">Jenis Kelamin <i class="{{ $sortIcon('gender') }}"></i></a></th>
-                            <th class="ds-th-sort{{ $sortActive('alamat') }}"><a href="{{ $sortLink('alamat') }}">Alamat <i class="{{ $sortIcon('alamat') }}"></i></a></th>
-                            <th class="ds-th-sort{{ $sortActive('wali') }}"><a href="{{ $sortLink('wali') }}">Wali <i class="{{ $sortIcon('wali') }}"></i></a></th>
+                            <th>NO VA</th>
+                            <th>NAMA</th>
+                            <th>No Pendaftaran</th>
+                            <th>Unit</th>
+                            <th>Kelas</th>
+                            <th>Kelompok</th>
+                            <th>Angkatan</th>
+                            <th>Status</th>
+                            <th>Jenis Kelamin</th>
+                            <th>Alamat</th>
+                            <th>Wali</th>
                             <th class="ds-col-act">Reset Login</th>
                         </tr>
                     </thead>

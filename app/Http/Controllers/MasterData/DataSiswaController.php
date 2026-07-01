@@ -26,11 +26,20 @@ class DataSiswaController extends Controller
         $page = max(1, (int) $request->query('page', 1));
         $ui = $this->extractUiFilters($request);
         $sort = TableSort::resolve($request->query(), 'nocust', 'asc');
-        $filters = array_merge($this->toWsFilters($ui), $sort);
+        if (!in_array($sort['sort_by'], ['nocust', 'nis'], true)) {
+            $sort['sort_by'] = 'nocust';
+        }
+        $filters = $this->toWsFilters($ui);
 
-        $total = $api->getSiswaCount($filters);
+        $allRows = $this->fetchAllSiswaRows($api, $filters);
+        $allRows = TableSort::sortRows($allRows, $sort['sort_by'], $sort['sort_dir'], [
+            'nocust' => 'nocust',
+            'nis' => 'nocust',
+        ], 'nocust');
+
+        $total = count($allRows);
         $offset = ($page - 1) * $perPage;
-        $rows = $api->getSiswa($filters, $perPage, $offset);
+        $rows = array_slice($allRows, $offset, $perPage);
 
         $siswaRows = new LengthAwarePaginator(
             $rows,
@@ -53,8 +62,7 @@ class DataSiswaController extends Controller
             'sekolah' => $ui['sekolah'],
             'kelas' => $ui['kelas'],
             'kelompok' => $ui['kelompok'],
-            'siswa' => $ui['siswa'],
-            'keyword' => $ui['q'],
+            'nis' => $ui['nis'],
             'perPage' => $perPage,
             'sortBy' => $sort['sort_by'],
             'sortDir' => $sort['sort_dir'],
@@ -226,15 +234,13 @@ class DataSiswaController extends Controller
             'sekolah' => trim((string) $request->query('sekolah', '')),
             'kelas' => trim((string) $request->query('kelas', '')),
             'kelompok' => trim((string) $request->query('kelompok', '')),
-            'siswa' => trim((string) $request->query('siswa', '')),
-            'q' => trim((string) $request->query('q', '')),
+            'nis' => trim((string) $request->query('nis', $request->query('siswa', ''))),
         ];
     }
 
     private function toWsFilters(array $ui): array
     {
-        $search = $ui['q'] !== '' ? $ui['q'] : $ui['siswa'];
-        $search = $search !== '' ? $search : null;
+        $search = $ui['nis'] !== '' ? $ui['nis'] : null;
 
         return [
             'search' => $search,
@@ -243,6 +249,29 @@ class DataSiswaController extends Controller
             'desc02' => $ui['kelas'] !== '' ? $ui['kelas'] : null,
             'desc03' => $ui['kelompok'] !== '' ? $ui['kelompok'] : null,
         ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function fetchAllSiswaRows(AmalFatimahApiService $api, array $filters): array
+    {
+        $total = $api->getSiswaCount($filters);
+        if ($total <= 0) {
+            return [];
+        }
+
+        $rows = [];
+        $chunkSize = 200;
+        for ($offset = 0; $offset < $total; $offset += $chunkSize) {
+            $chunk = $api->getSiswa($filters, $chunkSize, $offset);
+            if ($chunk === []) {
+                break;
+            }
+            $rows = array_merge($rows, $chunk);
+        }
+
+        return $rows;
     }
 
     private static function siswaStatusLabel(mixed $stcust): string

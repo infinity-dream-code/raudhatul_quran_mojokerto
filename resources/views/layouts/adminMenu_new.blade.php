@@ -37,11 +37,9 @@
                 <div>Master Data</div>
             </a>
             <ul class="menu-sub">
-                @if($authIsSuperadmin ?? false)
-                    <li class="menu-item {{ request()->routeIs('master.sekolah*') ? 'active' : '' }}">
-                        <a href="{{ route('master.sekolah') }}" class="menu-link"><div>Master Sekolah</div></a>
-                    </li>
-                @endif
+                <li class="menu-item {{ request()->routeIs('master.sekolah*') ? 'active' : '' }}">
+                    <a href="{{ route('master.sekolah') }}" class="menu-link"><div>Master Sekolah</div></a>
+                </li>
                 <li class="menu-item {{ request()->routeIs('master.kelas*') ? 'active' : '' }}">
                     <a href="{{ route('master.kelas') }}" class="menu-link"><div>Master Kelas</div></a>
                 </li>
@@ -59,6 +57,9 @@
                 </li>
                 <li class="menu-item {{ request()->routeIs('master.data_siswa*') ? 'active' : '' }}">
                     <a href="{{ route('master.data_siswa') }}" class="menu-link"><div>Data Siswa</div></a>
+                </li>
+                <li class="menu-item {{ request()->routeIs('master.setting_atribut_siswa*') ? 'active' : '' }}">
+                    <a href="{{ route('master.setting_atribut_siswa') }}" class="menu-link"><div>Setting Atribut Siswa</div></a>
                 </li>
                 <li class="menu-item {{ request()->routeIs('master.pindah_kelas*') ? 'active' : '' }}">
                     <a href="{{ route('master.pindah_kelas') }}" class="menu-link"><div>Pindah Kelas</div></a>
