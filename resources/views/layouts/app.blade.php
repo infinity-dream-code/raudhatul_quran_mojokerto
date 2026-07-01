@@ -71,12 +71,29 @@
 
     <link rel="stylesheet" href="{{asset('main/css/core.min.css')}}" class="template-customizer-core-css"/>
     <link rel="stylesheet" href="{{asset('main/css/theme-default.css')}}" class="template-customizer-theme-css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer"/>
 
     <style>
         .menu-icon {
             font-size: 18px;
             width: 1.25rem;
             text-align: center;
+        }
+        .menu-toggle::after {
+            font-family: "Font Awesome 6 Free" !important;
+            font-weight: 900 !important;
+            font-size: 0.72rem !important;
+            color: #6b7280 !important;
+            content: "\f054" !important;
+        }
+        html:not([dir=rtl]) .menu-toggle::after {
+            content: "\f054" !important;
+        }
+        [dir=rtl] .menu-toggle::after {
+            content: "\f053" !important;
+        }
+        .menu-item.open > .menu-link.menu-toggle::after {
+            transform: translateY(-50%) rotate(90deg) !important;
         }
 
         .ri-10px, .ri-10px:before {
@@ -399,7 +416,6 @@
 <script src="{{asset('js/main.js')}}"></script>
 
 <script src="{{asset('js/alerts.min.js')}}"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer"/>
 
 <style>
     .back-to-top {

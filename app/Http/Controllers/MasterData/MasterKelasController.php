@@ -4,6 +4,7 @@ namespace App\Http\Controllers\MasterData;
 
 use App\Http\Controllers\Controller;
 use App\Services\AmalFatimahApiService;
+use App\Support\TableSort;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,6 +15,7 @@ class MasterKelasController extends Controller
     public function index(Request $request, AmalFatimahApiService $api): View
     {
         $keyword = trim((string) $request->query('q', ''));
+        $sort = TableSort::resolve($request->query(), 'unit', 'asc');
         $rows = array_map(static function ($row) {
             if (is_array($row)) {
                 return array_change_key_case($row, CASE_LOWER);
@@ -38,6 +40,12 @@ class MasterKelasController extends Controller
             }));
         }
 
+        $rows = TableSort::sortRows($rows, $sort['sort_by'], $sort['sort_dir'], [
+            'unit' => 'unit',
+            'kelas' => 'jenjang',
+            'kelompok' => 'kelas',
+        ], 'unit');
+
         $perPage = 10;
         $currentPage = max(1, (int) $request->query('page', 1));
         $total = count($rows);
@@ -59,6 +67,8 @@ class MasterKelasController extends Controller
             'pageTitle' => 'Master Kelas',
             'kelasRows' => $kelasRows,
             'keyword' => $keyword,
+            'sortBy' => $sort['sort_by'],
+            'sortDir' => $sort['sort_dir'],
         ]);
     }
 

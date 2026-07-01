@@ -62,6 +62,24 @@ final class TableSort
         ];
     }
 
+    public static function sortRows(array $rows, string $sortBy, string $sortDir, array $columnMap, string $defaultBy = 'id'): array
+    {
+        $key = $columnMap[$sortBy] ?? $columnMap[$defaultBy] ?? $defaultBy;
+        $dir = strtolower($sortDir) === 'desc' ? -1 : 1;
+
+        usort($rows, static function ($a, $b) use ($key, $dir) {
+            $left = is_array($a) ? ($a[$key] ?? '') : '';
+            $right = is_array($b) ? ($b[$key] ?? '') : '';
+            if (is_numeric($left) && is_numeric($right)) {
+                return $dir * ((float) $left <=> (float) $right);
+            }
+
+            return $dir * strnatcasecmp((string) $left, (string) $right);
+        });
+
+        return $rows;
+    }
+
     public static function iconClass(string $column, string $currentBy, string $currentDir): string
     {
         if ($column !== $currentBy) {
