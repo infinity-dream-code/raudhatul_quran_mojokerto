@@ -1088,7 +1088,29 @@ function getSiswa(array $req): array
         $sql .= " WHERE " . implode(" AND ", $where);
     }
 
-    $sql .= " ORDER BY TRIM(c.NOCUST) ASC";
+    $sortBy = strtolower(trim((string) ($req['sort_by'] ?? 'nocust')));
+    $sortDir = strtolower(trim((string) ($req['sort_dir'] ?? 'asc')));
+    if (!in_array($sortDir, ['asc', 'desc'], true)) {
+        $sortDir = 'asc';
+    }
+    $orderMap = [
+        'nocust' => 'TRIM(c.NOCUST)',
+        'nis' => 'TRIM(c.NOCUST)',
+        'no_va' => "CONCAT('06202', LPAD(COALESCE(NULLIF(TRIM(c.NOCUST), ''), '0'), 11, '0'))",
+        'nmcust' => 'TRIM(c.NMCUST)',
+        'nama' => 'TRIM(c.NMCUST)',
+        'num2nd' => 'TRIM(c.NUM2ND)',
+        'unit' => "COALESCE(NULLIF(TRIM(mk.unit), ''), TRIM(c.CODE02), '')",
+        'kelas' => "COALESCE(NULLIF(TRIM(mk.jenjang), ''), TRIM(c.DESC02), '')",
+        'kelompok' => 'TRIM(c.DESC03)',
+        'angkatan' => 'TRIM(c.DESC04)',
+        'stcust' => 'c.STCUST',
+        'gender' => 'TRIM(c.CODE04)',
+        'alamat' => 'TRIM(c.DESC05)',
+        'wali' => 'TRIM(c.GENUS)',
+    ];
+    $orderCol = $orderMap[$sortBy] ?? $orderMap['nocust'];
+    $sql .= " ORDER BY {$orderCol} {$sortDir}, TRIM(c.NOCUST) ASC";
 
     $limit = (int) ($req["limit"] ?? 50);
     $offset = (int) ($req["offset"] ?? 0);
@@ -4375,6 +4397,14 @@ function getDataTagihan(array $req): array
     if (!in_array($sortUrutan, ['asc', 'desc'], true)) {
         $sortUrutan = 'asc';
     }
+    $sortBy = strtolower(trim((string) ($req['sort_by'] ?? '')));
+    $sortDir = strtolower(trim((string) ($req['sort_dir'] ?? '')));
+    if (!in_array($sortDir, ['asc', 'desc'], true)) {
+        $sortDir = $sortUrutan;
+    }
+    if ($sortBy === '') {
+        $sortBy = 'furutan';
+    }
 
     $thnAngkatanBase = trim((string) preg_replace('/\s*-\s*.*/', '', $thnAngkatan));
 
@@ -4580,9 +4610,21 @@ function getDataTagihan(array $req): array
         ";
     }
 
+    $orderMap = [
+        'nis' => 'TRIM(c.NOCUST)',
+        'no_va' => "CONCAT('06202', LPAD(COALESCE(NULLIF(TRIM(c.NOCUST), ''), '0'), 11, '0'))",
+        'nama' => 'TRIM(c.NMCUST)',
+        'nama_tagihan' => 'TRIM(b.BILLNM)',
+        'tagihan' => 'COALESCE(b.BILLAM, 0)',
+        'furutan' => 'COALESCE(b.furutan, 0)',
+        'urutan' => 'COALESCE(b.furutan, 0)',
+        'tgl_tagih' => 'b.FTGLTagihan',
+        'tahun_aka' => 'TRIM(b.BTA)',
+    ];
+    $orderCol = $orderMap[$sortBy] ?? $orderMap['furutan'];
     $orderSql = $rekapList
-        ? "COALESCE(b.furutan, 0) {$sortUrutan}, b.CUSTID ASC, TRIM(d.KodePost) ASC"
-        : "COALESCE(b.furutan, 0) {$sortUrutan}, b.CUSTID ASC, b.BILLCD ASC";
+        ? "{$orderCol} {$sortDir}, b.CUSTID ASC, TRIM(d.KodePost) ASC"
+        : "{$orderCol} {$sortDir}, b.CUSTID ASC, b.BILLCD ASC";
 
     $sql = "
         SELECT {$selectSql}

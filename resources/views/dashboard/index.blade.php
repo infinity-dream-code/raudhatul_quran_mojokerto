@@ -22,7 +22,7 @@
 
     @if (empty($wsConfigured))
         <div class="alert alert-warning d-flex align-items-center" role="alert">
-            <i class="ri-error-warning-line me-2"></i>
+            <i class="fa-solid fa-triangle-exclamation me-2"></i>
             <div>
                 Data SIKEU belum aktif: isi <code>JWT_KEY</code> atau <code>WS_AMAL_FATIMAH_JWT_KEY</code> di file <code>.env</code>, lalu jalankan <code>php artisan config:clear</code>.
             </div>
@@ -35,7 +35,7 @@
                 <div class="col">
                     <div class="card card-border-shadow-primary bg-label-primary p-4 h-100 text-center">
                         <a href="{{ route('keu.tagihan.buat') }}" class="nav-link btn d-flex flex-column align-items-center justify-content-center">
-                            <i class="ri-add-line ri-40px"></i>
+                            <i class="fa-solid fa-plus fa-2x"></i>
                             <h6 class="mt-2 mb-0">Buat Tagihan</h6>
                         </a>
                     </div>
@@ -43,7 +43,7 @@
                 <div class="col">
                     <div class="card card-border-shadow-success bg-label-success p-4 h-100 text-center">
                         <a href="{{ route('keu.manual') }}" class="nav-link btn d-flex flex-column align-items-center justify-content-center">
-                            <i class="ri-cash-line ri-40px"></i>
+                            <i class="fa-solid fa-money-bill-wave fa-2x"></i>
                             <h6 class="mt-2 mb-0">Bayar Manual</h6>
                         </a>
                     </div>
@@ -51,7 +51,7 @@
                 <div class="col">
                     <div class="card card-border-shadow-warning bg-label-warning p-4 h-100 text-center">
                         <a href="{{ route('keu.saldo.va') }}" class="nav-link btn d-flex flex-column align-items-center justify-content-center">
-                            <i class="ri-bank-card-line ri-40px"></i>
+                            <i class="fa-regular fa-credit-card fa-2x"></i>
                             <h6 class="mt-2 mb-0">Saldo VA</h6>
                         </a>
                     </div>
@@ -59,7 +59,7 @@
                 <div class="col">
                     <div class="card card-border-shadow-info bg-label-info p-4 h-100 text-center">
                         <a href="{{ route('keu.tagihan.data') }}" class="nav-link btn d-flex flex-column align-items-center justify-content-center">
-                            <i class="ri-archive-stack-line ri-40px"></i>
+                            <i class="fa-solid fa-box-archive fa-2x"></i>
                             <h6 class="mt-2 mb-0">Data Tagihan</h6>
                         </a>
                     </div>
@@ -67,7 +67,7 @@
                 <div class="col">
                     <div class="card card-border-shadow-success bg-label-whatsapp p-4 h-100 text-center">
                         <a href="{{ route('keu.penerimaan.data') }}" class="nav-link btn d-flex flex-column align-items-center justify-content-center">
-                            <i class="ri-receipt-line ri-40px"></i>
+                            <i class="fa-solid fa-receipt fa-2x"></i>
                             <h6 class="mt-2 mb-0">Data Penerimaan</h6>
                         </a>
                     </div>
@@ -99,7 +99,7 @@
                             @endphp
                             <li class="timeline-item ps-6 border-success border-left-dashed">
                                 <span class="timeline-indicator-advanced text-success border-0 shadow-none">
-                                    <i class="ri-checkbox-circle-line ri-lg"></i>
+                                    <i class="fa-solid fa-circle-check"></i>
                                 </span>
                                 <div class="timeline-event ps-1">
                                     <div class="timeline-header d-flex justify-content-between gap-2 flex-wrap">

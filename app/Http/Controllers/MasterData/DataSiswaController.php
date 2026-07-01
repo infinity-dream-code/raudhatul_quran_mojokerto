@@ -5,6 +5,8 @@ namespace App\Http\Controllers\MasterData;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Http\Controllers\Controller;
 use App\Services\AmalFatimahApiService;
+use App\Support\TableSort;
+use App\Support\VaFormatter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,7 +25,8 @@ class DataSiswaController extends Controller
         }
         $page = max(1, (int) $request->query('page', 1));
         $ui = $this->extractUiFilters($request);
-        $filters = $this->toWsFilters($ui);
+        $sort = TableSort::resolve($request->query(), 'nocust', 'asc');
+        $filters = array_merge($this->toWsFilters($ui), $sort);
 
         $total = $api->getSiswaCount($filters);
         $offset = ($page - 1) * $perPage;
@@ -53,12 +56,14 @@ class DataSiswaController extends Controller
             'siswa' => $ui['siswa'],
             'keyword' => $ui['q'],
             'perPage' => $perPage,
+            'sortBy' => $sort['sort_by'],
+            'sortDir' => $sort['sort_dir'],
         ]);
     }
 
     public function exportExcel(Request $request, AmalFatimahApiService $api): StreamedResponse
     {
-        $rows = $api->getSiswa($this->toWsFilters($this->extractUiFilters($request)), 200, 0);
+        $rows = $api->getSiswa(array_merge($this->toWsFilters($this->extractUiFilters($request)), TableSort::resolve($request->query(), 'nocust', 'asc')), 200, 0);
 
         $filename = 'data-siswa-' . now()->format('Ymd-His') . '.xls';
         $headers = [
@@ -88,8 +93,8 @@ class DataSiswaController extends Controller
             foreach ($rows as $index => $row) {
                 $r = array_change_key_case((array) $row, CASE_LOWER);
                 $nocust = trim((string) ($r['nocust'] ?? ''));
-                $vaDigits = preg_replace('/\D+/', '', $nocust);
-                $noVa = $vaDigits !== '' ? ('7510050' . $vaDigits) : '-';
+                $noVa = VaFormatter::fromNis($nocust);
+                $noVa = $noVa !== '' ? $noVa : '-';
                 $unit = trim((string) ($r['code02'] ?? ''));
                 if ($unit === '') {
                     $c01 = trim((string) ($r['code01'] ?? ''));
@@ -126,7 +131,7 @@ class DataSiswaController extends Controller
     public function exportPdf(Request $request, AmalFatimahApiService $api): Response
     {
         $ui = $this->extractUiFilters($request);
-        $rows = $api->getSiswa($this->toWsFilters($ui), 200, 0);
+        $rows = $api->getSiswa(array_merge($this->toWsFilters($ui), TableSort::resolve($request->query(), 'nocust', 'asc')), 200, 0);
 
         $pdf = Pdf::loadView('master-data.data-siswa.export-pdf', [
             'rows' => $rows,

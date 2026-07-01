@@ -75,7 +75,7 @@
                 $nisDigits = preg_replace('/\D+/', '', (string) ($first['nis'] ?? ''));
                 $noVa = trim((string) ($first['no_va'] ?? ''));
                 if ($noVa === '') {
-                    $noVa = '7510050' . ($nisDigits !== '' ? $nisDigits : '0');
+                    $noVa = \App\Support\VaFormatter::fromNis($nisDigits !== '' ? $nisDigits : '');
                 }
                 $angkatan = $cleanMeta($first['angkatan'] ?? '');
                 if ($angkatan === '') {

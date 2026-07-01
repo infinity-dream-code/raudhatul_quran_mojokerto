@@ -89,7 +89,7 @@
                 @php
                     $r = array_change_key_case((array) $row, CASE_LOWER);
                     $nocust = trim((string) ($r['nocust'] ?? ''));
-                    $vaDigits = preg_replace('/\D+/', '', $nocust);
+                    $noVa = \App\Support\VaFormatter::fromNis($nocust);
                     $unit = trim((string) ($r['code02'] ?? ''));
                     if ($unit === '') {
                         $c01 = trim((string) ($r['code01'] ?? ''));
@@ -101,7 +101,7 @@
                 <tr>
                     <td class="ctr">{{ $index + 1 }}</td>
                     <td class="ctr">{{ $nocust !== '' ? $nocust : '-' }}</td>
-                    <td class="ctr">{{ $vaDigits !== '' ? ('7510050' . $vaDigits) : '-' }}</td>
+                    <td class="ctr">{{ $noVa !== '' ? $noVa : '-' }}</td>
                     <td>{{ trim((string) ($r['nmcust'] ?? '')) !== '' ? $r['nmcust'] : '-' }}</td>
                     <td class="ctr">{{ trim((string) ($r['num2nd'] ?? '')) !== '' ? $r['num2nd'] : '-' }}</td>
                     <td>{{ $unit !== '' ? $unit : '-' }}</td>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Keuangan;
 
 use App\Http\Controllers\Controller;
 use App\Services\AmalFatimahApiService;
+use App\Support\TableSort;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -714,6 +715,8 @@ XML);
         }
         $page = max(1, (int) $request->query('page', 1));
 
+        $sort = TableSort::resolveTagihan($request->query());
+
         $filters = [
             'tgl_dari' => trim((string) $request->query('tgl_dari', '')),
             'tgl_sampai' => trim((string) $request->query('tgl_sampai', '')),
@@ -724,9 +727,9 @@ XML);
             'nis' => trim((string) $request->query('nis', '')),
             'nama' => trim((string) $request->query('nama', '')),
             'siswa' => trim((string) $request->query('siswa', '')),
-            'sort_urutan' => in_array(strtolower(trim((string) $request->query('sort_urutan', 'asc'))), ['asc', 'desc'], true)
-                ? strtolower(trim((string) $request->query('sort_urutan', 'asc')))
-                : 'asc',
+            'sort_urutan' => $sort['sort_dir'],
+            'sort_by' => $sort['sort_by'],
+            'sort_dir' => $sort['sort_dir'],
         ];
 
         $filterOptions = Cache::remember('tagihan.data.filter_options', 600, function () use ($api) {

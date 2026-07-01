@@ -73,10 +73,10 @@
     <link rel="stylesheet" href="{{asset('main/css/theme-default.css')}}" class="template-customizer-theme-css"/>
 
     <style>
-        [class^="ri-"], [class*=" ri-"] {
+        .menu-icon {
             font-size: 18px;
-            line-height: 1;
-            vertical-align: middle
+            width: 1.25rem;
+            text-align: center;
         }
 
         .ri-10px, .ri-10px:before {

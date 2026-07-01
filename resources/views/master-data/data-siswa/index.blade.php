@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+    @include('partials.table-sort-vars')
     <style>
         .ds-wrap { margin-top: 16px; display: flex; flex-direction: column; gap: 16px; }
         .ds-card {
@@ -88,6 +89,19 @@
             vertical-align: middle;
         }
         .ds-table th { background: #fafbfd; color: #4b5563; font-weight: 700; white-space: nowrap; }
+        .ds-th-sort a {
+            color: inherit;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .ds-th-sort a:hover { color: #4f46e5; }
+        .ds-th-sort.is-active a { color: #4f46e5; }
+        .ds-th-sort i { font-size: 11px; opacity: 0.75; }
+        .ds-th-sort.is-active i { opacity: 1; }
         .ds-col-no { width: 48px; text-align: center; }
         .ds-center { text-align: center; }
         .ds-col-act { width: 100px; text-align: center; }
@@ -308,6 +322,8 @@
         <div class="ds-card">
             <div class="ds-card-h">Filter</div>
             <form method="GET" action="{{ route('master.data_siswa') }}">
+                <input type="hidden" name="sort_by" value="{{ $sortBy }}">
+                <input type="hidden" name="sort_dir" value="{{ $sortDir }}">
                 @if (($keyword ?? '') !== '')
                     <input type="hidden" name="q" value="{{ $keyword }}">
                 @endif
@@ -403,6 +419,8 @@
                     </div>
                 </div>
                 <form method="GET" action="{{ route('master.data_siswa') }}" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0;">
+                    <input type="hidden" name="sort_by" value="{{ $sortBy }}">
+                    <input type="hidden" name="sort_dir" value="{{ $sortDir }}">
                     @if (($angkatan ?? '') !== '')<input type="hidden" name="angkatan" value="{{ $angkatan }}">@endif
                     @if (($sekolah ?? '') !== '')<input type="hidden" name="sekolah" value="{{ $sekolah }}">@endif
                     @if (($kelas ?? '') !== '')<input type="hidden" name="kelas" value="{{ $kelas }}">@endif
@@ -418,6 +436,8 @@
                     <span>entri</span>
                 </form>
                 <form method="GET" action="{{ route('master.data_siswa') }}" class="ds-search">
+                    <input type="hidden" name="sort_by" value="{{ $sortBy }}">
+                    <input type="hidden" name="sort_dir" value="{{ $sortDir }}">
                     @if (($angkatan ?? '') !== '')<input type="hidden" name="angkatan" value="{{ $angkatan }}">@endif
                     @if (($sekolah ?? '') !== '')<input type="hidden" name="sekolah" value="{{ $sekolah }}">@endif
                     @if (($kelas ?? '') !== '')<input type="hidden" name="kelas" value="{{ $kelas }}">@endif
@@ -435,18 +455,18 @@
                         <tr>
                             <th class="ds-col-chk"><input type="checkbox" id="dsSelectAllReset" title="Pilih semua"></th>
                             <th class="ds-col-no">No</th>
-                            <th>NIS</th>
-                            <th>NO VA</th>
-                            <th>NAMA</th>
-                            <th>No Pendaftaran</th>
-                            <th>Unit</th>
-                            <th>Kelas</th>
-                            <th>Kelompok</th>
-                            <th>Angkatan</th>
-                            <th>Status</th>
-                            <th>Jenis Kelamin</th>
-                            <th>Alamat</th>
-                            <th>Wali</th>
+                            <th class="ds-th-sort{{ $sortActive('nocust') }}"><a href="{{ $sortLink('nocust') }}">NIS <i class="{{ $sortIcon('nocust') }}"></i></a></th>
+                            <th class="ds-th-sort{{ $sortActive('no_va') }}"><a href="{{ $sortLink('no_va') }}">NO VA <i class="{{ $sortIcon('no_va') }}"></i></a></th>
+                            <th class="ds-th-sort{{ $sortActive('nmcust') }}"><a href="{{ $sortLink('nmcust') }}">NAMA <i class="{{ $sortIcon('nmcust') }}"></i></a></th>
+                            <th class="ds-th-sort{{ $sortActive('num2nd') }}"><a href="{{ $sortLink('num2nd') }}">No Pendaftaran <i class="{{ $sortIcon('num2nd') }}"></i></a></th>
+                            <th class="ds-th-sort{{ $sortActive('unit') }}"><a href="{{ $sortLink('unit') }}">Unit <i class="{{ $sortIcon('unit') }}"></i></a></th>
+                            <th class="ds-th-sort{{ $sortActive('kelas') }}"><a href="{{ $sortLink('kelas') }}">Kelas <i class="{{ $sortIcon('kelas') }}"></i></a></th>
+                            <th class="ds-th-sort{{ $sortActive('kelompok') }}"><a href="{{ $sortLink('kelompok') }}">Kelompok <i class="{{ $sortIcon('kelompok') }}"></i></a></th>
+                            <th class="ds-th-sort{{ $sortActive('angkatan') }}"><a href="{{ $sortLink('angkatan') }}">Angkatan <i class="{{ $sortIcon('angkatan') }}"></i></a></th>
+                            <th class="ds-th-sort{{ $sortActive('stcust') }}"><a href="{{ $sortLink('stcust') }}">Status <i class="{{ $sortIcon('stcust') }}"></i></a></th>
+                            <th class="ds-th-sort{{ $sortActive('gender') }}"><a href="{{ $sortLink('gender') }}">Jenis Kelamin <i class="{{ $sortIcon('gender') }}"></i></a></th>
+                            <th class="ds-th-sort{{ $sortActive('alamat') }}"><a href="{{ $sortLink('alamat') }}">Alamat <i class="{{ $sortIcon('alamat') }}"></i></a></th>
+                            <th class="ds-th-sort{{ $sortActive('wali') }}"><a href="{{ $sortLink('wali') }}">Wali <i class="{{ $sortIcon('wali') }}"></i></a></th>
                             <th class="ds-col-act">Reset Login</th>
                         </tr>
                     </thead>
@@ -455,7 +475,7 @@
                             @php
                                 $r = array_change_key_case((array) $row, CASE_LOWER);
                                 $nocust = trim((string) ($r['nocust'] ?? ''));
-                                $vaDigits = preg_replace('/\D+/', '', $nocust);
+                                $noVa = \App\Support\VaFormatter::fromNis($nocust);
                                 $unit = trim((string) ($r['code02'] ?? ''));
                                 if ($unit === '') {
                                     $c01 = trim((string) ($r['code01'] ?? ''));
@@ -487,7 +507,7 @@
                                 </td>
                                 <td class="ds-col-no">{{ ($siswaRows->firstItem() ?? 1) + $index }}</td>
                                 <td>{{ $nocust !== '' ? $nocust : '-' }}</td>
-                                <td>{{ $vaDigits !== '' ? ('7510050' . $vaDigits) : '-' }}</td>
+                                <td>{{ $noVa !== '' ? $noVa : '-' }}</td>
                                 <td>{{ trim((string) ($r['nmcust'] ?? '')) !== '' ? $r['nmcust'] : '-' }}</td>
                                 <td>{{ trim((string) ($r['num2nd'] ?? '')) !== '' ? $r['num2nd'] : '-' }}</td>
                                 <td>{{ $unit !== '' ? $unit : '-' }}</td>

@@ -86,6 +86,8 @@
         }
         .dt-th-sort a:hover { color: #4f46e5; }
         .dt-th-sort.is-active a { color: #4f46e5; }
+        .dt-th-sort i { font-size: 11px; opacity: 0.75; }
+        .dt-th-sort.is-active i { opacity: 1; }
         .dt-urut-actions { display: flex; flex-direction: column; gap: 4px; }
         .dt-urut-actions button {
             font-size: 11px; padding: 4px 6px; border-radius: 6px; border: 1px solid #cbd5e1; background: #f8fafc; cursor: pointer; font-weight: 600;
@@ -150,6 +152,21 @@
             @endif
 
             @php
+                use App\Support\TableSort;
+
+                $sortBy = $filters['sort_by'] ?? 'furutan';
+                $sortDir = $filters['sort_dir'] ?? ($filters['sort_urutan'] ?? 'asc');
+                $sortQuery = request()->query();
+                $dtSortLink = static function (string $column) use ($sortQuery) {
+                    return route('keu.tagihan.data', array_merge(TableSort::toggleQuery($sortQuery, $column), ['cari' => '1']));
+                };
+                $dtSortIcon = static function (string $column) use ($sortBy, $sortDir) {
+                    return TableSort::iconClass($column, $sortBy, $sortDir);
+                };
+                $dtSortActive = static function (string $column) use ($sortBy) {
+                    return $sortBy === $column ? ' is-active' : '';
+                };
+
                 $dtPrintQs = http_build_query(array_filter([
                     'tgl_dari' => $filters['tgl_dari'] ?? '',
                     'tgl_sampai' => $filters['tgl_sampai'] ?? '',
@@ -160,17 +177,17 @@
                     'nis' => $filters['nis'] ?? '',
                     'nama' => $filters['nama'] ?? '',
                     'siswa' => $filters['siswa'] ?? '',
-                    'sort_urutan' => $filters['sort_urutan'] ?? 'asc',
+                    'sort_by' => $sortBy,
+                    'sort_dir' => $sortDir,
+                    'sort_urutan' => $sortDir,
                 ], static fn ($v) => $v !== '' && $v !== null));
                 $dtPrintUrl = route('keu.tagihan.data_print') . ($dtPrintQs !== '' ? '?' . $dtPrintQs : '');
-                $sortUrutanCur = ($filters['sort_urutan'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
-                $sortUrutanNext = $sortUrutanCur === 'asc' ? 'desc' : 'asc';
-                $sortUrutanQuery = array_merge(request()->query(), ['sort_urutan' => $sortUrutanNext, 'page' => 1, 'cari' => '1']);
             @endphp
 
             <form method="GET" action="{{ route('keu.tagihan.data') }}" id="dtFormFilter">
                 <input type="hidden" name="cari" value="1">
-                <input type="hidden" name="sort_urutan" value="{{ $sortUrutanCur }}">
+                <input type="hidden" name="sort_by" value="{{ $sortBy }}">
+                <input type="hidden" name="sort_dir" value="{{ $sortDir }}">
                 <div class="dt-filter">
                     <div class="dt-fld">
                         <label>Tanggal pembuatan (dari)</label>
@@ -241,7 +258,7 @@
             </form>
 
             <div class="dt-actions dt-actions--primary">
-                <a class="dt-btn dt-btn-emphasis" href="{{ route('keu.tagihan.buat') }}">+ Buat Tagihan</a>
+                <a class="dt-btn dt-btn-emphasis" href="{{ route('keu.tagihan.buat') }}"><i class="fa-solid fa-plus"></i> Buat Tagihan</a>
             </div>
 
             <div class="dt-toolbar">
@@ -279,26 +296,26 @@
 
             <form id="dtFormExcel" class="dt-sr-only" method="POST" action="{{ route('keu.tagihan.data_export_excel') }}" target="_blank" aria-hidden="true">
                 @csrf
-                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'nis', 'nama', 'siswa', 'sort_urutan'] as $fk)
+                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'nis', 'nama', 'siswa', 'sort_by', 'sort_dir', 'sort_urutan'] as $fk)
                     <input type="hidden" name="{{ $fk }}" value="{{ $filters[$fk] ?? '' }}">
                 @endforeach
             </form>
             <form id="dtFormPdf" class="dt-sr-only" method="POST" action="{{ route('keu.tagihan.data_export_pdf') }}" target="_blank" aria-hidden="true">
                 @csrf
-                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'nis', 'nama', 'siswa', 'sort_urutan'] as $fk)
+                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'nis', 'nama', 'siswa', 'sort_by', 'sort_dir', 'sort_urutan'] as $fk)
                     <input type="hidden" name="{{ $fk }}" value="{{ $filters[$fk] ?? '' }}">
                 @endforeach
             </form>
             <form id="dtFormKartu" class="dt-sr-only" method="POST" action="{{ route('keu.tagihan.data_print_kartu') }}" target="_blank" aria-hidden="true">
                 @csrf
-                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'nis', 'nama', 'siswa', 'sort_urutan'] as $fk)
+                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'nis', 'nama', 'siswa', 'sort_by', 'sort_dir', 'sort_urutan'] as $fk)
                     <input type="hidden" name="{{ $fk }}" value="{{ $filters[$fk] ?? '' }}">
                 @endforeach
                 <input type="hidden" name="selected_rows" id="dtSelectedRows" value="">
             </form>
             <form id="dtFormRekap" class="dt-sr-only" method="POST" action="{{ route('keu.tagihan.data_print_rekap') }}" target="_blank" aria-hidden="true">
                 @csrf
-                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'nis', 'nama', 'siswa', 'sort_urutan'] as $fk)
+                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'nis', 'nama', 'siswa', 'sort_by', 'sort_dir', 'sort_urutan'] as $fk)
                     <input type="hidden" name="{{ $fk }}" value="{{ $filters[$fk] ?? '' }}">
                 @endforeach
                 <input type="hidden" name="has_search_context" id="dtHasSearchContext" value="{{ request()->query->count() > 0 ? '1' : '0' }}">
@@ -311,18 +328,18 @@
                             <th class="dt-expand-col"></th>
                             <th class="dt-check"><input type="checkbox" id="dtSelectPage" aria-label="Pilih semua di halaman"></th>
                             <th class="dt-col-no">No</th>
-                            <th>NIS</th>
-                            <th>NO VA</th>
-                            <th>Nama</th>
-                            <th>Nama Tagihan</th>
-                            <th class="dt-num">Jumlah</th>
-                            <th class="dt-center dt-th-sort is-active">
-                                <a href="{{ route('keu.tagihan.data', $sortUrutanQuery) }}" title="Klik untuk urutkan {{ $sortUrutanNext === 'asc' ? 'naik' : 'turun' }}">
-                                    Urutan Bayar <span aria-hidden="true">{{ $sortUrutanCur === 'asc' ? '↑' : '↓' }}</span>
+                            <th class="dt-th-sort{{ $dtSortActive('nis') }}"><a href="{{ $dtSortLink('nis') }}">NIS <i class="{{ $dtSortIcon('nis') }}"></i></a></th>
+                            <th class="dt-th-sort{{ $dtSortActive('no_va') }}"><a href="{{ $dtSortLink('no_va') }}">NO VA <i class="{{ $dtSortIcon('no_va') }}"></i></a></th>
+                            <th class="dt-th-sort{{ $dtSortActive('nama') }}"><a href="{{ $dtSortLink('nama') }}">Nama <i class="{{ $dtSortIcon('nama') }}"></i></a></th>
+                            <th class="dt-th-sort{{ $dtSortActive('nama_tagihan') }}"><a href="{{ $dtSortLink('nama_tagihan') }}">Nama Tagihan <i class="{{ $dtSortIcon('nama_tagihan') }}"></i></a></th>
+                            <th class="dt-th-sort dt-num{{ $dtSortActive('tagihan') }}"><a href="{{ $dtSortLink('tagihan') }}">Jumlah <i class="{{ $dtSortIcon('tagihan') }}"></i></a></th>
+                            <th class="dt-center dt-th-sort{{ $dtSortActive('furutan') }}">
+                                <a href="{{ $dtSortLink('furutan') }}" title="Klik untuk urutkan">
+                                    Urutan Bayar <i class="{{ $dtSortIcon('furutan') }}"></i>
                                 </a>
                             </th>
-                            <th class="dt-center">Tgl Tagih</th>
-                            <th>Tahun Tagihan</th>
+                            <th class="dt-center dt-th-sort{{ $dtSortActive('tgl_tagih') }}"><a href="{{ $dtSortLink('tgl_tagih') }}">Tgl Tagih <i class="{{ $dtSortIcon('tgl_tagih') }}"></i></a></th>
+                            <th class="dt-th-sort{{ $dtSortActive('tahun_aka') }}"><a href="{{ $dtSortLink('tahun_aka') }}">Tahun Tagihan <i class="{{ $dtSortIcon('tahun_aka') }}"></i></a></th>
                             <th>Naik</th>
                             <th>Turun</th>
                             <th></th>
@@ -355,7 +372,7 @@
                             <tr data-dt-row="{{ $custid }}|{{ e($billcd) }}">
                                 <td class="dt-expand-col">
                                     @if ($custid > 0 && $billcd !== '')
-                                        <button type="button" class="dt-expand-btn" data-custid="{{ $custid }}" data-billcd="{{ e($billcd) }}" aria-expanded="false" title="Detail tagihan">+</button>
+                                        <button type="button" class="dt-expand-btn" data-custid="{{ $custid }}" data-billcd="{{ e($billcd) }}" aria-expanded="false" title="Detail tagihan"><i class="fa-solid fa-plus" aria-hidden="true"></i></button>
                                     @else
                                         —
                                     @endif
@@ -652,6 +669,15 @@
                     panel.innerHTML = html;
                 }
 
+                function setExpandIcon(btn, open) {
+                    var icon = btn.querySelector('i');
+                    if (icon) {
+                        icon.className = open ? 'fa-solid fa-minus' : 'fa-solid fa-plus';
+                    } else {
+                        btn.textContent = open ? '−' : '+';
+                    }
+                }
+
                 document.querySelectorAll('.dt-expand-btn').forEach(function (btn) {
                     btn.addEventListener('click', function (e) {
                         e.stopPropagation();
@@ -668,14 +694,14 @@
 
                         if (isOpen) {
                             detailRow.hidden = true;
-                            btn.textContent = '+';
+                            setExpandIcon(btn, false);
                             btn.classList.remove('is-open');
                             btn.setAttribute('aria-expanded', 'false');
                             return;
                         }
 
                         detailRow.hidden = false;
-                        btn.textContent = '−';
+                        setExpandIcon(btn, true);
                         btn.classList.add('is-open');
                         btn.setAttribute('aria-expanded', 'true');
 

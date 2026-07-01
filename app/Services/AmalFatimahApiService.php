@@ -1256,6 +1256,8 @@ class AmalFatimahApiService
             'DESC02' => $filters['desc02'] ?? null,
             'DESC03' => $filters['desc03'] ?? null,
             'STCUST' => $filters['stcust'] ?? null,
+            'sort_by' => $filters['sort_by'] ?? null,
+            'sort_dir' => $filters['sort_dir'] ?? null,
             'limit' => $limit,
             'offset' => $offset,
         ], static function ($v, $k) {
@@ -2157,6 +2159,8 @@ class AmalFatimahApiService
             'nama' => trim((string) ($filters['nama'] ?? '')),
             'siswa' => trim((string) ($filters['siswa'] ?? '')),
             'sort_urutan' => trim((string) ($filters['sort_urutan'] ?? '')),
+            'sort_by' => trim((string) ($filters['sort_by'] ?? '')),
+            'sort_dir' => trim((string) ($filters['sort_dir'] ?? '')),
         ], static fn ($v) => $v !== ''));
 
         if ($rekapCetak) {
