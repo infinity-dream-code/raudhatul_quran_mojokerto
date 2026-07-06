@@ -53,13 +53,13 @@ class TopupCashController extends Controller
         }
 
         $selectedTransNo = '';
+        $reprintKuitansi = false;
         if ($custid > 0) {
             $flashTrans = trim((string) session('topup_cash_transno', ''));
             $flashCustid = (int) session('topup_cash_custid', 0);
             if ($flashTrans !== '' && $flashCustid === $custid) {
                 $selectedTransNo = $flashTrans;
-            } else {
-                $selectedTransNo = $this->fetchLastTransNo($custid);
+                $reprintKuitansi = true;
             }
         }
 
@@ -75,6 +75,7 @@ class TopupCashController extends Controller
             'siswaRows' => $siswaRows,
             'cashFee' => self::CASH_FEE,
             'selectedTransNo' => $selectedTransNo,
+            'reprintKuitansi' => $reprintKuitansi,
         ]);
     }
 
@@ -161,11 +162,24 @@ class TopupCashController extends Controller
     {
         $validated = $request->validate([
             'custid' => ['required', 'integer', 'min:1'],
-            'transno' => ['required', 'string', 'max:30'],
+            'transno' => ['nullable', 'string', 'max:30'],
+            'nominal' => ['nullable', 'integer', 'min:0'],
+            'note' => ['nullable', 'string', 'max:255'],
+            'metode' => ['nullable', 'string', 'max:30'],
+            'tanggal_manual' => ['nullable', 'date'],
+            'reprint' => ['nullable', 'boolean'],
         ]);
 
         $custid = (int) $validated['custid'];
-        $transNo = trim($validated['transno']);
+        $transNo = trim((string) ($validated['transno'] ?? ''));
+        $nominal = (int) ($validated['nominal'] ?? 0);
+        $note = trim((string) ($validated['note'] ?? ''));
+        $metode = trim((string) ($validated['metode'] ?? 'Cash'));
+        if ($metode === '') {
+            $metode = 'Cash';
+        }
+        $tanggalManual = trim((string) ($validated['tanggal_manual'] ?? ''));
+        $reprint = $request->boolean('reprint');
 
         if (!$this->siswaInScope($custid)) {
             return redirect()
@@ -180,28 +194,34 @@ class TopupCashController extends Controller
                 ->with('smartcard_error', 'Siswa tidak ditemukan.');
         }
 
-        $tran = DB::connection('sikeu')
-            ->table(self::TRAN_TABLE)
-            ->where('CUSTID', $custid)
-            ->where(function ($q) use ($transNo) {
-                $q->whereRaw('TRIM(TRANSNO) = ?', [$transNo])
-                    ->orWhereRaw('TRIM(NOREFF) = ?', [$transNo]);
-            })
-            ->orderByDesc('TRXDATE')
-            ->first();
+        $trxDate = $this->resolveTrxDate($tanggalManual);
+        $fee = strcasecmp($metode, 'Cash') === 0 ? self::CASH_FEE : 0;
 
-        if (!$tran) {
-            return redirect()
-                ->back()
-                ->with('smartcard_error', 'Data transaksi tidak ditemukan untuk cetak kuitansi.');
+        if ($reprint && $transNo !== '') {
+            $tran = DB::connection('sikeu')
+                ->table(self::TRAN_TABLE)
+                ->where('CUSTID', $custid)
+                ->where(function ($q) use ($transNo) {
+                    $q->whereRaw('TRIM(TRANSNO) = ?', [$transNo])
+                        ->orWhereRaw('TRIM(NOREFF) = ?', [$transNo]);
+                })
+                ->orderByDesc('TRXDATE')
+                ->orderByDesc('urut')
+                ->first();
+
+            if ($tran) {
+                $trxDate = Carbon::parse($tran->TRXDATE ?? $tran->Tanggal ?? $trxDate);
+                $nominal = (int) ($tran->KREDIT ?? 0);
+                $helpdesk = trim((string) ($tran->HELPDESK ?? ''));
+                if (preg_match('/Biaya:\s*(\d+)/i', $helpdesk, $m)) {
+                    $fee = (int) $m[1];
+                }
+                $note = preg_replace('/\s*\|\s*Biaya:\d+.*$/i', '', $helpdesk);
+            }
         }
 
-        $trxDate = $tran->TRXDATE ?? $tran->Tanggal ?? now();
-        $nominal = (int) ($tran->KREDIT ?? 0);
-        $helpdesk = trim((string) ($tran->HELPDESK ?? ''));
-        $fee = self::CASH_FEE;
-        if (preg_match('/Biaya:\s*(\d+)/i', $helpdesk, $m)) {
-            $fee = (int) $m[1];
+        if ($transNo === '') {
+            $transNo = $this->generateTransNo($trxDate);
         }
 
         $unit = trim((string) ($siswa->unit ?? ''));
@@ -217,9 +237,9 @@ class TopupCashController extends Controller
             'nominal' => $nominal,
             'fee' => $fee,
             'transNo' => $transNo,
-            'trxDate' => Carbon::parse($trxDate),
+            'trxDate' => $trxDate,
             'teller' => session('auth_name', session('auth_username', 'BMI')),
-            'note' => preg_replace('/\s*\|\s*Biaya:\d+.*$/i', '', $helpdesk),
+            'note' => $note,
         ])->setPaper('a5', 'portrait');
 
         return $pdf->stream('kuitansi-uang-saku-' . $transNo . '.pdf');

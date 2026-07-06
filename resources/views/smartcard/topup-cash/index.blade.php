@@ -89,11 +89,6 @@
                                 <span class="tc-summary-label">Total Top Up</span>
                                 <strong id="totalBayarDisplay">Rp 0</strong>
                             </div>
-                            <div class="tc-summary-divider" id="noTerimaDivider" @if(empty($selectedTransNo)) style="display:none;" @endif></div>
-                            <div class="tc-summary-item" id="noTerimaWrap" @if(empty($selectedTransNo)) style="display:none;" @endif>
-                                <span class="tc-summary-label">No Terima</span>
-                                <strong class="tc-trans-badge" id="noTerimaDisplay">{{ $selectedTransNo ?? '' }}</strong>
-                            </div>
                         </div>
                     </div>
 
@@ -104,7 +99,7 @@
                         <button type="submit" form="tcFormTopup" class="sc-btn sc-btn-success tc-btn" id="btnTopup">
                             <span class="tc-btn-icon">↑</span> TOPUP
                         </button>
-                        <button type="submit" form="tcFormKuitansi" class="sc-btn tc-btn tc-btn-outline" id="btnKuitansi" @disabled(empty($selectedTransNo))>
+                        <button type="submit" form="tcFormKuitansi" class="sc-btn tc-btn tc-btn-outline" id="btnKuitansi" @disabled((int)($custid ?? 0) <= 0)>
                             <span class="tc-btn-icon">🖨</span> Cetak Kuitansi
                         </button>
                     </div>
@@ -122,6 +117,11 @@
                     @csrf
                     <input type="hidden" name="custid" id="custidKuitansi" value="{{ (int) ($custid ?? 0) }}">
                     <input type="hidden" name="transno" id="transnoKuitansi" value="{{ $selectedTransNo ?? '' }}">
+                    <input type="hidden" name="reprint" id="reprintKuitansi" value="{{ ($reprintKuitansi ?? false) ? '1' : '0' }}">
+                    <input type="hidden" name="nominal" id="nominalKuitansi" value="0">
+                    <input type="hidden" name="note" id="noteKuitansi" value="{{ $note ?? '' }}">
+                    <input type="hidden" name="metode" id="metodeKuitansi" value="{{ $metode ?? 'Cash' }}">
+                    <input type="hidden" name="tanggal_manual" id="tanggalManualKuitansi" value="{{ ($tanggalManual ?? '') !== '0000-00-00' ? ($tanggalManual ?? '') : '' }}">
                 </form>
 
                 <div class="sc-table-section">
@@ -151,8 +151,7 @@
                                             data-custid="{{ (int) ($row->custid ?? 0) }}"
                                             data-nis="{{ $row->nis ?? '' }}"
                                             data-nama="{{ $row->nama ?? '' }}"
-                                            data-saldo="{{ (int) ($row->saldo ?? 0) }}"
-                                            data-transno="{{ trim((string) ($row->last_transno ?? '')) }}">
+                                            data-saldo="{{ (int) ($row->saldo ?? 0) }}">
                                             <td><span class="tc-nis">{{ $row->nis ?? '—' }}</span></td>
                                             <td>{{ $row->nama ?? '—' }}</td>
                                             <td style="text-align:right;"><span class="tc-saldo-num">{{ number_format((int) ($row->saldo ?? 0), 0, ',', '.') }}</span></td>
@@ -330,14 +329,6 @@
             background: #ddd6fe;
         }
 
-        .tc-trans-badge {
-            font-family: ui-monospace, monospace;
-            background: #ede9fe;
-            padding: 3px 10px;
-            border-radius: 6px;
-            font-size: 13px !important;
-        }
-
         .tc-actions {
             display: flex;
             flex-wrap: wrap;
@@ -449,7 +440,6 @@
     <script>
         (function () {
             const siswaSearchUrl = @json(route('keu.manual.siswa_search'));
-            const lastTransnoUrl = @json(route('smartcard.topup_cash.last_transno'));
             const cashFee = {{ (int) ($cashFee ?? 2000) }};
             const siswaInput = document.getElementById('siswaSearchInput');
             const custidHidden = document.getElementById('custidHidden');
@@ -472,29 +462,12 @@
             const formKuitansi = document.getElementById('tcFormKuitansi');
             const btnKuitansi = document.getElementById('btnKuitansi');
             const transnoKuitansi = document.getElementById('transnoKuitansi');
-            const noTerimaWrap = document.getElementById('noTerimaWrap');
-            const noTerimaDivider = document.getElementById('noTerimaDivider');
-            const noTerimaDisplay = document.getElementById('noTerimaDisplay');
+            const reprintKuitansi = document.getElementById('reprintKuitansi');
             let searchTimer = null;
             let searchSeq = 0;
 
             const parseNum = function (v) {
                 return parseInt(String(v || '').replace(/\D/g, ''), 10) || 0;
-            };
-
-            const loadLastTransno = function (custid, callback) {
-                const cid = parseInt(custid, 10);
-                if (cid <= 0) {
-                    callback('');
-                    return;
-                }
-                fetch(lastTransnoUrl + '?custid=' + encodeURIComponent(cid), {
-                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                    credentials: 'same-origin',
-                })
-                    .then(function (res) { return res.json(); })
-                    .then(function (json) { callback(String(json.transno || '').trim()); })
-                    .catch(function () { callback(''); });
             };
 
             const formatRp = function (n) {
@@ -506,7 +479,7 @@
                 const metode = metodeSelect ? metodeSelect.value : 'Cash';
                 const fee = metode === 'Cash' ? cashFee : 0;
                 if (totalBayarDisplay) {
-                    totalBayarDisplay.textContent = 'Rp ' + formatRp(nominal);
+                    totalBayarDisplay.textContent = 'Rp ' + formatRp(nominal + fee);
                 }
             };
 
@@ -518,25 +491,35 @@
                 updateTotalBayar();
             };
 
-            const setKuitansiState = function (custid, transno) {
+            const setKuitansiState = function (custid, transno, reprint) {
                 const cid = String(custid || '');
                 const no = String(transno || '').trim();
                 if (custidKuitansi) custidKuitansi.value = cid;
                 if (transnoKuitansi) transnoKuitansi.value = no;
-                if (btnKuitansi) btnKuitansi.disabled = !no || parseInt(cid, 10) <= 0;
-                const showNo = no !== '';
-                if (noTerimaWrap) noTerimaWrap.style.display = showNo ? '' : 'none';
-                if (noTerimaDivider) noTerimaDivider.style.display = showNo ? '' : 'none';
-                if (noTerimaDisplay) noTerimaDisplay.textContent = no;
+                if (reprintKuitansi) reprintKuitansi.value = reprint ? '1' : '0';
+                if (btnKuitansi) btnKuitansi.disabled = parseInt(cid, 10) <= 0;
+                syncKuitansiFormFields();
             };
 
-            const pickSiswa = function (custid, nis, nama, saldo, transno) {
+            const syncKuitansiFormFields = function () {
+                const nominalKuitansi = document.getElementById('nominalKuitansi');
+                const noteKuitansi = document.getElementById('noteKuitansi');
+                const metodeKuitansi = document.getElementById('metodeKuitansi');
+                const tanggalManualKuitansi = document.getElementById('tanggalManualKuitansi');
+                if (nominalKuitansi) nominalKuitansi.value = String(parseNum(nominalTopup ? nominalTopup.value : 0));
+                if (noteKuitansi && noteInput) noteKuitansi.value = noteInput.value || '';
+                if (metodeKuitansi && metodeSelect) metodeKuitansi.value = metodeSelect.value || 'Cash';
+                if (tanggalManualKuitansi && tanggalManual) tanggalManualKuitansi.value = tanggalManual.value || '';
+            };
+
+            const pickSiswa = function (custid, nis, nama, saldo) {
                 if (custidHidden) custidHidden.value = custid || '';
                 if (siswaInput) siswaInput.value = nis || '';
                 if (namaSiswa) namaSiswa.value = nama || '';
                 if (saldoDisplay) saldoDisplay.value = formatRp(saldo || 0);
+                if (nominalTopup) nominalTopup.value = '';
                 syncHiddenFields();
-                setKuitansiState(custid, transno);
+                setKuitansiState(custid, '', false);
             };
 
             if (nominalTopup) {
@@ -544,6 +527,7 @@
                     const raw = parseNum(nominalTopup.value);
                     nominalTopup.value = raw > 0 ? formatRp(raw) : '';
                     updateTotalBayar();
+                    syncKuitansiFormFields();
                 });
             }
 
@@ -581,10 +565,11 @@
 
             if (formKuitansi) {
                 formKuitansi.addEventListener('submit', function (e) {
-                    const transno = document.getElementById('transnoKuitansi');
-                    if (!transno || !transno.value) {
+                    syncKuitansiFormFields();
+                    const cid = parseInt(custidKuitansi ? custidKuitansi.value : '0', 10);
+                    if (cid <= 0) {
                         e.preventDefault();
-                        alert('Siswa ini belum memiliki transaksi top up untuk dicetak.');
+                        alert('Pilih siswa terlebih dahulu.');
                     }
                 });
             }
@@ -597,8 +582,7 @@
                         row.getAttribute('data-custid'),
                         row.getAttribute('data-nis'),
                         row.getAttribute('data-nama'),
-                        row.getAttribute('data-saldo'),
-                        row.getAttribute('data-transno')
+                        row.getAttribute('data-saldo')
                     );
                     nominalTopup?.focus();
                 };
@@ -642,15 +626,10 @@
                 Array.from(siswaList.querySelectorAll('button[data-cid]')).forEach(function (btn) {
                     btn.addEventListener('click', function () {
                         const cid = btn.getAttribute('data-cid') || '';
-                        siswaInput.value = btn.getAttribute('data-nis') || '';
-                        custidHidden.value = cid;
-                        if (namaSiswa) namaSiswa.value = btn.getAttribute('data-nmcust') || '';
-                        syncHiddenFields();
-                        setKuitansiState(cid, '');
+                        const nisVal = btn.getAttribute('data-nis') || '';
+                        const nmcust = btn.getAttribute('data-nmcust') || '';
+                        pickSiswa(cid, nisVal, nmcust, 0);
                         closeList();
-                        loadLastTransno(cid, function (transno) {
-                            setKuitansiState(cid, transno);
-                        });
                     });
                 });
             };
@@ -685,7 +664,7 @@
                 custidHidden.value = '';
                 if (namaSiswa) namaSiswa.value = '';
                 if (saldoDisplay) saldoDisplay.value = '0';
-                setKuitansiState('', '');
+                setKuitansiState('', '', false);
                 syncHiddenFields();
                 clearTimeout(searchTimer);
                 searchTimer = setTimeout(function () { fetchSiswa(siswaInput.value); }, 280);
@@ -701,11 +680,12 @@
                 if (!siswaWrap.contains(e.target)) closeList();
             });
 
-            if (metodeSelect) metodeSelect.addEventListener('change', syncHiddenFields);
-            if (tanggalManual) tanggalManual.addEventListener('change', syncHiddenFields);
-            if (noteInput) noteInput.addEventListener('input', syncHiddenFields);
+            if (metodeSelect) metodeSelect.addEventListener('change', function () { syncHiddenFields(); syncKuitansiFormFields(); });
+            if (tanggalManual) tanggalManual.addEventListener('change', function () { syncHiddenFields(); syncKuitansiFormFields(); });
+            if (noteInput) noteInput.addEventListener('input', function () { syncHiddenFields(); syncKuitansiFormFields(); });
 
             syncHiddenFields();
+            syncKuitansiFormFields();
         })();
     </script>
 
