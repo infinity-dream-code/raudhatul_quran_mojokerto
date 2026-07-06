@@ -11,37 +11,44 @@
             <div class="sc-card-body">
                 <div class="tar-title">PENGELUARAN UANG SAKU / AMBIL CASH</div>
 
-                <form id="tarForm" autocomplete="off">
+                <form id="tarForm" autocomplete="off" novalidate>
                     @csrf
+                    {{-- Decoy agar browser tidak isi username/password login ke field tap --}}
+                    <input type="text" class="tar-autofill-trap" tabindex="-1" aria-hidden="true" autocomplete="username">
+                    <input type="password" class="tar-autofill-trap" tabindex="-1" aria-hidden="true" autocomplete="current-password">
                     <div class="tar-panel">
                         <div class="tar-row">
                             <div class="tar-label">TAP ID</div>
                             <div class="tar-value">
-                                <input type="text" id="tapId" name="tap_id" class="tar-input" inputmode="numeric" autofocus>
+                                <input type="text" id="tapId" class="tar-input" inputmode="numeric"
+                                       autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                                       readonly>
                             </div>
                         </div>
                         <div class="tar-row">
                             <div class="tar-label">Nama</div>
                             <div class="tar-value tar-value-readonly">
-                                <input type="text" id="nama" name="nama" class="tar-input tar-input-readonly" readonly tabindex="-1">
+                                <input type="text" id="nama" class="tar-input tar-input-readonly" readonly tabindex="-1" autocomplete="off">
                             </div>
                         </div>
                         <div class="tar-row">
                             <div class="tar-label">SALDO</div>
                             <div class="tar-value tar-value-saldo">
-                                <input type="text" id="saldo" class="tar-input tar-input-saldo" readonly tabindex="-1" value="0">
+                                <input type="text" id="saldo" class="tar-input tar-input-saldo" readonly tabindex="-1" autocomplete="off" value="0">
                             </div>
                         </div>
                         <div class="tar-row">
                             <div class="tar-label tar-label-ambil">AMBIL</div>
                             <div class="tar-value tar-value-ambil">
-                                <input type="text" id="ambil" name="ambil" class="tar-input tar-input-ambil" inputmode="numeric" placeholder="0">
+                                <input type="text" id="ambil" class="tar-input tar-input-ambil" inputmode="numeric"
+                                       placeholder="0" autocomplete="off">
                             </div>
                         </div>
                         <div class="tar-row tar-row-end">
                             <div class="tar-label">PIN</div>
                             <div class="tar-value">
-                                <input type="password" id="pin" name="pin" class="tar-input" inputmode="numeric" maxlength="20">
+                                <input type="password" id="pin" class="tar-input" inputmode="numeric" maxlength="20"
+                                       autocomplete="new-password">
                             </div>
                         </div>
                     </div>
@@ -143,6 +150,14 @@
             color: #5b21b6;
             text-align: center;
         }
+        .tar-autofill-trap {
+            position: absolute;
+            width: 0;
+            height: 0;
+            opacity: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
         @media (max-width: 600px) {
             .tar-row { grid-template-columns: 110px 1fr; min-height: 60px; }
             .tar-label { font-size: 16px; }
@@ -169,6 +184,22 @@
             const form = document.getElementById('tarForm');
 
             let cardLoaded = false;
+
+            const enableTapInput = function () {
+                tapId.removeAttribute('readonly');
+            };
+
+            tapId.addEventListener('focus', enableTapInput);
+            tapId.addEventListener('click', enableTapInput);
+
+            // Bersihkan autofill browser (username login) saat halaman load
+            window.setTimeout(function () {
+                if (!cardLoaded && tapId.value.trim() !== '') {
+                    tapId.value = '';
+                }
+                pin.value = '';
+                tapId.focus();
+            }, 100);
 
             const formatRp = function (n) {
                 return String(Math.max(0, parseInt(n, 10) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
