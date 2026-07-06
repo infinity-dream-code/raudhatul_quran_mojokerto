@@ -31,8 +31,8 @@
                                 <div class="tc-cell sc-field-nis">
                                     <div class="tc-cell-label">NIS</div>
                                     <div id="siswaAutoWrap" class="sc-siswa-wrap tc-cell-input">
-                                        <input type="text" id="siswaSearchInput" name="siswa_search" autocomplete="off"
-                                               value="{{ $siswaLabel ?? '' }}" placeholder="Ketik NIS / nama">
+                                        <input type="text" id="siswaSearchInput" name="nis" autocomplete="off"
+                                               value="{{ $nis ?? '' }}" placeholder="Ketik NIS / nama">
                                         <div id="siswaAutoList"></div>
                                     </div>
                                 </div>
@@ -86,16 +86,14 @@
                             </div>
                             <div class="tc-summary-divider"></div>
                             <div class="tc-summary-item tc-summary-total">
-                                <span class="tc-summary-label">Total Terima</span>
+                                <span class="tc-summary-label">Total Top Up</span>
                                 <strong id="totalBayarDisplay">Rp 0</strong>
                             </div>
-                            @if (!empty($lastTransNo))
-                                <div class="tc-summary-divider"></div>
-                                <div class="tc-summary-item">
-                                    <span class="tc-summary-label">No Terima</span>
-                                    <strong class="tc-trans-badge">{{ $lastTransNo }}</strong>
-                                </div>
-                            @endif
+                            <div class="tc-summary-divider" id="noTerimaDivider" @if(empty($selectedTransNo)) style="display:none;" @endif></div>
+                            <div class="tc-summary-item" id="noTerimaWrap" @if(empty($selectedTransNo)) style="display:none;" @endif>
+                                <span class="tc-summary-label">No Terima</span>
+                                <strong class="tc-trans-badge" id="noTerimaDisplay">{{ $selectedTransNo ?? '' }}</strong>
+                            </div>
                         </div>
                     </div>
 
@@ -106,7 +104,7 @@
                         <button type="submit" form="tcFormTopup" class="sc-btn sc-btn-success tc-btn" id="btnTopup">
                             <span class="tc-btn-icon">↑</span> TOPUP
                         </button>
-                        <button type="submit" form="tcFormKuitansi" class="sc-btn tc-btn tc-btn-outline" id="btnKuitansi" @disabled(empty($lastTransNo))>
+                        <button type="submit" form="tcFormKuitansi" class="sc-btn tc-btn tc-btn-outline" id="btnKuitansi" @disabled(empty($selectedTransNo))>
                             <span class="tc-btn-icon">🖨</span> Cetak Kuitansi
                         </button>
                     </div>
@@ -122,8 +120,8 @@
 
                 <form method="POST" action="{{ route('smartcard.topup_cash.kuitansi') }}" id="tcFormKuitansi" target="_blank" class="tc-hidden-form">
                     @csrf
-                    <input type="hidden" name="custid" id="custidKuitansi" value="{{ (int) ($lastCustid ?? $custid ?? 0) }}">
-                    <input type="hidden" name="transno" id="transnoKuitansi" value="{{ $lastTransNo ?? '' }}">
+                    <input type="hidden" name="custid" id="custidKuitansi" value="{{ (int) ($custid ?? 0) }}">
+                    <input type="hidden" name="transno" id="transnoKuitansi" value="{{ $selectedTransNo ?? '' }}">
                 </form>
 
                 <div class="sc-table-section">
@@ -154,7 +152,7 @@
                                             data-nis="{{ $row->nis ?? '' }}"
                                             data-nama="{{ $row->nama ?? '' }}"
                                             data-saldo="{{ (int) ($row->saldo ?? 0) }}"
-                                            data-label="{{ trim(($row->nis ?? '') . ' - ' . ($row->nama ?? '')) }}">
+                                            data-transno="{{ trim((string) ($row->last_transno ?? '')) }}">
                                             <td><span class="tc-nis">{{ $row->nis ?? '—' }}</span></td>
                                             <td>{{ $row->nama ?? '—' }}</td>
                                             <td style="text-align:right;"><span class="tc-saldo-num">{{ number_format((int) ($row->saldo ?? 0), 0, ',', '.') }}</span></td>
@@ -451,6 +449,7 @@
     <script>
         (function () {
             const siswaSearchUrl = @json(route('keu.manual.siswa_search'));
+            const lastTransnoUrl = @json(route('smartcard.topup_cash.last_transno'));
             const cashFee = {{ (int) ($cashFee ?? 2000) }};
             const siswaInput = document.getElementById('siswaSearchInput');
             const custidHidden = document.getElementById('custidHidden');
@@ -471,11 +470,31 @@
             const noteTopup = document.getElementById('noteTopup');
             const formTopup = document.getElementById('tcFormTopup');
             const formKuitansi = document.getElementById('tcFormKuitansi');
+            const btnKuitansi = document.getElementById('btnKuitansi');
+            const transnoKuitansi = document.getElementById('transnoKuitansi');
+            const noTerimaWrap = document.getElementById('noTerimaWrap');
+            const noTerimaDivider = document.getElementById('noTerimaDivider');
+            const noTerimaDisplay = document.getElementById('noTerimaDisplay');
             let searchTimer = null;
             let searchSeq = 0;
 
             const parseNum = function (v) {
                 return parseInt(String(v || '').replace(/\D/g, ''), 10) || 0;
+            };
+
+            const loadLastTransno = function (custid, callback) {
+                const cid = parseInt(custid, 10);
+                if (cid <= 0) {
+                    callback('');
+                    return;
+                }
+                fetch(lastTransnoUrl + '?custid=' + encodeURIComponent(cid), {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin',
+                })
+                    .then(function (res) { return res.json(); })
+                    .then(function (json) { callback(String(json.transno || '').trim()); })
+                    .catch(function () { callback(''); });
             };
 
             const formatRp = function (n) {
@@ -487,25 +506,37 @@
                 const metode = metodeSelect ? metodeSelect.value : 'Cash';
                 const fee = metode === 'Cash' ? cashFee : 0;
                 if (totalBayarDisplay) {
-                    totalBayarDisplay.textContent = 'Rp ' + formatRp(nominal + fee);
+                    totalBayarDisplay.textContent = 'Rp ' + formatRp(nominal);
                 }
             };
 
             const syncHiddenFields = function () {
                 if (custidTopup && custidHidden) custidTopup.value = custidHidden.value || '';
-                if (custidKuitansi && custidHidden) custidKuitansi.value = custidHidden.value || custidKuitansi.value || '';
                 if (metodeTopup && metodeSelect) metodeTopup.value = metodeSelect.value || 'Cash';
                 if (tanggalManualTopup && tanggalManual) tanggalManualTopup.value = tanggalManual.value || '';
                 if (noteTopup && noteInput) noteTopup.value = noteInput.value || '';
                 updateTotalBayar();
             };
 
-            const pickSiswa = function (custid, label, nama, saldo) {
+            const setKuitansiState = function (custid, transno) {
+                const cid = String(custid || '');
+                const no = String(transno || '').trim();
+                if (custidKuitansi) custidKuitansi.value = cid;
+                if (transnoKuitansi) transnoKuitansi.value = no;
+                if (btnKuitansi) btnKuitansi.disabled = !no || parseInt(cid, 10) <= 0;
+                const showNo = no !== '';
+                if (noTerimaWrap) noTerimaWrap.style.display = showNo ? '' : 'none';
+                if (noTerimaDivider) noTerimaDivider.style.display = showNo ? '' : 'none';
+                if (noTerimaDisplay) noTerimaDisplay.textContent = no;
+            };
+
+            const pickSiswa = function (custid, nis, nama, saldo, transno) {
                 if (custidHidden) custidHidden.value = custid || '';
-                if (siswaInput) siswaInput.value = label || '';
+                if (siswaInput) siswaInput.value = nis || '';
                 if (namaSiswa) namaSiswa.value = nama || '';
                 if (saldoDisplay) saldoDisplay.value = formatRp(saldo || 0);
                 syncHiddenFields();
+                setKuitansiState(custid, transno);
             };
 
             if (nominalTopup) {
@@ -553,7 +584,7 @@
                     const transno = document.getElementById('transnoKuitansi');
                     if (!transno || !transno.value) {
                         e.preventDefault();
-                        alert('Lakukan TOPUP terlebih dahulu untuk mencetak kuitansi.');
+                        alert('Siswa ini belum memiliki transaksi top up untuk dicetak.');
                     }
                 });
             }
@@ -564,9 +595,10 @@
                     row.classList.add('tc-row-active');
                     pickSiswa(
                         row.getAttribute('data-custid'),
-                        row.getAttribute('data-label'),
+                        row.getAttribute('data-nis'),
                         row.getAttribute('data-nama'),
-                        row.getAttribute('data-saldo')
+                        row.getAttribute('data-saldo'),
+                        row.getAttribute('data-transno')
                     );
                     nominalTopup?.focus();
                 };
@@ -603,16 +635,22 @@
                 siswaList.innerHTML = matched.map(function (r) {
                     const label = (r.label || '').replace(/"/g, '&quot;');
                     const nmcust = (r.nmcust || '').replace(/"/g, '&quot;');
-                    return '<button type="button" data-cid="' + r.cid + '" data-label="' + label + '" data-nmcust="' + nmcust + '" class="tc-auto-item">' + (r.label || '—') + '</button>';
+                    const nisVal = (r.nocust || r.nis_like || r.nis || '').replace(/"/g, '&quot;');
+                    return '<button type="button" data-cid="' + r.cid + '" data-nis="' + nisVal + '" data-nmcust="' + nmcust + '" class="tc-auto-item">' + (r.label || '—') + '</button>';
                 }).join('');
                 siswaList.style.display = 'block';
                 Array.from(siswaList.querySelectorAll('button[data-cid]')).forEach(function (btn) {
                     btn.addEventListener('click', function () {
-                        siswaInput.value = btn.getAttribute('data-label') || '';
-                        custidHidden.value = btn.getAttribute('data-cid') || '';
+                        const cid = btn.getAttribute('data-cid') || '';
+                        siswaInput.value = btn.getAttribute('data-nis') || '';
+                        custidHidden.value = cid;
                         if (namaSiswa) namaSiswa.value = btn.getAttribute('data-nmcust') || '';
                         syncHiddenFields();
+                        setKuitansiState(cid, '');
                         closeList();
+                        loadLastTransno(cid, function (transno) {
+                            setKuitansiState(cid, transno);
+                        });
                     });
                 });
             };
@@ -647,6 +685,7 @@
                 custidHidden.value = '';
                 if (namaSiswa) namaSiswa.value = '';
                 if (saldoDisplay) saldoDisplay.value = '0';
+                setKuitansiState('', '');
                 syncHiddenFields();
                 clearTimeout(searchTimer);
                 searchTimer = setTimeout(function () { fetchSiswa(siswaInput.value); }, 280);

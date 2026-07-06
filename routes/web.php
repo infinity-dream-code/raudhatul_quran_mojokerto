@@ -234,6 +234,7 @@ Route::middleware(['web', 'dummy.auth'])->group(function () {
         Route::post('/rekap-pencairan-kantin', [RekapPencairanKantinController::class, 'store'])->name('rekap_pencairan_kantin.store');
         Route::get('/rekap-topup', fn () => app(SmartcardPlaceholderController::class)->show('rekap-topup'))->name('rekap_topup');
         Route::get('/topup-cash', [TopupCashController::class, 'index'])->name('topup_cash');
+        Route::get('/topup-cash/last-transno', [TopupCashController::class, 'lastTransNo'])->name('topup_cash.last_transno');
         Route::post('/topup-cash', [TopupCashController::class, 'store'])->name('topup_cash.store');
         Route::post('/topup-cash/kuitansi', [TopupCashController::class, 'printKuitansi'])->name('topup_cash.kuitansi');
         Route::get('/rekap-keluar-uang-saku', fn () => app(SmartcardPlaceholderController::class)->show('rekap-keluar-uang-saku'))->name('rekap_keluar_uang_saku');

@@ -24,8 +24,7 @@ class TopupCashController extends Controller
     {
         $isSearch = $request->boolean('search');
         $custid = (int) $request->query('custid', 0);
-        $nisFilter = trim((string) $request->query('nis', ''));
-        $siswaLabel = trim((string) $request->query('siswa_search', ''));
+        $nisFilter = trim((string) $request->query('nis', $request->query('siswa_search', '')));
         $metode = trim((string) $request->query('metode', 'Cash'));
         if ($metode === '') {
             $metode = 'Cash';
@@ -43,9 +42,6 @@ class TopupCashController extends Controller
                 $nama = trim((string) ($siswa->nama ?? ''));
                 $nis = trim((string) ($siswa->nis ?? ''));
                 $saldo = $this->fetchSaldo($custid);
-                if ($siswaLabel === '' && $nis !== '') {
-                    $siswaLabel = $nama !== '' ? $nis . ' - ' . $nama : $nis;
-                }
             } else {
                 $custid = 0;
             }
@@ -56,20 +52,41 @@ class TopupCashController extends Controller
             $siswaRows = $this->fetchSiswaRows($nisFilter !== '' ? $nisFilter : null);
         }
 
+        $selectedTransNo = '';
+        if ($custid > 0) {
+            $flashTrans = trim((string) session('topup_cash_transno', ''));
+            $flashCustid = (int) session('topup_cash_custid', 0);
+            if ($flashTrans !== '' && $flashCustid === $custid) {
+                $selectedTransNo = $flashTrans;
+            } else {
+                $selectedTransNo = $this->fetchLastTransNo($custid);
+            }
+        }
+
         return view('smartcard.topup-cash.index', [
             'isSearch' => $isSearch,
             'custid' => $custid,
             'nis' => $nis,
             'nama' => $nama,
             'saldo' => $saldo,
-            'siswaLabel' => $siswaLabel,
             'metode' => $metode,
             'tanggalManual' => $tanggalManual,
             'note' => $note,
             'siswaRows' => $siswaRows,
             'cashFee' => self::CASH_FEE,
-            'lastTransNo' => session('topup_cash_transno', ''),
-            'lastCustid' => (int) session('topup_cash_custid', 0),
+            'selectedTransNo' => $selectedTransNo,
+        ]);
+    }
+
+    public function lastTransNo(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $custid = (int) $request->query('custid', 0);
+        if ($custid <= 0 || !$this->siswaInScope($custid)) {
+            return response()->json(['transno' => '']);
+        }
+
+        return response()->json([
+            'transno' => $this->fetchLastTransNo($custid),
         ]);
     }
 
@@ -131,9 +148,7 @@ class TopupCashController extends Controller
             ->route('smartcard.topup_cash', [
                 'search' => 1,
                 'custid' => $custid,
-                'siswa_search' => trim((string) ($siswa->nis ?? '')) !== ''
-                    ? trim((string) $siswa->nis) . ' - ' . trim((string) ($siswa->nama ?? ''))
-                    : trim((string) ($siswa->nama ?? '')),
+                'nis' => trim((string) ($siswa->nis ?? '')),
                 'metode' => $metode,
                 'note' => $note,
             ])
@@ -336,7 +351,23 @@ class TopupCashController extends Controller
                     CAST(COALESCE(SUM(KREDIT), 0) AS SIGNED) - CAST(COALESCE(SUM(DEBET), 0) AS SIGNED) AS saldo_net
                 FROM ' . self::TRAN_TABLE . '
                 GROUP BY CUSTID
-            ) sal'), 'sal.CUSTID', '=', 'scctcust.CUSTID');
+            ) sal'), 'sal.CUSTID', '=', 'scctcust.CUSTID')
+            ->leftJoin(DB::raw('(
+                SELECT
+                    CUSTID,
+                    SUBSTRING_INDEX(
+                        GROUP_CONCAT(
+                            COALESCE(NULLIF(TRIM(TRANSNO), \'\'), TRIM(NOREFF))
+                            ORDER BY TRXDATE DESC, urut DESC
+                            SEPARATOR \'||\'
+                        ),
+                        \'||\',
+                        1
+                    ) AS last_transno
+                FROM ' . self::TRAN_TABLE . '
+                WHERE CAST(COALESCE(KREDIT, 0) AS SIGNED) > 0
+                GROUP BY CUSTID
+            ) ltran'), 'ltran.CUSTID', '=', 'scctcust.CUSTID');
 
         $this->applySchoolScope($query);
 
@@ -357,6 +388,7 @@ class TopupCashController extends Controller
                 DB::raw('COALESCE(NULLIF(TRIM(mst_kelas.unit), \'\'), TRIM(scctcust.CODE02)) as kelas'),
                 DB::raw('COALESCE(NULLIF(TRIM(mst_kelas.kelas), \'\'), TRIM(scctcust.DESC03)) as kelompok'),
                 DB::raw('COALESCE(NULLIF(TRIM(mst_kelas.jenjang), \'\'), TRIM(scctcust.DESC02)) as jenjang'),
+                DB::raw('COALESCE(ltran.last_transno, \'\') as last_transno'),
             ])
             ->orderBy('scctcust.NMCUST')
             ->limit(self::MAX_ROWS)
@@ -418,5 +450,31 @@ class TopupCashController extends Controller
         }
 
         return trim((string) session('auth_name', 'Sekolah'));
+    }
+
+    private function fetchLastTransNo(int $custid): string
+    {
+        if ($custid <= 0) {
+            return '';
+        }
+
+        $row = DB::connection('sikeu')
+            ->table(self::TRAN_TABLE)
+            ->where('CUSTID', $custid)
+            ->whereRaw('CAST(COALESCE(KREDIT, 0) AS SIGNED) > 0')
+            ->orderByDesc('TRXDATE')
+            ->orderByDesc('urut')
+            ->first(['TRANSNO', 'NOREFF']);
+
+        if (!$row) {
+            return '';
+        }
+
+        $no = trim((string) ($row->TRANSNO ?? ''));
+        if ($no === '') {
+            $no = trim((string) ($row->NOREFF ?? ''));
+        }
+
+        return $no;
     }
 }
