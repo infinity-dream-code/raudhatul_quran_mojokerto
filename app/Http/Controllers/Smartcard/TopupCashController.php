@@ -21,6 +21,16 @@ class TopupCashController extends Controller
 
     private const TRAN_TABLE = 'sccttran_cashless';
 
+    private const NOREFF_CHANNEL = 'WEB';
+
+    private const FIDBANK = '1140002';
+
+    private const METODE_TOPUP = 'TOP UP CASHLESS';
+
+    private const METODE_FEE = 'ADMIN FEE';
+
+    private const TRANSNO_SEQ_LEN = 5;
+
     public function index(Request $request): View
     {
         $isSearch = $request->boolean('search');
@@ -155,8 +165,8 @@ class TopupCashController extends Controller
         $helpdesk = $this->buildHelpdesk($note, $fee, $user);
 
         try {
-            DB::connection('sikeu')->transaction(function () use ($custid, $metode, $trxDate, $nominal, $transNo, $helpdesk) {
-                $this->insertTopupRow($custid, $metode, $trxDate, $nominal, $transNo, $helpdesk);
+            DB::connection('sikeu')->transaction(function () use ($custid, $trxDate, $nominal, $fee, $transNo, $helpdesk) {
+                $this->insertTopupRows($custid, $trxDate, $nominal, $fee, $transNo, $helpdesk);
             });
         } catch (\Throwable $e) {
             return redirect()
@@ -227,6 +237,10 @@ class TopupCashController extends Controller
                     $q->whereRaw('TRIM(TRANSNO) = ?', [$transNo])
                         ->orWhereRaw('TRIM(NOREFF) = ?', [$transNo]);
                 })
+                ->where(function ($q) {
+                    $q->whereRaw('UPPER(TRIM(METODE)) = ?', [self::METODE_TOPUP])
+                        ->orWhereRaw('UPPER(TRIM(FIDBANK)) = ?', ['TOPUP']);
+                })
                 ->orderByDesc('TRXDATE')
                 ->orderByDesc('urut')
                 ->first();
@@ -239,6 +253,16 @@ class TopupCashController extends Controller
                     $fee = (int) $m[1];
                 }
                 $note = preg_replace('/\s*\|\s*Biaya:\d+.*$/i', '', $helpdesk);
+
+                $feeRow = DB::connection('sikeu')
+                    ->table(self::TRAN_TABLE)
+                    ->where('CUSTID', $custid)
+                    ->whereRaw('TRIM(TRANSNO) = ?', [trim((string) ($tran->TRANSNO ?? $transNo))])
+                    ->whereRaw('UPPER(TRIM(METODE)) = ?', [self::METODE_FEE])
+                    ->first();
+                if ($feeRow) {
+                    $fee = (int) ($feeRow->DEBET ?? 0);
+                }
             }
         }
 
@@ -271,29 +295,39 @@ class TopupCashController extends Controller
         return $pdf->stream('kuitansi-uang-saku-' . $transNo . '.pdf');
     }
 
-    private function insertTopupRow(
+    private function insertTopupRows(
         int $custid,
-        string $metode,
         Carbon $trxDate,
         int $nominal,
+        int $fee,
         string $transNo,
         string $helpdesk
     ): void {
-        $payload = [
+        $common = [
             'CUSTID' => $custid,
-            'METODE' => $metode,
             'TRXDATE' => $trxDate->format('Y-m-d H:i:s'),
-            'KREDIT' => $nominal,
-            'DEBET' => 0,
-            'TRANSNO' => $transNo,
-            'NOREFF' => $transNo,
-            'HELPDESK' => $helpdesk,
-            'FIDBANK' => 'TOPUP',
+            'NOREFF' => self::NOREFF_CHANNEL,
+            'FIDBANK' => self::FIDBANK,
             'KDCHANNEL' => 0,
             'REFFBANK' => '',
+            'TRANSNO' => $transNo,
         ];
 
-        DB::connection('sikeu')->table(self::TRAN_TABLE)->insert($payload);
+        DB::connection('sikeu')->table(self::TRAN_TABLE)->insert(array_merge($common, [
+            'METODE' => self::METODE_TOPUP,
+            'KREDIT' => $nominal,
+            'DEBET' => 0,
+            'HELPDESK' => $helpdesk !== '' ? $helpdesk : null,
+        ]));
+
+        if ($fee > 0) {
+            DB::connection('sikeu')->table(self::TRAN_TABLE)->insert(array_merge($common, [
+                'METODE' => self::METODE_FEE,
+                'KREDIT' => 0,
+                'DEBET' => $fee,
+                'HELPDESK' => null,
+            ]));
+        }
     }
 
     private function buildHelpdesk(string $note, int $fee, string $user = ''): string
@@ -325,27 +359,16 @@ class TopupCashController extends Controller
         return now();
     }
 
-    /** Format: YYYYMMDD + urut 3 digit, contoh 20260706001 */
+    /** Format: WEB + YYYYMMDD + urut 5 digit, contoh WEB2026030300002 */
     private function generateTransNo(?Carbon $trxDate = null): string
     {
-        $prefix = ($trxDate ?? now())->format('Ymd');
+        $prefix = self::NOREFF_CHANNEL . ($trxDate ?? now())->format('Ymd');
 
         $last = DB::connection('sikeu')
             ->table(self::TRAN_TABLE)
-            ->where(function ($q) use ($prefix) {
-                $q->whereRaw('TRIM(TRANSNO) LIKE ?', [$prefix . '%'])
-                    ->orWhereRaw('TRIM(NOREFF) LIKE ?', [$prefix . '%']);
-            })
+            ->where('TRANSNO', 'like', $prefix . '%')
             ->orderByDesc('TRANSNO')
             ->value('TRANSNO');
-
-        if ($last === null || $last === '') {
-            $last = DB::connection('sikeu')
-                ->table(self::TRAN_TABLE)
-                ->whereRaw('TRIM(NOREFF) LIKE ?', [$prefix . '%'])
-                ->orderByDesc('NOREFF')
-                ->value('NOREFF');
-        }
 
         $seq = 1;
         if ($last !== null && $last !== '') {
@@ -358,7 +381,7 @@ class TopupCashController extends Controller
             }
         }
 
-        return $prefix . str_pad((string) $seq, 3, '0', STR_PAD_LEFT);
+        return $prefix . str_pad((string) $seq, self::TRANSNO_SEQ_LEN, '0', STR_PAD_LEFT);
     }
 
     private function fetchSaldo(int $custid): int

@@ -243,6 +243,8 @@ Route::middleware(['web', 'dummy.auth'])->group(function () {
         Route::post('/topup-cash', [TopupCashController::class, 'store'])->name('topup_cash.store');
         Route::post('/topup-cash/kuitansi', [TopupCashController::class, 'printKuitansi'])->name('topup_cash.kuitansi');
         Route::get('/pindah-saldo', [PindahSaldoController::class, 'index'])->name('pindah_saldo');
+        Route::get('/pindah-saldo/saldo', [PindahSaldoController::class, 'saldo'])->name('pindah_saldo.saldo');
+        Route::get('/pindah-saldo/batch-saldo', [PindahSaldoController::class, 'batchSaldo'])->name('pindah_saldo.batch_saldo');
         Route::post('/pindah-saldo', [PindahSaldoController::class, 'store'])->name('pindah_saldo.store');
         Route::get('/rekap-keluar-uang-saku', [RekapKeluarUangSakuController::class, 'index'])->name('rekap_keluar_uang_saku');
         Route::post('/rekap-keluar-uang-saku/cetak', [RekapKeluarUangSakuController::class, 'printRekap'])->name('rekap_keluar_uang_saku.cetak');

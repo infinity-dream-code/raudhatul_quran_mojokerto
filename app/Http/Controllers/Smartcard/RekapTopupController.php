@@ -20,6 +20,12 @@ class RekapTopupController extends Controller
 
     private const TRAN_TABLE = 'sccttran_cashless';
 
+    private const METODE_TOPUP = 'TOP UP CASHLESS';
+
+    private const METODE_FEE = 'ADMIN FEE';
+
+    private const FIDBANK = '1140002';
+
     public function index(Request $request): View
     {
         $isSearch = $request->boolean('search');
@@ -91,7 +97,20 @@ class RekapTopupController extends Controller
             ->table(self::TRAN_TABLE . ' as t')
             ->join('scctcust', 't.CUSTID', '=', 'scctcust.CUSTID')
             ->leftJoin('mst_kelas', DB::raw('CAST(mst_kelas.id AS CHAR)'), '=', DB::raw('TRIM(scctcust.CODE03)'))
-            ->whereRaw('UPPER(TRIM(t.FIDBANK)) = ?', ['TOPUP'])
+            ->leftJoin(self::TRAN_TABLE . ' as fee', function ($join) {
+                $join->on('fee.TRANSNO', '=', 't.TRANSNO')
+                    ->on('fee.CUSTID', '=', 't.CUSTID')
+                    ->whereRaw('UPPER(TRIM(fee.METODE)) = ?', [self::METODE_FEE]);
+            })
+            ->where(function ($q) {
+                $q->where(function ($q2) {
+                    $q2->whereRaw('UPPER(TRIM(t.METODE)) = ?', [self::METODE_TOPUP])
+                        ->whereRaw('TRIM(t.FIDBANK) = ?', [self::FIDBANK]);
+                })->orWhere(function ($q2) {
+                    $q2->whereRaw('UPPER(TRIM(t.FIDBANK)) = ?', ['TOPUP'])
+                        ->where('t.KREDIT', '>', 0);
+                });
+            })
             ->where('t.KREDIT', '>', 0);
 
         $this->applySchoolScope($query);
@@ -110,6 +129,7 @@ class RekapTopupController extends Controller
             DB::raw('COALESCE(NULLIF(TRIM(t.TRANSNO), \'\'), NULLIF(TRIM(t.NOREFF), \'\'), \'-\') as no_transaksi'),
             't.HELPDESK as helpdesk',
             't.METODE as metode',
+            DB::raw('CAST(COALESCE(fee.DEBET, 0) AS SIGNED) as fee_debet'),
             DB::raw('COALESCE(NULLIF(TRIM(mst_kelas.jenjang), \'\'), TRIM(scctcust.DESC02), \'-\') as kelas'),
             DB::raw('COALESCE(NULLIF(TRIM(mst_kelas.kelas), \'\'), TRIM(scctcust.DESC03), \'-\') as kelompok'),
             DB::raw('COALESCE(NULLIF(TRIM(scctcust.CODE04), \'\'), \'-\') as gender'),
@@ -130,7 +150,10 @@ class RekapTopupController extends Controller
     private function mapRow(object $row): object
     {
         $topup = (int) ($row->topup ?? 0);
-        $fee = $this->parseFee((string) ($row->helpdesk ?? ''), (string) ($row->metode ?? ''));
+        $fee = (int) ($row->fee_debet ?? 0);
+        if ($fee <= 0) {
+            $fee = $this->parseFee((string) ($row->helpdesk ?? ''), (string) ($row->metode ?? ''));
+        }
         $row->fee = $fee;
         $row->total = $topup + $fee;
         $row->user = $this->parseUser((string) ($row->helpdesk ?? ''));
@@ -164,13 +187,14 @@ class RekapTopupController extends Controller
                 'CAST(COALESCE(SUM(t.KREDIT), 0) AS SIGNED) as topup_sum,
                 CAST(COALESCE(SUM(
                     CASE
+                        WHEN COALESCE(fee.DEBET, 0) > 0 THEN CAST(fee.DEBET AS SIGNED)
                         WHEN t.HELPDESK LIKE ? THEN
                             CAST(TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(t.HELPDESK, \'Biaya:\', -1), \'|\', 1)) AS SIGNED)
-                        WHEN UPPER(TRIM(t.METODE)) = \'CASH\' THEN ?
+                        WHEN UPPER(TRIM(t.METODE)) IN (\'CASH\', ?) THEN ?
                         ELSE 0
                     END
                 ), 0) AS SIGNED) as fee_sum',
-                ['%Biaya:%', $cashFee]
+                ['%Biaya:%', self::METODE_TOPUP, $cashFee]
             )
             ->first();
 
@@ -200,7 +224,9 @@ class RekapTopupController extends Controller
             return (int) $m[1];
         }
 
-        return strcasecmp(trim($metode), 'Cash') === 0 ? self::CASH_FEE : 0;
+        return strcasecmp(trim($metode), 'Cash') === 0 || strcasecmp(trim($metode), self::METODE_TOPUP) === 0
+            ? self::CASH_FEE
+            : 0;
     }
 
     private function parseUser(string $helpdesk): string

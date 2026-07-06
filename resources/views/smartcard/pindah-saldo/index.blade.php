@@ -124,7 +124,7 @@
                     <div class="ps-table-head">
                         <div class="sc-table-title">Daftar Siswa</div>
                         @if ($isSearch ?? false)
-                            <span class="ps-count-badge">{{ ($siswaPaginator ?? null)?->total() ?? 0 }} siswa</span>
+                            <span class="ps-count-badge">Halaman {{ ($siswaPaginator ?? null)?->currentPage() ?? 1 }}</span>
                         @endif
                     </div>
                     <div class="sc-table-wrap ps-table-wrap">
@@ -133,8 +133,7 @@
                                 <tr>
                                     <th style="width:110px;">NIS</th>
                                     <th>Nama Siswa</th>
-                                    <th style="text-align:right;width:110px;">Saldo SPP</th>
-                                    <th style="text-align:right;width:110px;">Uang Saku</th>
+                                    <th style="text-align:right;width:120px;">Saldo SPP</th>
                                     <th style="width:80px;">Kelas</th>
                                     <th style="width:90px;">Kelompok</th>
                                 </tr>
@@ -147,30 +146,28 @@
                                             data-custid="{{ (int) ($row->custid ?? 0) }}"
                                             data-nis="{{ $row->nis ?? '' }}"
                                             data-nama="{{ $row->nama ?? '' }}"
-                                            data-saldo-spp="{{ (int) ($row->saldo_spp ?? 0) }}"
-                                            data-saldo-cashless="{{ (int) ($row->saldo_cashless ?? 0) }}">
+                                            data-saldo-spp="">
                                             <td><span class="ps-nis">{{ $row->nis ?? '—' }}</span></td>
                                             <td>{{ $row->nama ?? '—' }}</td>
-                                            <td style="text-align:right;"><span class="ps-saldo-spp">{{ number_format((int) ($row->saldo_spp ?? 0), 0, ',', '.') }}</span></td>
-                                            <td style="text-align:right;"><span class="ps-saldo-cashless">{{ number_format((int) ($row->saldo_cashless ?? 0), 0, ',', '.') }}</span></td>
+                                            <td style="text-align:right;"><span class="ps-saldo-spp ps-saldo-pending">…</span></td>
                                             <td>{{ $row->kelas ?? '—' }}</td>
                                             <td>{{ $row->kelompok ?? '—' }}</td>
                                         </tr>
                                     @empty
-                                        <tr><td colspan="6" class="sc-empty">Tidak ada data siswa.</td></tr>
+                                        <tr><td colspan="5" class="sc-empty">Tidak ada data siswa.</td></tr>
                                     @endforelse
                                 @else
                                     <tr>
-                                        <td colspan="6" class="sc-empty">Klik <strong>Cari</strong> untuk menampilkan daftar siswa (10 per halaman).</td>
+                                        <td colspan="5" class="sc-empty">Klik <strong>Cari</strong> untuk menampilkan daftar siswa (10 per halaman).</td>
                                     </tr>
                                 @endif
                             </tbody>
                         </table>
                     </div>
 
-                    @if (($isSearch ?? false) && ($siswaPaginator ?? null) && $siswaPaginator->total() > 0)
+                    @if (($isSearch ?? false) && ($siswaPaginator ?? null) && count($siswaPaginator->items()) > 0)
                         <div class="ps-table-footer">
-                            <div>Menampilkan {{ $siswaPaginator->firstItem() }}–{{ $siswaPaginator->lastItem() }} dari {{ $siswaPaginator->total() }} siswa</div>
+                            <div>Halaman {{ $siswaPaginator->currentPage() }} — {{ count($siswaPaginator->items()) }} siswa</div>
                             @if ($siswaPaginator->hasPages())
                                 <div class="ps-table-pages">
                                     @if ($siswaPaginator->onFirstPage())
@@ -309,6 +306,8 @@
     <script>
         (function () {
             const siswaSearchUrl = @json(route('keu.manual.siswa_search'));
+            const saldoUrl = @json(route('smartcard.pindah_saldo.saldo'));
+            const batchSaldoUrl = @json(route('smartcard.pindah_saldo.batch_saldo'));
             const adminFee = {{ (int) ($adminFee ?? 1000) }};
             const siswaInput = document.getElementById('siswaSearchInput');
             const custidHidden = document.getElementById('custidHidden');
@@ -345,13 +344,39 @@
                 updateTotalPotong();
             };
 
-            const pickSiswa = function (custid, nis, nama, saldoSpp, saldoCashless) {
+            let saldoReq = 0;
+
+            const loadSaldo = function (cid, fallbackSpp) {
+                const id = parseInt(cid || '0', 10);
+                if (id <= 0) return;
+                if (saldoSppDisplay && fallbackSpp !== undefined) {
+                    saldoSppDisplay.value = formatRp(fallbackSpp || 0);
+                }
+                if (saldoCashlessDisplay) saldoCashlessDisplay.value = '…';
+                const seq = ++saldoReq;
+                fetch(saldoUrl + '?custid=' + encodeURIComponent(id), {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin',
+                })
+                    .then(function (res) { return res.json(); })
+                    .then(function (json) {
+                        if (seq !== saldoReq || !json.ok || !json.data) return;
+                        pickSiswa(json.data.custid, json.data.nis, json.data.nama, json.data.saldo_spp, json.data.saldo_cashless, false);
+                    })
+                    .catch(function () {
+                        if (seq !== saldoReq) return;
+                        if (saldoCashlessDisplay) saldoCashlessDisplay.value = '0';
+                    });
+            };
+
+            const pickSiswa = function (custid, nis, nama, saldoSpp, saldoCashless, focusNominal) {
+                if (focusNominal === undefined) focusNominal = true;
                 if (custidHidden) custidHidden.value = custid || '';
                 if (siswaInput) siswaInput.value = nis || '';
                 if (namaSiswa) namaSiswa.value = nama || '';
                 if (saldoSppDisplay) saldoSppDisplay.value = formatRp(saldoSpp || 0);
                 if (saldoCashlessDisplay) saldoCashlessDisplay.value = formatRp(saldoCashless || 0);
-                if (nominalPindah) nominalPindah.value = '';
+                if (nominalPindah && focusNominal) nominalPindah.value = '';
                 if (btnPindah) btnPindah.disabled = parseInt(custid || '0', 10) <= 0;
                 syncHidden();
             };
@@ -404,9 +429,10 @@
                         row.getAttribute('data-nis'),
                         row.getAttribute('data-nama'),
                         row.getAttribute('data-saldo-spp'),
-                        row.getAttribute('data-saldo-cashless')
+                        0,
+                        true
                     );
-                    nominalPindah?.focus();
+                    loadSaldo(row.getAttribute('data-custid'), row.getAttribute('data-saldo-spp'));
                 });
             }
 
@@ -421,9 +447,44 @@
                 siswaList.addEventListener('click', function (e) {
                     const btn = e.target.closest('button[data-cid]');
                     if (!btn) return;
-                    pickSiswa(btn.getAttribute('data-cid'), btn.getAttribute('data-nis'), btn.getAttribute('data-nmcust'), 0, 0);
+                    pickSiswa(btn.getAttribute('data-cid'), btn.getAttribute('data-nis'), btn.getAttribute('data-nmcust'), 0, 0, true);
+                    loadSaldo(btn.getAttribute('data-cid'));
                     closeList();
                 });
+
+                const fetchSiswa = function (q) {
+                    const query = String(q || '').trim();
+                    if (query.length < 2) {
+                        closeList();
+                        return;
+                    }
+                    const seq = ++searchSeq;
+                    openDropdown();
+                    siswaList.innerHTML = '<div style="padding:10px 14px;color:#6b7280;font-size:13px;">Mencari…</div>';
+                    siswaList.style.display = 'block';
+                    fetch(siswaSearchUrl + '?mode=nis&q=' + encodeURIComponent(query), {
+                        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                        credentials: 'same-origin',
+                    })
+                        .then(function (res) { return res.json(); })
+                        .then(function (json) {
+                            if (seq !== searchSeq) return;
+                            const rows = Array.isArray(json.rows) ? json.rows : [];
+                            if (!rows.length) {
+                                siswaList.innerHTML = '<div style="padding:10px 14px;color:#6b7280;font-size:13px;">Siswa tidak ditemukan.</div>';
+                            } else {
+                                siswaList.innerHTML = rows.map(function (r) {
+                                    return '<button type="button" class="ps-auto-item" data-cid="' + r.cid + '" data-nis="' + (r.nocust || '') + '" data-nmcust="' + (r.nmcust || '').replace(/"/g, '&quot;') + '">' + (r.label || '').replace(/</g, '&lt;') + '</button>';
+                                }).join('');
+                            }
+                            siswaList.style.display = 'block';
+                        })
+                        .catch(function () {
+                            if (seq !== searchSeq) return;
+                            siswaList.innerHTML = '<div style="padding:10px 14px;color:#b91c1c;font-size:13px;">Gagal memuat data siswa.</div>';
+                            siswaList.style.display = 'block';
+                        });
+                };
 
                 siswaInput.addEventListener('input', function () {
                     custidHidden.value = '';
@@ -435,27 +496,12 @@
                     clearTimeout(searchTimer);
                     const q = String(siswaInput.value || '').trim();
                     if (q.length < 2) { closeList(); return; }
-                    searchTimer = setTimeout(function () {
-                        const seq = ++searchSeq;
-                        openDropdown();
-                        fetch(siswaSearchUrl + '?mode=nis&q=' + encodeURIComponent(q), {
-                            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                            credentials: 'same-origin',
-                        })
-                            .then(function (res) { return res.json(); })
-                            .then(function (json) {
-                                if (seq !== searchSeq) return;
-                                const rows = Array.isArray(json.rows) ? json.rows : [];
-                                if (!rows.length) {
-                                    siswaList.innerHTML = '<div style="padding:10px 14px;color:#6b7280;font-size:13px;">Siswa tidak ditemukan.</div>';
-                                } else {
-                                    siswaList.innerHTML = rows.map(function (r) {
-                                        return '<button type="button" class="ps-auto-item" data-cid="' + r.cid + '" data-nis="' + (r.nocust || '') + '" data-nmcust="' + (r.nmcust || '').replace(/"/g, '&quot;') + '">' + (r.label || '').replace(/</g, '&lt;') + '</button>';
-                                    }).join('');
-                                }
-                                siswaList.style.display = 'block';
-                            });
-                    }, 400);
+                    searchTimer = setTimeout(function () { fetchSiswa(q); }, 550);
+                });
+
+                siswaInput.addEventListener('focus', function () {
+                    const q = String(siswaInput.value || '').trim();
+                    if (q.length >= 2) fetchSiswa(q);
                 });
 
                 document.addEventListener('click', function (e) {
@@ -466,6 +512,46 @@
             if (tanggalManual) tanggalManual.addEventListener('change', syncHidden);
             if (noteInput) noteInput.addEventListener('input', syncHidden);
             syncHidden();
+
+            const loadTableSaldos = function () {
+                const rows = document.querySelectorAll('#psTableSiswa tbody tr.ps-row-pick[data-custid]');
+                if (!rows.length) return;
+                const ids = [];
+                rows.forEach(function (row) {
+                    const id = parseInt(row.getAttribute('data-custid') || '0', 10);
+                    if (id > 0) ids.push(id);
+                });
+                if (!ids.length) return;
+                fetch(batchSaldoUrl + '?custids=' + encodeURIComponent(ids.join(',')), {
+                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    credentials: 'same-origin',
+                })
+                    .then(function (res) { return res.json(); })
+                    .then(function (json) {
+                        if (!json.ok || !json.saldo_spp) return;
+                        rows.forEach(function (row) {
+                            const id = parseInt(row.getAttribute('data-custid') || '0', 10);
+                            const saldo = parseInt(json.saldo_spp[id] ?? json.saldo_spp[String(id)] ?? 0, 10) || 0;
+                            row.setAttribute('data-saldo-spp', String(saldo));
+                            const cell = row.querySelector('.ps-saldo-spp');
+                            if (cell) {
+                                cell.textContent = formatRp(saldo);
+                                cell.classList.remove('ps-saldo-pending');
+                            }
+                        });
+                    })
+                    .catch(function () {
+                        rows.forEach(function (row) {
+                            const cell = row.querySelector('.ps-saldo-spp');
+                            if (cell) {
+                                cell.textContent = '0';
+                                cell.classList.remove('ps-saldo-pending');
+                            }
+                        });
+                    });
+            };
+
+            loadTableSaldos();
         })();
     </script>
 @endsection

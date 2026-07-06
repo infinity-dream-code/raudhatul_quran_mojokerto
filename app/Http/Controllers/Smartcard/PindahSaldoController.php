@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Smartcard;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +22,14 @@ class PindahSaldoController extends Controller
     private const TRAN_SPP = 'sccttran';
 
     private const TRAN_CASHLESS = 'sccttran_cashless';
+
+    private const NOREFF_CHANNEL = 'WEB';
+
+    private const FIDBANK = '1140002';
+
+    private const METODE_SPP = 'CASHLESS 1 VA';
+
+    private const TRANSNO_SEQ_LEN = 5;
 
     public function index(Request $request): View
     {
@@ -48,9 +58,8 @@ class PindahSaldoController extends Controller
                 $perPage,
                 $page
             );
-            $siswaPaginator = new LengthAwarePaginator(
+            $siswaPaginator = new Paginator(
                 $result['rows'],
-                $result['total'],
                 $perPage,
                 $page,
                 ['path' => $request->url(), 'query' => $request->query()]
@@ -58,25 +67,19 @@ class PindahSaldoController extends Controller
         }
 
         if ($custid > 0) {
-            $fromList = $isSearch
+            $fromList = ($isSearch ?? false)
                 ? collect($siswaPaginator->items())->first(static fn ($r) => (int) ($r->custid ?? 0) === $custid)
                 : null;
 
-            if ($fromList) {
-                $nama = trim((string) ($fromList->nama ?? ''));
-                $nis = trim((string) ($fromList->nis ?? ''));
-                $saldoSpp = (int) ($fromList->saldo_spp ?? 0);
-                $saldoCashless = (int) ($fromList->saldo_cashless ?? 0);
+            $siswa = $fromList ?: $this->fetchSiswaByCustidInScope($custid);
+            if ($siswa) {
+                $nama = trim((string) ($siswa->nama ?? ''));
+                $nis = trim((string) ($siswa->nis ?? ''));
+                $saldos = $this->fetchSaldos($custid);
+                $saldoSpp = $saldos['saldo_spp'];
+                $saldoCashless = $saldos['saldo_cashless'];
             } else {
-                $siswa = $this->fetchSiswaByCustid($custid);
-                if ($siswa && $this->siswaInScope($custid)) {
-                    $nama = trim((string) ($siswa->nama ?? ''));
-                    $nis = trim((string) ($siswa->nis ?? ''));
-                    $saldoSpp = $this->fetchSaldoSpp($custid);
-                    $saldoCashless = $this->fetchSaldoCashless($custid);
-                } else {
-                    $custid = 0;
-                }
+                $custid = 0;
             }
         }
 
@@ -91,6 +94,60 @@ class PindahSaldoController extends Controller
             'note' => $note,
             'siswaPaginator' => $siswaPaginator,
             'adminFee' => self::ADMIN_FEE,
+        ]);
+    }
+
+    public function saldo(Request $request): JsonResponse
+    {
+        $custid = (int) $request->query('custid', 0);
+        if ($custid <= 0) {
+            return response()->json(['ok' => false, 'message' => 'Siswa tidak valid.'], 422);
+        }
+
+        $siswa = $this->fetchSiswaByCustidInScope($custid);
+        if (!$siswa) {
+            return response()->json(['ok' => false, 'message' => 'Siswa tidak ditemukan.'], 404);
+        }
+
+        $saldos = $this->fetchSaldos($custid);
+
+        return response()->json([
+            'ok' => true,
+            'data' => [
+                'custid' => $custid,
+                'nis' => trim((string) ($siswa->nis ?? '')),
+                'nama' => trim((string) ($siswa->nama ?? '')),
+                'saldo_spp' => $saldos['saldo_spp'],
+                'saldo_cashless' => $saldos['saldo_cashless'],
+            ],
+        ]);
+    }
+
+    public function batchSaldo(Request $request): JsonResponse
+    {
+        $raw = trim((string) $request->query('custids', ''));
+        if ($raw === '') {
+            return response()->json(['ok' => true, 'saldo_spp' => []]);
+        }
+
+        $custids = array_values(array_unique(array_filter(array_map(
+            static fn ($id) => (int) $id,
+            preg_split('/\s*,\s*/', $raw) ?: []
+        ), static fn ($id) => $id > 0)));
+
+        $custids = array_slice($custids, 0, 20);
+        if ($custids === []) {
+            return response()->json(['ok' => true, 'saldo_spp' => []]);
+        }
+
+        $allowed = $this->filterCustidsInScope($custids);
+        if ($allowed === []) {
+            return response()->json(['ok' => true, 'saldo_spp' => []]);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'saldo_spp' => $this->fetchSaldoMap(self::TRAN_SPP, $allowed),
         ]);
     }
 
@@ -135,9 +192,7 @@ class PindahSaldoController extends Controller
 
         $trxDate = $this->resolveTrxDate($tanggalManual);
         $transNo = $this->generateTransNo($trxDate);
-        $user = trim((string) session('auth_username', session('auth_name', '')));
-        $helpdeskSpp = $this->buildHelpdeskSpp($user);
-        $helpdeskCashless = $this->buildHelpdeskCashless($note, $adminFee, $user);
+        $helpdeskCashless = $this->buildHelpdeskCashless($note, $adminFee, trim((string) session('auth_username', session('auth_name', ''))));
 
         try {
             DB::connection('sikeu')->transaction(function () use (
@@ -146,21 +201,20 @@ class PindahSaldoController extends Controller
                 $nominal,
                 $totalPotong,
                 $transNo,
-                $helpdeskSpp,
                 $helpdeskCashless
             ) {
                 DB::connection('sikeu')->table(self::TRAN_SPP)->insert([
                     'CUSTID' => $custid,
-                    'METODE' => 'PINDAH SALDO',
+                    'METODE' => self::METODE_SPP,
                     'TRXDATE' => $trxDate->format('Y-m-d H:i:s'),
-                    'NOREFF' => $transNo,
-                    'FIDBANK' => 'CASHLESS',
-                    'KDCHANNEL' => 11,
+                    'NOREFF' => self::NOREFF_CHANNEL,
+                    'FIDBANK' => self::FIDBANK,
+                    'KDCHANNEL' => 0,
                     'DEBET' => $totalPotong,
                     'KREDIT' => 0,
                     'REFFBANK' => '',
                     'TRANSNO' => $transNo,
-                    'HELPDESK' => $helpdeskSpp,
+                    'HELPDESK' => null,
                 ]);
 
                 DB::connection('sikeu')->table(self::TRAN_CASHLESS)->insert([
@@ -170,9 +224,9 @@ class PindahSaldoController extends Controller
                     'KREDIT' => $nominal,
                     'DEBET' => 0,
                     'TRANSNO' => $transNo,
-                    'NOREFF' => $transNo,
+                    'NOREFF' => self::NOREFF_CHANNEL,
                     'HELPDESK' => $helpdeskCashless,
-                    'FIDBANK' => 'PINDAH',
+                    'FIDBANK' => self::FIDBANK,
                     'KDCHANNEL' => 0,
                     'REFFBANK' => '',
                 ]);
@@ -181,12 +235,11 @@ class PindahSaldoController extends Controller
             return redirect()->back()->withInput()->with('smartcard_error', 'Gagal pindah saldo: ' . $e->getMessage());
         }
 
-        $saldoSppBaru = $this->fetchSaldoSpp($custid);
+        $saldoSppBaru = $saldoSpp - $totalPotong;
         $saldoCashlessBaru = $this->fetchSaldoCashless($custid);
 
         return redirect()
             ->route('smartcard.pindah_saldo', [
-                'search' => 1,
                 'custid' => $custid,
                 'nis' => trim((string) ($siswa->nis ?? '')),
                 'note' => $note,
@@ -197,14 +250,6 @@ class PindahSaldoController extends Controller
                 . '. Saldo SPP: Rp ' . number_format($saldoSppBaru, 0, ',', '.')
                 . ' | Uang saku: Rp ' . number_format($saldoCashlessBaru, 0, ',', '.')
             );
-    }
-
-    /** Kolom HELPDESK sccttran pendek — cukup simpan user (seperti data lama). */
-    private function buildHelpdeskSpp(string $user): string
-    {
-        $user = trim($user);
-
-        return mb_substr($user !== '' ? $user : 'pindah', 0, 20);
     }
 
     private function buildHelpdeskCashless(string $note, int $fee, string $user = ''): string
@@ -239,32 +284,49 @@ class PindahSaldoController extends Controller
 
     private function generateTransNo(Carbon $trxDate): string
     {
-        $prefix = $trxDate->format('Ymd');
+        $prefix = self::NOREFF_CHANNEL . $trxDate->format('Ymd');
 
         $lastSpp = DB::connection('sikeu')
             ->table(self::TRAN_SPP)
-            ->where(function ($q) use ($prefix) {
-                $q->whereRaw('TRIM(TRANSNO) LIKE ?', [$prefix . '%'])
-                    ->orWhereRaw('TRIM(NOREFF) LIKE ?', [$prefix . '%']);
-            })
+            ->where('TRANSNO', 'like', $prefix . '%')
             ->orderByDesc('TRANSNO')
             ->value('TRANSNO');
 
         $lastCash = DB::connection('sikeu')
             ->table(self::TRAN_CASHLESS)
-            ->where(function ($q) use ($prefix) {
-                $q->whereRaw('TRIM(TRANSNO) LIKE ?', [$prefix . '%'])
-                    ->orWhereRaw('TRIM(NOREFF) LIKE ?', [$prefix . '%']);
-            })
+            ->where('TRANSNO', 'like', $prefix . '%')
             ->orderByDesc('TRANSNO')
             ->value('TRANSNO');
 
-        $last = max(
+        $seq = max(
             $this->transNoSeqValue($lastSpp, $prefix),
             $this->transNoSeqValue($lastCash, $prefix)
+        ) + 1;
+
+        return $prefix . str_pad((string) $seq, self::TRANSNO_SEQ_LEN, '0', STR_PAD_LEFT);
+    }
+
+    /** @return array{saldo_spp: int, saldo_cashless: int} */
+    private function fetchSaldos(int $custid): array
+    {
+        $row = DB::connection('sikeu')->selectOne(
+            'SELECT
+                (SELECT CAST(COALESCE(SUM(KREDIT), 0) - COALESCE(SUM(DEBET), 0) AS SIGNED)
+                 FROM ' . self::TRAN_SPP . ' WHERE CUSTID = ?) AS saldo_spp,
+                (SELECT CAST(COALESCE(SUM(KREDIT), 0) - COALESCE(SUM(DEBET), 0) AS SIGNED)
+                 FROM ' . self::TRAN_CASHLESS . ' WHERE CUSTID = ?) AS saldo_cashless',
+            [$custid, $custid]
         );
 
-        return $prefix . str_pad((string) ($last + 1), 3, '0', STR_PAD_LEFT);
+        return [
+            'saldo_spp' => (int) ($row->saldo_spp ?? 0),
+            'saldo_cashless' => (int) ($row->saldo_cashless ?? 0),
+        ];
+    }
+
+    private function fetchSaldoSpp(int $custid): int
+    {
+        return $this->fetchSaldos($custid)['saldo_spp'];
     }
 
     private function transNoSeqValue(?string $transNo, string $prefix): int
@@ -283,23 +345,17 @@ class PindahSaldoController extends Controller
         return ctype_digit($tail) ? (int) $tail : 0;
     }
 
-    private function fetchSaldoSpp(int $custid): int
+    private function fetchSaldoCashless(int $custid): int
     {
-        $row = DB::connection('sikeu')
-            ->table(self::TRAN_SPP)
-            ->where('CUSTID', $custid)
-            ->selectRaw('CAST(COALESCE(SUM(KREDIT), 0) AS SIGNED) - CAST(COALESCE(SUM(DEBET), 0) AS SIGNED) AS saldo')
-            ->first();
-
-        return (int) ($row->saldo ?? 0);
+        return $this->fetchSaldoCashlessOnly($custid);
     }
 
-    private function fetchSaldoCashless(int $custid): int
+    private function fetchSaldoCashlessOnly(int $custid): int
     {
         $row = DB::connection('sikeu')
             ->table(self::TRAN_CASHLESS)
             ->where('CUSTID', $custid)
-            ->selectRaw('CAST(COALESCE(SUM(KREDIT), 0) AS SIGNED) - CAST(COALESCE(SUM(DEBET), 0) AS SIGNED) AS saldo')
+            ->selectRaw('CAST(COALESCE(SUM(KREDIT), 0) - COALESCE(SUM(DEBET), 0) AS SIGNED) AS saldo')
             ->first();
 
         return (int) ($row->saldo ?? 0);
@@ -318,13 +374,43 @@ class PindahSaldoController extends Controller
             ]);
     }
 
+    private function fetchSiswaByCustidInScope(int $custid): ?object
+    {
+        $query = DB::connection('sikeu')
+            ->table('scctcust')
+            ->where('scctcust.CUSTID', $custid);
+
+        $this->applySchoolScope($query);
+
+        return $query->first([
+            'scctcust.CUSTID as custid',
+            'scctcust.NOCUST as nis',
+            'scctcust.NMCUST as nama',
+        ]);
+    }
+
+    /** @param list<int> $custids @return list<int> */
+    private function filterCustidsInScope(array $custids): array
+    {
+        if ($custids === []) {
+            return [];
+        }
+
+        $query = DB::connection('sikeu')
+            ->table('scctcust')
+            ->whereIn('CUSTID', $custids);
+
+        $this->applySchoolScope($query);
+
+        return $query->pluck('CUSTID')->map(static fn ($id) => (int) $id)->all();
+    }
+
     /**
-     * @return array{rows: Collection, total: int}
+     * @return array{rows: Collection}
      */
     private function fetchSiswaRowsPaginated(?string $nisFilter, int $perPage, int $page): array
     {
         $base = $this->buildSiswaListQuery($nisFilter);
-        $total = (int) (clone $base)->count('scctcust.CUSTID');
 
         $rows = (clone $base)
             ->select([
@@ -337,20 +423,19 @@ class PindahSaldoController extends Controller
             ])
             ->orderBy('scctcust.NMCUST')
             ->offset(max(0, ($page - 1) * $perPage))
-            ->limit($perPage)
+            ->limit($perPage + 1)
             ->get();
 
-        $custids = $rows->pluck('custid')->map(static fn ($id) => (int) $id)->filter(static fn ($id) => $id > 0)->values()->all();
-        $saldoSppMap = $this->fetchSaldoMap(self::TRAN_SPP, $custids);
-        $saldoCashlessMap = $this->fetchSaldoMap(self::TRAN_CASHLESS, $custids);
-
-        foreach ($rows as $row) {
-            $cid = (int) ($row->custid ?? 0);
-            $row->saldo_spp = $saldoSppMap[$cid] ?? 0;
-            $row->saldo_cashless = $saldoCashlessMap[$cid] ?? 0;
+        if ($rows->count() > $perPage) {
+            $rows = $rows->slice(0, $perPage)->values();
         }
 
-        return ['rows' => $rows, 'total' => $total];
+        foreach ($rows as $row) {
+            $row->saldo_spp = null;
+            $row->saldo_cashless = 0;
+        }
+
+        return ['rows' => $rows];
     }
 
     private function buildSiswaListQuery(?string $nisFilter)
