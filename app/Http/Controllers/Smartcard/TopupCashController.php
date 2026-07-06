@@ -27,7 +27,8 @@ class TopupCashController extends Controller
 
     private const METODE_TOPUP = 'TOP UP CASH';
 
-    private const METODE_FEE = 'biaya admin top up cash';
+    /** Max 15 char (kolom METODE sccttran_cashless, sama seperti TOP UP CASHLESS) */
+    private const METODE_FEE = 'BIAYA TOPUP FEE';
 
     private const TRANSNO_SEQ_LEN = 5;
 
@@ -276,7 +277,8 @@ class TopupCashController extends Controller
                     ->whereRaw('TRIM(TRANSNO) = ?', [trim((string) ($tran->TRANSNO ?? $transNo))])
                     ->where(function ($q) {
                         $q->whereRaw('UPPER(TRIM(METODE)) = ?', [self::METODE_FEE])
-                            ->orWhereRaw('UPPER(TRIM(METODE)) = ?', ['ADMIN FEE']);
+                            ->orWhereRaw('UPPER(TRIM(METODE)) = ?', ['ADMIN FEE'])
+                            ->orWhereRaw('UPPER(TRIM(METODE)) = ?', ['BIAYA ADMIN TOPUP']);
                     })
                     ->first();
                 if ($feeRow) {

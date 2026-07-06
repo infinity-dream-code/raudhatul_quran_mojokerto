@@ -22,7 +22,8 @@ class RekapTopupController extends Controller
 
     private const METODE_TOPUP = 'TOP UP CASH';
 
-    private const METODE_FEE = 'biaya admin top up cash';
+    /** Max 15 char (kolom METODE sccttran_cashless) */
+    private const METODE_FEE = 'BIAYA TOPUP FEE';
 
     private const FIDBANK = '1140002';
 
@@ -102,7 +103,8 @@ class RekapTopupController extends Controller
                     ->on('fee.CUSTID', '=', 't.CUSTID')
                     ->where(function ($q) {
                         $q->whereRaw('UPPER(TRIM(fee.METODE)) = ?', [self::METODE_FEE])
-                            ->orWhereRaw('UPPER(TRIM(fee.METODE)) = ?', ['ADMIN FEE']);
+                            ->orWhereRaw('UPPER(TRIM(fee.METODE)) = ?', ['ADMIN FEE'])
+                            ->orWhereRaw('UPPER(TRIM(fee.METODE)) = ?', ['BIAYA ADMIN TOPUP']);
                     });
             })
             ->where(function ($q) {
