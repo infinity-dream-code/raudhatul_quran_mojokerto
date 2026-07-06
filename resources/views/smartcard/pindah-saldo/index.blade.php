@@ -56,30 +56,44 @@
                                         <input type="text" id="saldoSppDisplay" value="{{ number_format((int) ($saldoSpp ?? 0), 0, ',', '.') }}" readonly tabindex="-1">
                                     </div>
                                 </div>
-                                <div class="ps-cell">
+                                <div class="ps-cell ps-cell-end">
                                     <div class="ps-cell-label">Saldo Uang Saku</div>
                                     <div class="ps-cell-input ps-cell-saldo-cashless">
                                         <input type="text" id="saldoCashlessDisplay" value="{{ number_format((int) ($saldoCashless ?? 0), 0, ',', '.') }}" readonly tabindex="-1">
                                     </div>
                                 </div>
-                                <div class="ps-cell ps-cell-pindah">
+
+                                <div class="ps-cell ps-cell-row2 ps-cell-pindah">
                                     <div class="ps-cell-label">PINDAH</div>
                                     <div class="ps-cell-input ps-cell-highlight">
                                         <input type="text" id="nominalPindah" inputmode="numeric" autocomplete="off"
                                                placeholder="0" form="psFormStore">
                                     </div>
                                 </div>
-                                <div class="ps-cell">
+                                <div class="ps-cell ps-cell-row2">
                                     <div class="ps-cell-label">Tgl Manual</div>
                                     <div class="ps-cell-input">
                                         <input type="date" id="tanggalManual" name="tanggal_manual"
                                                value="{{ ($tanggalManual ?? '') !== '0000-00-00' ? ($tanggalManual ?? '') : '' }}">
                                     </div>
                                 </div>
-                                <div class="ps-cell ps-cell-note">
+                                <div class="ps-cell ps-cell-row2">
                                     <div class="ps-cell-label">Keterangan</div>
                                     <div class="ps-cell-input">
                                         <input type="text" id="note" name="note" value="{{ $note ?? '' }}" placeholder="Catatan (opsional)">
+                                    </div>
+                                </div>
+                                <div class="ps-cell ps-cell-row2 ps-cell-end ps-cell-action">
+                                    <div class="ps-cell-label ps-cell-label-muted">Aksi</div>
+                                    <div class="ps-cell-input ps-cell-input-action">
+                                        <div class="ps-action-group">
+                                            <button type="submit" class="ps-action-btn ps-action-search">
+                                                <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Cari
+                                            </button>
+                                            <button type="submit" form="psFormStore" class="ps-action-btn ps-action-pindah" id="btnPindah" @disabled((int)($custid ?? 0) <= 0)>
+                                                <i class="fa-solid fa-right-left" aria-hidden="true"></i> Pindah
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -96,15 +110,6 @@
                                 <strong id="totalPotongDisplay">Rp 0</strong>
                             </div>
                         </div>
-                    </div>
-
-                    <div class="ps-actions">
-                        <button type="submit" class="sc-btn sc-btn-primary ps-btn">
-                            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Cari
-                        </button>
-                        <button type="submit" form="psFormStore" class="sc-btn sc-btn-success ps-btn" id="btnPindah" @disabled((int)($custid ?? 0) <= 0)>
-                            <i class="fa-solid fa-right-left" aria-hidden="true"></i> Pindah
-                        </button>
                     </div>
                 </form>
 
@@ -205,38 +210,58 @@
         }
         .ps-builder-panel {
             border: 1px solid #c4b5fd; border-radius: 14px; overflow: hidden;
-            margin-bottom: 20px; background: #fff; box-shadow: 0 4px 20px rgba(109, 40, 217, 0.08);
+            margin-bottom: 24px; background: #fff; box-shadow: 0 4px 20px rgba(109, 40, 217, 0.08);
         }
-        .ps-builder-scroll { overflow-x: auto; }
+        .ps-builder-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .ps-builder-grid {
             display: grid;
-            grid-template-columns: minmax(120px,1fr) minmax(140px,1.3fr) minmax(100px,0.9fr) minmax(110px,1fr) minmax(100px,0.9fr) minmax(120px,1fr) minmax(130px,1.1fr);
-            min-width: 960px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            min-width: 720px;
         }
-        .ps-cell { display: flex; flex-direction: column; border-right: 1px solid #e9d5ff; }
-        .ps-cell:last-child { border-right: 0; }
+        .ps-cell {
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #e9d5ff;
+            border-bottom: 1px solid #e9d5ff;
+        }
+        .ps-cell-end { border-right: 0; }
+        .ps-cell-row2 { border-bottom: 0; }
         .ps-cell-label {
             font-size: 12px; font-weight: 800; color: #5b21b6; letter-spacing: 0.06em; text-transform: uppercase;
             padding: 10px 12px; background: linear-gradient(180deg, #ede9fe 0%, #e9d5ff 100%);
-            border-bottom: 1px solid #ddd6fe;
+            border-bottom: 1px solid #ddd6fe; white-space: nowrap; min-height: 40px;
+            display: flex; align-items: center;
+        }
+        .ps-cell-label-muted {
+            color: #7c3aed;
+            background: linear-gradient(180deg, #f5f3ff 0%, #ede9fe 100%);
         }
         .ps-cell-input { flex: 1; min-height: 48px; display: flex; align-items: center; background: #fff; position: relative; }
         .ps-cell-input input { width: 100%; height: 48px; border: 0; padding: 0 12px; font-size: 14px; background: transparent; outline: none; }
+        .ps-cell-input-action { padding: 8px 10px; background: #faf5ff; min-height: 56px; }
+        .ps-action-group { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+        .ps-action-btn {
+            width: 100%; height: 38px; border: 0; border-radius: 8px; font-size: 13px; font-weight: 700;
+            cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+        }
+        .ps-action-search { background: #4f6ef7; color: #fff; }
+        .ps-action-search:hover { background: #4338ca; }
+        .ps-action-pindah { background: #059669; color: #fff; }
+        .ps-action-pindah:hover:not(:disabled) { background: #047857; }
+        .ps-action-pindah:disabled { opacity: 0.45; cursor: not-allowed; }
         .ps-cell-readonly input { background: #faf5ff; color: #4b5563; }
         .ps-cell-saldo-spp input { background: #eff6ff; font-weight: 700; color: #1d4ed8; text-align: right; }
         .ps-cell-saldo-cashless input { background: #f0fdf4; font-weight: 700; color: #047857; text-align: right; }
-        .ps-cell-highlight input { background: #fffbeb; font-weight: 700; color: #92400e; text-align: right; }
+        .ps-cell-highlight input { background: #fffbeb; font-weight: 700; color: #92400e; text-align: right; font-size: 15px; }
         .ps-summary-bar {
-            display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px;
-            padding: 12px 18px; background: linear-gradient(90deg, #faf5ff 0%, #f5f3ff 100%); border-top: 1px solid #e9d5ff;
+            display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px 32px;
+            padding: 14px 18px; background: linear-gradient(90deg, #faf5ff 0%, #f5f3ff 100%); border-top: 1px solid #e9d5ff;
         }
-        .ps-summary-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-        .ps-summary-label { color: #6b7280; font-weight: 600; }
-        .ps-summary-item strong { color: #5b21b6; font-size: 14px; }
-        .ps-summary-total strong { color: #b45309; font-size: 15px; }
-        .ps-summary-divider { width: 1px; height: 24px; background: #ddd6fe; }
-        .ps-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-bottom: 24px; }
-        .ps-btn { min-width: 140px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+        .ps-summary-item { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 13px; }
+        .ps-summary-label { color: #6b7280; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+        .ps-summary-item strong { color: #5b21b6; font-size: 16px; }
+        .ps-summary-total strong { color: #b45309; }
+        .ps-summary-divider { width: 1px; height: 36px; background: #ddd6fe; }
         .ps-hidden-form { display: none; }
         .ps-table-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
         .ps-count-badge { font-size: 12px; font-weight: 700; color: #6d28d9; background: #ede9fe; padding: 4px 10px; border-radius: 999px; }
@@ -271,6 +296,14 @@
             cursor: pointer; border-bottom: 1px solid #f3f4f6; font-size: 13px;
         }
         .ps-auto-item:hover { background: #f5f3ff; }
+        @media (min-width: 900px) {
+            .ps-action-group { flex-direction: row; }
+            .ps-action-btn { flex: 1; }
+        }
+        @media (max-width: 768px) {
+            .ps-builder-grid { min-width: 640px; }
+            .ps-summary-divider { display: none; }
+        }
     </style>
 
     <script>
