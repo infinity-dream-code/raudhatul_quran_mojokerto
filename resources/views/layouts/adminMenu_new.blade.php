@@ -178,6 +178,9 @@
                 <li class="menu-item {{ request()->routeIs('smartcard.topup_cash') ? 'active' : '' }}">
                     <a href="{{ route('smartcard.topup_cash') }}" class="menu-link"><div>TOPUP Cash</div></a>
                 </li>
+                <li class="menu-item {{ request()->routeIs('smartcard.pindah_saldo') ? 'active' : '' }}">
+                    <a href="{{ route('smartcard.pindah_saldo') }}" class="menu-link"><div>Pindah Saldo</div></a>
+                </li>
                 <li class="menu-item {{ request()->routeIs('smartcard.rekap_keluar_uang_saku') ? 'active' : '' }}">
                     <a href="{{ route('smartcard.rekap_keluar_uang_saku') }}" class="menu-link"><div>Rekap Keluar Uang Saku</div></a>
                 </li>
