@@ -7801,11 +7801,11 @@ function parseThnAkademikYearPair(string $thnAkademik): ?array
         return null;
     }
 
-    if (preg_match('/(\d{4})\s*[/\-]\s*(\d{4})/', $thnAkademik, $m)) {
+    if (preg_match('#(\d{4})\s*[/\-]\s*(\d{4})#', $thnAkademik, $m)) {
         return [$m[1], $m[2]];
     }
 
-    if (preg_match_all('/\d{4}/', $thnAkademik, $all) && count($all[0]) >= 2) {
+    if (preg_match_all('#\d{4}#', $thnAkademik, $all) && count($all[0]) >= 2) {
         return [$all[0][0], $all[0][1]];
     }
 

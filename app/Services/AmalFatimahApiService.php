@@ -1884,6 +1884,7 @@ class AmalFatimahApiService
 
     public function getBuatTagihan(array $filters, int $limit = 10, int $offset = 0): array
     {
+        $url = config('services.ws_raudhatul_quran.url');
         $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
         $token = $this->jwt->encode(['sub' => 'getBuatTagihan', 'rnd' => uniqid()], $jwtKey);
 
@@ -1907,11 +1908,10 @@ class AmalFatimahApiService
 
         $maxAttempts = 2;
         $lastMessage = 'Terjadi kesalahan saat menghubungi layanan';
-        $wsTimeout = max($this->wsTimeout(), 20);
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
             try {
-                $response = $this->wsPost($body, $wsTimeout);
+                $response = $this->wsPost($body);
                 $json = $response?->json();
                 if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 200) {
                     Log::info('[WS Amal Fatimah] getBuatTagihan success', [
@@ -1925,11 +1925,6 @@ class AmalFatimahApiService
                 }
 
                 $lastMessage = (string) ($json['message'] ?? 'Gagal memuat data');
-                if ($response === null) {
-                    $lastMessage = 'Web service tidak merespons (timeout/koneksi).';
-                } elseif ((int) ($json['status'] ?? 0) === 422) {
-                    $lastMessage = 'Method getBuatTagihan tidak tersedia di WS — perbarui ws.php di server.';
-                }
                 Log::warning('[WS Amal Fatimah] getBuatTagihan failed', [
                     'status' => $response?->status(),
                     'attempt' => $attempt,
@@ -1949,23 +1944,7 @@ class AmalFatimahApiService
             }
         }
 
-        $local = app(SikeuBuatTagihanService::class)->safeQuery($filters, $limit, $offset);
-        if ($local['ok'] ?? false) {
-            Log::info('[SikeuBuatTagihan] fallback DB success', [
-                'total_siswa' => $local['data']['total_siswa'] ?? null,
-                'ws_error' => $lastMessage,
-            ]);
-
-            return ['ok' => true, 'message' => '', 'data' => $local['data']];
-        }
-
-        $dbMessage = trim((string) ($local['message'] ?? ''));
-        $combined = $lastMessage;
-        if ($dbMessage !== '' && $dbMessage !== $lastMessage) {
-            $combined .= ' ' . $dbMessage;
-        }
-
-        return ['ok' => false, 'message' => $combined, 'data' => []];
+        return ['ok' => false, 'message' => $lastMessage, 'data' => []];
     }
 
     public function createBuatTagihan(array $payload): array
