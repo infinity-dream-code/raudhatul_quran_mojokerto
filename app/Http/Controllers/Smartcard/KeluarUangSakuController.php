@@ -80,10 +80,6 @@ class KeluarUangSakuController extends Controller
             }
         }
 
-        $historyPaginator = $custid > 0
-            ? $this->fetchHistoryPaginator($custid, max(1, (int) $request->query('hist_page', 1)), $request)
-            : new LengthAwarePaginator([], 0, $perPage, 1, ['path' => $request->url(), 'query' => $request->query()]);
-
         return view('smartcard.keluar-uang-saku.index', [
             'isSearch' => $isSearch,
             'custid' => $custid,
@@ -95,7 +91,6 @@ class KeluarUangSakuController extends Controller
             'activeCards' => $activeCards,
             'tanggalManual' => $tanggalManual,
             'siswaPaginator' => $siswaPaginator,
-            'historyPaginator' => $historyPaginator,
         ]);
     }
 
@@ -201,7 +196,6 @@ class KeluarUangSakuController extends Controller
                 'custid' => $custid,
                 'nis' => $nisFilter !== '' ? $nisFilter : trim((string) ($siswa->nis ?? '')),
                 'tanggal_manual' => $tanggalManual !== '' && $tanggalManual !== '0000-00-00' ? $tanggalManual : null,
-                'hist_page' => 1,
             ])
             ->with('smartcard_success', 'Pengeluaran uang saku berhasil. No: ' . $transNo . '. Saldo baru: Rp ' . number_format($saldoBaru, 0, ',', '.'));
     }

@@ -187,64 +187,6 @@
                         </div>
                     @endif
                 </div>
-
-                @if ((int) ($custid ?? 0) > 0)
-                    <div class="sc-table-section ku-history-section">
-                        <div class="ku-table-head">
-                            <div class="sc-table-title">History Transaksi — {{ $nama ?? '' }}</div>
-                            <span class="ku-count-badge">{{ $historyPaginator->total() ?? 0 }} baris</span>
-                        </div>
-                        <div class="sc-table-wrap ku-table-wrap ku-table-wrap-history">
-                            <table class="sc-table">
-                                <thead>
-                                    <tr>
-                                        <th>NIS</th>
-                                        <th>NAMA</th>
-                                        <th>Tanggal</th>
-                                        <th>METODE</th>
-                                        <th style="text-align:right;">MASUK</th>
-                                        <th style="text-align:right;">KELUAR</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @forelse (($historyPaginator ?? null)?->items() ?? [] as $h)
-                                        <tr>
-                                            <td>{{ $nis ?? '—' }}</td>
-                                            <td>{{ $nama ?? '—' }}</td>
-                                            <td>
-                                                @if (!empty($h->tgl_transaksi))
-                                                    {{ \Illuminate\Support\Carbon::parse($h->tgl_transaksi)->format('Y-m-d H:i:s') }}
-                                                @else — @endif
-                                            </td>
-                                            <td>{{ $h->metode ?? '—' }}</td>
-                                            <td style="text-align:right;color:#047857;font-weight:600;">{{ number_format((int)($h->masuk ?? 0), 0, ',', '.') }}</td>
-                                            <td style="text-align:right;color:#b91c1c;font-weight:600;">{{ number_format((int)($h->keluar ?? 0), 0, ',', '.') }}</td>
-                                        </tr>
-                                    @empty
-                                        <tr><td colspan="6" class="sc-empty">Belum ada transaksi.</td></tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
-                        </div>
-                        @if (($historyPaginator ?? null) && $historyPaginator->hasPages())
-                            <div class="ku-table-footer">
-                                <div>Halaman {{ $historyPaginator->currentPage() }} / {{ $historyPaginator->lastPage() }}</div>
-                                <div class="ku-table-pages">
-                                    @if ($historyPaginator->onFirstPage())
-                                        <span class="ku-page disabled">Sebelumnya</span>
-                                    @else
-                                        <a class="ku-page" href="{{ $historyPaginator->previousPageUrl() }}">Sebelumnya</a>
-                                    @endif
-                                    @if ($historyPaginator->hasMorePages())
-                                        <a class="ku-page" href="{{ $historyPaginator->nextPageUrl() }}">Selanjutnya</a>
-                                    @else
-                                        <span class="ku-page disabled">Selanjutnya</span>
-                                    @endif
-                                </div>
-                            </div>
-                        @endif
-                    </div>
-                @endif
             </div>
         </div>
     </div>
@@ -318,9 +260,6 @@
             -webkit-overflow-scrolling: touch;
             max-height: min(480px, 58vh);
         }
-        .ku-table-wrap-history {
-            max-height: min(360px, 42vh);
-        }
         .ku-col-expand { width: 44px; text-align: center; }
         .ku-expand-btn {
             width: 28px; height: 28px; border: 1px solid #c4b5fd; border-radius: 6px;
@@ -339,7 +278,6 @@
         .ku-mini-table { width: 100%; border-collapse: collapse; font-size: 13px; }
         .ku-mini-table th, .ku-mini-table td { border: 1px solid #e9d5ff; padding: 6px 8px; }
         .ku-mini-table th { background: #ede9fe; color: #5b21b6; font-weight: 700; }
-        .ku-history-section { margin-top: 24px; }
         .ku-table-footer {
             padding: 12px 4px 0; display: flex; justify-content: space-between; align-items: center;
             flex-wrap: wrap; gap: 8px; font-size: 12px; color: #6b7280;
