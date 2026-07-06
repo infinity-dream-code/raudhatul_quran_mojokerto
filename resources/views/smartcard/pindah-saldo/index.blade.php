@@ -22,7 +22,7 @@
                 <div class="ps-keterangan">
                     <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
                     <span>
-                        Ubah saldo <strong>sccttran</strong> (SPP) ke <strong>sccttran_cashless</strong> (uang saku),
+                        Pindah saldo <strong>SPP</strong> ke <strong>uang saku</strong>,
                         dipotong biaya admin <strong>Rp {{ number_format((int) ($adminFee ?? 1000), 0, ',', '.') }}</strong>.
                     </span>
                 </div>
