@@ -18,7 +18,7 @@ class TopupCashController extends Controller
 
     private const CASH_FEE = 2000;
 
-    private const TRAN_TABLE = 'scctrancashles';
+    private const TRAN_TABLE = 'sccttran_cashless';
 
     public function index(Request $request): View
     {
@@ -110,14 +110,13 @@ class TopupCashController extends Controller
 
         $trxDate = $this->resolveTrxDate($tanggalManual);
         $transNo = $this->generateTransNo($trxDate);
-        $teller = trim((string) session('auth_username', session('auth_name', 'BMI')));
 
         $fee = strcasecmp($metode, 'Cash') === 0 ? self::CASH_FEE : 0;
         $helpdesk = $this->buildHelpdesk($note, $fee);
 
         try {
-            DB::connection('sikeu')->transaction(function () use ($custid, $metode, $trxDate, $nominal, $transNo, $helpdesk, $teller) {
-                $this->insertTopupRow($custid, $metode, $trxDate, $nominal, $transNo, $helpdesk, $teller);
+            DB::connection('sikeu')->transaction(function () use ($custid, $metode, $trxDate, $nominal, $transNo, $helpdesk) {
+                $this->insertTopupRow($custid, $metode, $trxDate, $nominal, $transNo, $helpdesk);
             });
         } catch (\Throwable $e) {
             return redirect()
@@ -204,7 +203,7 @@ class TopupCashController extends Controller
             'fee' => $fee,
             'transNo' => $transNo,
             'trxDate' => Carbon::parse($trxDate),
-            'teller' => trim((string) ($tran->Teller ?? session('auth_name', 'BMI'))),
+            'teller' => session('auth_name', session('auth_username', 'BMI')),
             'note' => preg_replace('/\s*\|\s*Biaya:\d+.*$/i', '', $helpdesk),
         ])->setPaper('a5', 'portrait');
 
@@ -217,8 +216,7 @@ class TopupCashController extends Controller
         Carbon $trxDate,
         int $nominal,
         string $transNo,
-        string $helpdesk,
-        string $teller
+        string $helpdesk
     ): void {
         $payload = [
             'CUSTID' => $custid,
@@ -230,15 +228,11 @@ class TopupCashController extends Controller
             'NOREFF' => $transNo,
             'HELPDESK' => $helpdesk,
             'FIDBANK' => 'TOPUP',
-            'Teller' => $teller,
+            'KDCHANNEL' => 0,
+            'REFFBANK' => '',
         ];
 
-        try {
-            DB::connection('sikeu')->table(self::TRAN_TABLE)->insert($payload);
-        } catch (\Throwable $e) {
-            unset($payload['TRANSNO'], $payload['NOREFF'], $payload['Teller']);
-            DB::connection('sikeu')->table(self::TRAN_TABLE)->insert($payload);
-        }
+        DB::connection('sikeu')->table(self::TRAN_TABLE)->insert($payload);
     }
 
     private function buildHelpdesk(string $note, int $fee): string

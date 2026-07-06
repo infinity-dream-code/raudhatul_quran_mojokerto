@@ -25,71 +25,90 @@
                     <input type="hidden" name="search" value="1">
                     <input type="hidden" id="custidHidden" name="custid" value="{{ (int) ($custid ?? 0) }}">
 
-                    <div class="tc-form-grid">
-                        <div class="sc-field sc-field-nis">
-                            <label for="siswaSearchInput">NIS</label>
-                            <div id="siswaAutoWrap" class="sc-siswa-wrap">
-                                <div class="sc-control-wrap">
-                                    <input type="text" id="siswaSearchInput" name="siswa_search" autocomplete="off"
-                                           value="{{ $siswaLabel ?? '' }}" placeholder="Ketik NIS / nama">
+                    <div class="tc-builder-panel">
+                        <div class="tc-builder-scroll">
+                            <div class="tc-builder-grid">
+                                <div class="tc-cell sc-field-nis">
+                                    <div class="tc-cell-label">NIS</div>
+                                    <div id="siswaAutoWrap" class="sc-siswa-wrap tc-cell-input">
+                                        <input type="text" id="siswaSearchInput" name="siswa_search" autocomplete="off"
+                                               value="{{ $siswaLabel ?? '' }}" placeholder="Ketik NIS / nama">
+                                        <div id="siswaAutoList"></div>
+                                    </div>
                                 </div>
-                                <div id="siswaAutoList"></div>
+                                <div class="tc-cell">
+                                    <div class="tc-cell-label">NAMA</div>
+                                    <div class="tc-cell-input tc-cell-readonly">
+                                        <input type="text" id="namaSiswa" value="{{ $nama ?? '' }}" readonly tabindex="-1" placeholder="—">
+                                    </div>
+                                </div>
+                                <div class="tc-cell">
+                                    <div class="tc-cell-label">Metode</div>
+                                    <div class="tc-cell-input">
+                                        <select id="metode" name="metode">
+                                            <option value="Cash" @selected(($metode ?? 'Cash') === 'Cash')>Cash</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="tc-cell tc-cell-topup">
+                                    <div class="tc-cell-label">TOP UP</div>
+                                    <div class="tc-cell-input tc-cell-highlight">
+                                        <input type="text" id="nominalTopup" inputmode="numeric" autocomplete="off"
+                                               placeholder="0" form="tcFormTopup">
+                                    </div>
+                                </div>
+                                <div class="tc-cell">
+                                    <div class="tc-cell-label">SALDO</div>
+                                    <div class="tc-cell-input tc-cell-saldo">
+                                        <input type="text" id="saldoDisplay" value="{{ number_format((int) ($saldo ?? 0), 0, ',', '.') }}" readonly tabindex="-1">
+                                    </div>
+                                </div>
+                                <div class="tc-cell">
+                                    <div class="tc-cell-label">Tanggal Manual</div>
+                                    <div class="tc-cell-input">
+                                        <input type="date" id="tanggalManual" name="tanggal_manual"
+                                               value="{{ ($tanggalManual ?? '') !== '0000-00-00' ? ($tanggalManual ?? '') : '' }}">
+                                    </div>
+                                </div>
+                                <div class="tc-cell tc-cell-note">
+                                    <div class="tc-cell-label">Note</div>
+                                    <div class="tc-cell-input">
+                                        <input type="text" id="note" name="note" value="{{ $note ?? '' }}" placeholder="Catatan">
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="sc-field">
-                            <label for="namaSiswa">NAMA</label>
-                            <div class="sc-control-wrap sc-control-readonly">
-                                <input type="text" id="namaSiswa" value="{{ $nama ?? '' }}" readonly tabindex="-1">
+
+                        <div class="tc-summary-bar">
+                            <div class="tc-summary-item">
+                                <span class="tc-summary-label">Biaya Cash</span>
+                                <strong id="feeDisplay">Rp {{ number_format((int) ($cashFee ?? 2000), 0, ',', '.') }}</strong>
                             </div>
-                        </div>
-                        <div class="sc-field">
-                            <label for="metode">Metode</label>
-                            <div class="sc-control-wrap sc-control-select">
-                                <select id="metode" name="metode">
-                                    <option value="Cash" @selected(($metode ?? 'Cash') === 'Cash')>Cash</option>
-                                </select>
+                            <div class="tc-summary-divider"></div>
+                            <div class="tc-summary-item tc-summary-total">
+                                <span class="tc-summary-label">Total Terima</span>
+                                <strong id="totalBayarDisplay">Rp 0</strong>
                             </div>
-                        </div>
-                        <div class="sc-field">
-                            <label for="saldoDisplay">SALDO</label>
-                            <div class="sc-control-wrap sc-control-readonly">
-                                <input type="text" id="saldoDisplay" value="{{ number_format((int) ($saldo ?? 0), 0, ',', '.') }}" readonly tabindex="-1">
-                            </div>
-                        </div>
-                        <div class="sc-field">
-                            <label for="tanggalManual">Tanggal Manual</label>
-                            <div class="sc-control-wrap">
-                                <input type="date" id="tanggalManual" name="tanggal_manual"
-                                       value="{{ ($tanggalManual ?? '') !== '0000-00-00' ? ($tanggalManual ?? '') : '' }}">
-                            </div>
-                        </div>
-                        <div class="sc-field">
-                            <label for="note">Note</label>
-                            <div class="sc-control-wrap">
-                                <input type="text" id="note" name="note" value="{{ $note ?? '' }}" placeholder="Catatan (opsional)">
-                            </div>
+                            @if (!empty($lastTransNo))
+                                <div class="tc-summary-divider"></div>
+                                <div class="tc-summary-item">
+                                    <span class="tc-summary-label">No Terima</span>
+                                    <strong class="tc-trans-badge">{{ $lastTransNo }}</strong>
+                                </div>
+                            @endif
                         </div>
                     </div>
 
-                    <div class="tc-form-grid tc-form-grid-topup">
-                        <div class="sc-field">
-                            <label for="nominalTopup">TOP UP</label>
-                            <div class="sc-control-wrap sc-control-kartu">
-                                <input type="number" id="nominalTopup" name="nominal_preview" value="" min="1" step="1" placeholder="0" form="tcFormTopup">
-                            </div>
-                        </div>
-                        <div class="sc-field" id="feeInfoWrap">
-                            <label>Biaya Cash</label>
-                            <div class="sc-control-wrap sc-control-readonly">
-                                <input type="text" id="feeInfo" value="Rp {{ number_format((int) ($cashFee ?? 2000), 0, ',', '.') }}" readonly tabindex="-1">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="sc-actions tc-actions-row">
-                        <button type="submit" class="sc-btn sc-btn-primary">Cari</button>
-                        <button type="submit" form="tcFormTopup" class="sc-btn sc-btn-success" id="btnTopup">TOPUP</button>
-                        <button type="submit" form="tcFormKuitansi" class="sc-btn" id="btnKuitansi" @disabled(empty($lastTransNo))>Cetak Kuitansi</button>
+                    <div class="tc-actions">
+                        <button type="submit" class="sc-btn sc-btn-primary tc-btn">
+                            <span class="tc-btn-icon">🔍</span> Cari
+                        </button>
+                        <button type="submit" form="tcFormTopup" class="sc-btn sc-btn-success tc-btn" id="btnTopup">
+                            <span class="tc-btn-icon">↑</span> TOPUP
+                        </button>
+                        <button type="submit" form="tcFormKuitansi" class="sc-btn tc-btn tc-btn-outline" id="btnKuitansi" @disabled(empty($lastTransNo))>
+                            <span class="tc-btn-icon">🖨</span> Cetak Kuitansi
+                        </button>
                     </div>
                 </form>
 
@@ -108,39 +127,60 @@
                 </form>
 
                 <div class="sc-table-section">
-                    <div class="sc-table-wrap">
+                    <div class="tc-table-head">
+                        <div class="sc-table-title">Daftar Siswa</div>
+                        @if ($isSearch ?? false)
+                            <span class="tc-count-badge">{{ ($siswaRows ?? collect())->count() }} siswa</span>
+                        @endif
+                    </div>
+                    <div class="sc-table-wrap tc-table-wrap">
                         <table class="sc-table" id="tcTableSiswa">
                             <thead>
                                 <tr>
-                                    <th>NIS</th>
+                                    <th style="width:120px;">NIS</th>
                                     <th>Nama Siswa</th>
-                                    <th style="text-align:right;">SALDO</th>
-                                    <th>Kelas</th>
-                                    <th>Kelompok</th>
-                                    <th>Jenjang</th>
+                                    <th style="text-align:right;width:120px;">SALDO</th>
+                                    <th style="width:80px;">Kelas</th>
+                                    <th style="width:100px;">Kelompok</th>
+                                    <th style="width:100px;">Jenjang</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @if ($isSearch ?? false)
                                     @forelse (($siswaRows ?? collect()) as $row)
-                                        <tr class="tc-row-pick" tabindex="0"
+                                        <tr class="tc-row-pick @if((int)($custid ?? 0) === (int)($row->custid ?? 0)) tc-row-active @endif"
+                                            tabindex="0"
                                             data-custid="{{ (int) ($row->custid ?? 0) }}"
                                             data-nis="{{ $row->nis ?? '' }}"
                                             data-nama="{{ $row->nama ?? '' }}"
                                             data-saldo="{{ (int) ($row->saldo ?? 0) }}"
                                             data-label="{{ trim(($row->nis ?? '') . ' - ' . ($row->nama ?? '')) }}">
-                                            <td>{{ $row->nis ?? '—' }}</td>
+                                            <td><span class="tc-nis">{{ $row->nis ?? '—' }}</span></td>
                                             <td>{{ $row->nama ?? '—' }}</td>
-                                            <td style="text-align:right;">{{ number_format((int) ($row->saldo ?? 0), 0, ',', '.') }}</td>
+                                            <td style="text-align:right;"><span class="tc-saldo-num">{{ number_format((int) ($row->saldo ?? 0), 0, ',', '.') }}</span></td>
                                             <td>{{ $row->kelas ?? '—' }}</td>
                                             <td>{{ $row->kelompok ?? '—' }}</td>
                                             <td>{{ $row->jenjang ?? '—' }}</td>
                                         </tr>
                                     @empty
-                                        <tr><td colspan="6" class="sc-empty">Tidak ada data siswa.</td></tr>
+                                        <tr>
+                                            <td colspan="6" class="sc-empty">
+                                                <div class="tc-empty-state">
+                                                    <div class="tc-empty-icon">📋</div>
+                                                    <div>Tidak ada data siswa.</div>
+                                                </div>
+                                            </td>
+                                        </tr>
                                     @endforelse
                                 @else
-                                    <tr><td colspan="6" class="sc-empty">Klik Cari untuk menampilkan daftar siswa.</td></tr>
+                                    <tr>
+                                        <td colspan="6" class="sc-empty">
+                                            <div class="tc-empty-state">
+                                                <div class="tc-empty-icon">👆</div>
+                                                <div>Klik <strong>Cari</strong> untuk menampilkan daftar siswa.</div>
+                                            </div>
+                                        </td>
+                                    </tr>
                                 @endif
                             </tbody>
                         </table>
@@ -153,44 +193,259 @@
     @include('smartcard.partials.styles')
 
     <style>
-        .sc-page-wide { max-width: 1280px; }
+        .sc-page-wide { max-width: 1320px; }
+
         .tc-builder-title {
             font-family: 'Sora', sans-serif;
-            font-size: 17px;
+            font-size: 18px;
             font-weight: 800;
-            color: #6d28d9;
+            color: #5b21b6;
             text-align: center;
-            margin-bottom: 18px;
-            letter-spacing: 0.02em;
+            margin-bottom: 20px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
         }
-        .tc-form-grid {
+
+        .tc-builder-panel {
+            border: 1px solid #c4b5fd;
+            border-radius: 14px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            background: #fff;
+            box-shadow: 0 4px 20px rgba(109, 40, 217, 0.08);
+        }
+
+        .tc-builder-scroll {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .tc-builder-grid {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 16px 20px;
-            margin-bottom: 16px;
+            grid-template-columns: minmax(130px, 1.1fr) minmax(150px, 1.4fr) minmax(90px, 0.8fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(130px, 1fr) minmax(140px, 1.2fr);
+            min-width: 900px;
         }
-        .tc-form-grid-topup {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            max-width: 520px;
+
+        .tc-cell {
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid #e9d5ff;
         }
-        @media (max-width: 992px) {
-            .tc-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .tc-cell:last-child { border-right: 0; }
+
+        .tc-cell-label {
+            font-size: 12px;
+            font-weight: 800;
+            color: #5b21b6;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 10px 12px;
+            background: linear-gradient(180deg, #ede9fe 0%, #e9d5ff 100%);
+            border-bottom: 1px solid #ddd6fe;
+            white-space: nowrap;
         }
-        @media (max-width: 640px) {
-            .tc-form-grid, .tc-form-grid-topup { grid-template-columns: 1fr; max-width: none; }
+
+        .tc-cell-input {
+            flex: 1;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+            background: #fff;
+            position: relative;
         }
-        .sc-control-select select {
+
+        .tc-cell-input input,
+        .tc-cell-input select {
             width: 100%;
-            height: 44px;
+            height: 48px;
             border: 0;
-            padding: 0 14px;
+            padding: 0 12px;
             font-size: 14px;
             background: transparent;
+            color: #1f2937;
+            outline: none;
         }
+
+        .tc-cell-input select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235b21b6' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 32px;
+        }
+
+        .tc-cell-readonly input {
+            color: #4b5563;
+            background: #faf5ff;
+        }
+
+        .tc-cell-highlight input {
+            background: #fffbeb;
+            font-weight: 700;
+            font-size: 15px;
+            color: #92400e;
+        }
+
+        .tc-cell-saldo input {
+            background: #f0fdf4;
+            font-weight: 700;
+            color: #047857;
+            text-align: right;
+        }
+
+        .tc-summary-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 16px 24px;
+            padding: 12px 18px;
+            background: linear-gradient(90deg, #faf5ff 0%, #f5f3ff 100%);
+            border-top: 1px solid #e9d5ff;
+        }
+
+        .tc-summary-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .tc-summary-label {
+            color: #6b7280;
+            font-weight: 600;
+        }
+
+        .tc-summary-item strong {
+            color: #5b21b6;
+            font-size: 14px;
+        }
+
+        .tc-summary-total strong {
+            color: #047857;
+            font-size: 15px;
+        }
+
+        .tc-summary-divider {
+            width: 1px;
+            height: 24px;
+            background: #ddd6fe;
+        }
+
+        .tc-trans-badge {
+            font-family: ui-monospace, monospace;
+            background: #ede9fe;
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 13px !important;
+        }
+
+        .tc-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 28px;
+            padding: 16px;
+            background: #f9fafb;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .tc-btn {
+            min-width: 148px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            height: 44px;
+            border-radius: 10px;
+            font-weight: 700;
+            transition: transform .12s, box-shadow .12s;
+        }
+        .tc-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,.1);
+        }
+        .tc-btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+        .tc-btn-outline {
+            background: #fff;
+            border: 1px solid #d1d5db;
+        }
+        .tc-btn-icon { font-size: 15px; line-height: 1; }
+
+        .tc-table-head {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .tc-count-badge {
+            font-size: 12px;
+            font-weight: 700;
+            color: #6d28d9;
+            background: #ede9fe;
+            padding: 4px 10px;
+            border-radius: 999px;
+        }
+
+        .tc-table-wrap { max-height: 400px; }
+
+        .tc-row-pick { cursor: pointer; transition: background .12s; }
+        .tc-row-pick.tc-row-active {
+            background: #ede9fe !important;
+            box-shadow: inset 3px 0 0 #7c3aed;
+        }
+        .tc-row-pick:hover:not(.tc-row-active) { background: #f5f3ff !important; }
+
+        .tc-nis {
+            font-family: ui-monospace, monospace;
+            font-size: 13px;
+            color: #4b5563;
+        }
+        .tc-saldo-num {
+            font-weight: 700;
+            color: #047857;
+        }
+
+        .tc-empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 16px;
+        }
+        .tc-empty-icon { font-size: 28px; opacity: 0.7; }
+
+        .sc-field-nis { position: relative; z-index: 1; }
+        .sc-field-nis.sc-dropdown-open { z-index: 50; }
+
+        #siswaAutoList {
+            display: none;
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: calc(100% + 4px);
+            z-index: 200;
+            background: #fff;
+            border: 1px solid #c4b5fd;
+            border-radius: 10px;
+            max-height: 220px;
+            overflow: auto;
+            box-shadow: 0 12px 32px rgba(109, 40, 217, 0.15);
+        }
+
         .tc-hidden-form { display: none; }
-        .tc-actions-row { margin-top: 0; }
-        .tc-row-pick { cursor: pointer; }
-        .tc-row-pick:hover, .tc-row-pick.tc-row-active { background: #eef2ff; }
+
+        @media (max-width: 768px) {
+            .tc-builder-grid { min-width: 760px; }
+            .tc-actions { padding: 12px; }
+            .tc-btn { min-width: 120px; flex: 1; }
+        }
     </style>
 
     <script>
@@ -207,6 +462,7 @@
             const siswaWrap = document.getElementById('siswaAutoWrap');
             const nisField = document.querySelector('.sc-field-nis');
             const nominalTopup = document.getElementById('nominalTopup');
+            const totalBayarDisplay = document.getElementById('totalBayarDisplay');
             const metodeSelect = document.getElementById('metode');
             const metodeTopup = document.getElementById('metodeTopup');
             const tanggalManual = document.getElementById('tanggalManual');
@@ -218,8 +474,21 @@
             let searchTimer = null;
             let searchSeq = 0;
 
+            const parseNum = function (v) {
+                return parseInt(String(v || '').replace(/\D/g, ''), 10) || 0;
+            };
+
             const formatRp = function (n) {
                 return String(Math.max(0, parseInt(n, 10) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            };
+
+            const updateTotalBayar = function () {
+                const nominal = parseNum(nominalTopup ? nominalTopup.value : 0);
+                const metode = metodeSelect ? metodeSelect.value : 'Cash';
+                const fee = metode === 'Cash' ? cashFee : 0;
+                if (totalBayarDisplay) {
+                    totalBayarDisplay.textContent = 'Rp ' + formatRp(nominal + fee);
+                }
             };
 
             const syncHiddenFields = function () {
@@ -228,6 +497,7 @@
                 if (metodeTopup && metodeSelect) metodeTopup.value = metodeSelect.value || 'Cash';
                 if (tanggalManualTopup && tanggalManual) tanggalManualTopup.value = tanggalManual.value || '';
                 if (noteTopup && noteInput) noteTopup.value = noteInput.value || '';
+                updateTotalBayar();
             };
 
             const pickSiswa = function (custid, label, nama, saldo) {
@@ -238,11 +508,19 @@
                 syncHiddenFields();
             };
 
+            if (nominalTopup) {
+                nominalTopup.addEventListener('input', function () {
+                    const raw = parseNum(nominalTopup.value);
+                    nominalTopup.value = raw > 0 ? formatRp(raw) : '';
+                    updateTotalBayar();
+                });
+            }
+
             if (formTopup) {
                 formTopup.addEventListener('submit', function (e) {
                     syncHiddenFields();
                     const cid = parseInt(custidTopup ? custidTopup.value : '0', 10);
-                    const nominal = parseInt(nominalTopup ? nominalTopup.value : '0', 10);
+                    const nominal = parseNum(nominalTopup ? nominalTopup.value : 0);
                     if (cid <= 0) {
                         e.preventDefault();
                         alert('Pilih siswa terlebih dahulu.');
@@ -251,6 +529,7 @@
                     if (!nominal || nominal < 1) {
                         e.preventDefault();
                         alert('Isi nominal TOP UP.');
+                        nominalTopup?.focus();
                         return;
                     }
                     const hiddenNominal = document.createElement('input');
@@ -259,7 +538,7 @@
                     hiddenNominal.value = String(nominal);
                     formTopup.appendChild(hiddenNominal);
 
-                    const metode = (metodeSelect ? metodeSelect.value : 'Cash');
+                    const metode = metodeSelect ? metodeSelect.value : 'Cash';
                     if (metode === 'Cash') {
                         const totalBayar = nominal + cashFee;
                         if (!confirm('Top up Rp ' + formatRp(nominal) + ' + biaya cash Rp ' + formatRp(cashFee) + ' = Rp ' + formatRp(totalBayar) + ' ?')) {
@@ -289,6 +568,7 @@
                         row.getAttribute('data-nama'),
                         row.getAttribute('data-saldo')
                     );
+                    nominalTopup?.focus();
                 };
                 row.addEventListener('click', activate);
                 row.addEventListener('keydown', function (ev) {
@@ -323,12 +603,10 @@
                 siswaList.innerHTML = matched.map(function (r) {
                     const label = (r.label || '').replace(/"/g, '&quot;');
                     const nmcust = (r.nmcust || '').replace(/"/g, '&quot;');
-                    return '<button type="button" data-cid="' + r.cid + '" data-label="' + label + '" data-nmcust="' + nmcust + '" style="width:100%;text-align:left;padding:10px 14px;border:0;background:#fff;cursor:pointer;border-bottom:1px solid #f3f4f6;">' + (r.label || '—') + '</button>';
+                    return '<button type="button" data-cid="' + r.cid + '" data-label="' + label + '" data-nmcust="' + nmcust + '" class="tc-auto-item">' + (r.label || '—') + '</button>';
                 }).join('');
                 siswaList.style.display = 'block';
                 Array.from(siswaList.querySelectorAll('button[data-cid]')).forEach(function (btn) {
-                    btn.addEventListener('mouseenter', function () { btn.style.background = '#eef2ff'; });
-                    btn.addEventListener('mouseleave', function () { btn.style.background = '#fff'; });
                     btn.addEventListener('click', function () {
                         siswaInput.value = btn.getAttribute('data-label') || '';
                         custidHidden.value = btn.getAttribute('data-cid') || '';
@@ -368,6 +646,7 @@
             siswaInput.addEventListener('input', function () {
                 custidHidden.value = '';
                 if (namaSiswa) namaSiswa.value = '';
+                if (saldoDisplay) saldoDisplay.value = '0';
                 syncHiddenFields();
                 clearTimeout(searchTimer);
                 searchTimer = setTimeout(function () { fetchSiswa(siswaInput.value); }, 280);
@@ -383,17 +662,26 @@
                 if (!siswaWrap.contains(e.target)) closeList();
             });
 
-            if (metodeSelect) {
-                metodeSelect.addEventListener('change', syncHiddenFields);
-            }
-            if (tanggalManual) {
-                tanggalManual.addEventListener('change', syncHiddenFields);
-            }
-            if (noteInput) {
-                noteInput.addEventListener('input', syncHiddenFields);
-            }
+            if (metodeSelect) metodeSelect.addEventListener('change', syncHiddenFields);
+            if (tanggalManual) tanggalManual.addEventListener('change', syncHiddenFields);
+            if (noteInput) noteInput.addEventListener('input', syncHiddenFields);
 
             syncHiddenFields();
         })();
     </script>
+
+    <style>
+        .tc-auto-item {
+            width: 100%;
+            text-align: left;
+            padding: 10px 14px;
+            border: 0;
+            background: #fff;
+            cursor: pointer;
+            border-bottom: 1px solid #f3f4f6;
+            font-size: 13px;
+            color: #374151;
+        }
+        .tc-auto-item:hover { background: #f5f3ff; }
+    </style>
 @endsection
