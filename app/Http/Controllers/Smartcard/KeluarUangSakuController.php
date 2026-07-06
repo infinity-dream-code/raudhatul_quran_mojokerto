@@ -38,8 +38,12 @@ class KeluarUangSakuController extends Controller
             'query' => $request->query(),
         ]);
 
-        if ($isSearch && $nisFilter !== '') {
-            $result = $this->fetchSiswaRowsPaginated($nisFilter, $perPage, $page);
+        if ($isSearch) {
+            $result = $this->fetchSiswaRowsPaginated(
+                $nisFilter !== '' ? $nisFilter : null,
+                $perPage,
+                $page
+            );
             $siswaPaginator = new LengthAwarePaginator(
                 $result['rows'],
                 $result['total'],
@@ -58,7 +62,7 @@ class KeluarUangSakuController extends Controller
                 $nama = trim((string) ($fromList->nama ?? ''));
                 $nis = trim((string) ($fromList->nis ?? ''));
                 $saldo = (int) ($fromList->saldo ?? 0);
-                $hasActiveCard = (bool) ($fromList->has_active_card ?? false);
+                $hasActiveCard = (int) ($fromList->has_active_card ?? 0) === 1;
             } else {
                 $siswa = $this->fetchSiswaByCustid($custid);
                 if ($siswa && $this->siswaInScope($custid)) {
@@ -235,27 +239,21 @@ class KeluarUangSakuController extends Controller
     /**
      * @return array{rows: Collection, total: int}
      */
-    private function fetchSiswaRowsPaginated(string $nisFilter, int $perPage, int $page): array
+    private function fetchSiswaRowsPaginated(?string $nisFilter, int $perPage, int $page): array
     {
-        $like = '%' . $nisFilter . '%';
-
         $base = DB::connection('sikeu')
             ->table('scctcust')
-            ->leftJoin('mst_kelas', DB::raw('CAST(mst_kelas.id AS CHAR)'), '=', DB::raw('TRIM(scctcust.CODE03)'))
-            ->where(function ($q) use ($like) {
-                $q->where('scctcust.NOCUST', 'like', $like)
-                    ->orWhere('scctcust.NMCUST', 'like', $like);
-            })
-            ->whereExists(function ($q) {
-                $q->select(DB::raw('1'))
-                    ->from('sm_pin')
-                    ->whereColumn('sm_pin.CUSTID', 'scctcust.CUSTID')
-                    ->where(function ($q2) {
-                        $q2->where('sm_pin.BLOKIR', 0)->orWhereNull('sm_pin.BLOKIR');
-                    });
-            });
+            ->leftJoin('mst_kelas', DB::raw('CAST(mst_kelas.id AS CHAR)'), '=', DB::raw('TRIM(scctcust.CODE03)'));
 
         $this->applySchoolScope($base);
+
+        if ($nisFilter !== null && $nisFilter !== '') {
+            $like = '%' . $nisFilter . '%';
+            $base->where(function ($q) use ($like) {
+                $q->where('scctcust.NOCUST', 'like', $like)
+                    ->orWhere('scctcust.NMCUST', 'like', $like);
+            });
+        }
 
         $total = (int) (clone $base)->count('scctcust.CUSTID');
 
@@ -266,7 +264,11 @@ class KeluarUangSakuController extends Controller
                 'scctcust.NMCUST as nama',
                 DB::raw('COALESCE(NULLIF(TRIM(mst_kelas.jenjang), \'\'), TRIM(scctcust.DESC02)) as kelas'),
                 DB::raw('COALESCE(NULLIF(TRIM(mst_kelas.kelas), \'\'), TRIM(scctcust.DESC03)) as kelompok'),
-                DB::raw('1 as has_active_card'),
+                DB::raw('EXISTS (
+                    SELECT 1 FROM sm_pin sp
+                    WHERE sp.CUSTID = scctcust.CUSTID
+                    AND (sp.BLOKIR = 0 OR sp.BLOKIR IS NULL)
+                ) as has_active_card'),
             ])
             ->orderBy('scctcust.NMCUST')
             ->offset(max(0, ($page - 1) * $perPage))
@@ -279,6 +281,7 @@ class KeluarUangSakuController extends Controller
 
         foreach ($rows as $row) {
             $row->saldo = $saldoMap[(int) ($row->custid ?? 0)] ?? 0;
+            $row->has_active_card = (int) ($row->has_active_card ?? 0) === 1 ? 1 : 0;
         }
 
         return ['rows' => $rows, 'total' => $total];

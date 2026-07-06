@@ -149,26 +149,27 @@
                                     @empty
                                         <tr>
                                             <td colspan="6" class="sc-empty">
-                                                @if (($nisFilter ?? '') === '')
-                                                    Isi NIS lalu klik <strong>Cari</strong>.
+                                                @if (($nisFilter ?? '') !== '')
+                                                    Siswa tidak ditemukan untuk pencarian tersebut.
                                                 @else
-                                                    Siswa tidak ditemukan atau tidak punya kartu aktif.
+                                                    Tidak ada data siswa di unit ini.
                                                 @endif
                                             </td>
                                         </tr>
                                     @endforelse
                                 @else
                                     <tr>
-                                        <td colspan="6" class="sc-empty">Isi NIS lalu klik <strong>Cari</strong>.</td>
+                                        <td colspan="6" class="sc-empty">Klik <strong>Cari</strong> untuk menampilkan daftar siswa (10 per halaman).</td>
                                     </tr>
                                 @endif
                             </tbody>
                         </table>
                     </div>
 
-                    @if (($isSearch ?? false) && ($siswaPaginator ?? null) && $siswaPaginator->hasPages())
+                    @if (($isSearch ?? false) && ($siswaPaginator ?? null) && $siswaPaginator->total() > 0)
                         <div class="ku-table-footer">
                             <div>Menampilkan {{ $siswaPaginator->firstItem() }}–{{ $siswaPaginator->lastItem() }} dari {{ $siswaPaginator->total() }} siswa</div>
+                            @if ($siswaPaginator->hasPages())
                             <div class="ku-table-pages">
                                 @if ($siswaPaginator->onFirstPage())
                                     <span class="ku-page disabled">Sebelumnya</span>
@@ -182,6 +183,7 @@
                                     <span class="ku-page disabled">Selanjutnya</span>
                                 @endif
                             </div>
+                            @endif
                         </div>
                     @endif
                 </div>
@@ -365,11 +367,11 @@
                 return String(Math.max(0, parseInt(n, 10) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             };
 
-            const pickSiswaNavigate = function (custid, nis) {
+            const pickSiswaNavigate = function (custid) {
                 const url = new URL(window.location.pathname, window.location.origin);
                 url.searchParams.set('search', '1');
                 url.searchParams.set('custid', String(custid || ''));
-                url.searchParams.set('nis', String(nis || ''));
+                url.searchParams.set('nis', nisInput ? nisInput.value.trim() : '');
                 if (tanggalManual && tanggalManual.value) {
                     url.searchParams.set('tanggal_manual', tanggalManual.value);
                 }
@@ -379,7 +381,7 @@
             document.querySelectorAll('.ku-row-pick').forEach(function (row) {
                 row.addEventListener('click', function (e) {
                     if (e.target.closest('.ku-expand-btn')) return;
-                    pickSiswaNavigate(row.getAttribute('data-custid'), row.getAttribute('data-nis'));
+                    pickSiswaNavigate(row.getAttribute('data-custid'));
                 });
             });
 
