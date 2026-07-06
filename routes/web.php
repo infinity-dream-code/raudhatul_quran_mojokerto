@@ -33,6 +33,7 @@ use App\Http\Controllers\Smartcard\SettingBlokirKartuController;
 use App\Http\Controllers\Smartcard\KeluarUangSakuController;
 use App\Http\Controllers\Smartcard\RekapPencairanKantinController;
 use App\Http\Controllers\Smartcard\RekapKeluarUangSakuController;
+use App\Http\Controllers\Smartcard\TapAmbilRutinController;
 use App\Http\Controllers\Smartcard\RekapTopupController;
 use App\Http\Controllers\Smartcard\SmartcardPlaceholderController;
 use App\Http\Controllers\Smartcard\TopupCashController;
@@ -245,7 +246,9 @@ Route::middleware(['web', 'dummy.auth'])->group(function () {
         Route::get('/keluar-uang-saku', [KeluarUangSakuController::class, 'index'])->name('keluar_uang_saku');
         Route::get('/keluar-uang-saku/history', [KeluarUangSakuController::class, 'history'])->name('keluar_uang_saku.history');
         Route::post('/keluar-uang-saku', [KeluarUangSakuController::class, 'store'])->name('keluar_uang_saku.store');
-        Route::get('/tap-ambil-rutin', fn () => app(SmartcardPlaceholderController::class)->show('tap-ambil-rutin'))->name('tap_ambil_rutin');
+        Route::get('/tap-ambil-rutin', [TapAmbilRutinController::class, 'index'])->name('tap_ambil_rutin');
+        Route::post('/tap-ambil-rutin/lookup', [TapAmbilRutinController::class, 'lookup'])->name('tap_ambil_rutin.lookup');
+        Route::post('/tap-ambil-rutin/process', [TapAmbilRutinController::class, 'process'])->name('tap_ambil_rutin.process');
     });
 });
 
