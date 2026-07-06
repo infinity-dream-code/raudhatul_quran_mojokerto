@@ -36,7 +36,7 @@ class RekapTopupController extends Controller
 
         if ($isSearch) {
             $rows = $this->fetchRows($filters, $request);
-            $totals = $this->sumTotals($filters);
+            $totals = $this->sumPageTotals($rows);
         }
 
         return view('smartcard.rekap-topup.index', [
@@ -53,26 +53,20 @@ class RekapTopupController extends Controller
     {
         $filters = $this->filtersFromRequest($request);
 
-        $allRows = $this->baseQuery($filters)
-            ->select($this->selectColumns())
-            ->orderByDesc('t.TRXDATE')
-            ->orderByDesc('t.urut')
-            ->get()
-            ->map(fn ($row) => $this->mapRow($row));
-
-        if ($allRows->isEmpty()) {
+        $totalCount = (int) $this->baseQuery($filters)->count('t.CUSTID');
+        if ($totalCount <= 0) {
             return redirect()
                 ->route('smartcard.rekap_topup', array_merge($filters, ['search' => 1]))
                 ->with('smartcard_error', 'Tidak ada data rekap untuk dicetak.');
         }
 
-        $totals = $this->sumTotals($filters);
+        $totals = $this->sumTotalsSql($filters);
         $sekolahNama = $this->fetchSekolahNama();
 
         $pdf = Pdf::loadView('smartcard.rekap-topup.rekap-pdf', [
             'sekolahNama' => $sekolahNama,
             'filters' => $filters,
-            'rows' => $allRows,
+            'rows' => $this->fetchAllRowsForPrint($filters),
             'totals' => $totals,
         ])->setPaper('a4', 'landscape');
 
@@ -82,12 +76,12 @@ class RekapTopupController extends Controller
     private function filtersFromRequest(Request $request): array
     {
         return [
-            'thn_angkatan' => trim((string) $request->query('thn_angkatan', '')),
-            'kelas_id' => trim((string) $request->query('kelas_id', '')),
-            'nis' => trim((string) $request->query('nis', '')),
-            'nama' => trim((string) $request->query('nama', '')),
-            'dari_tanggal' => trim((string) $request->query('dari_tanggal', '')),
-            'sampai_tanggal' => trim((string) $request->query('sampai_tanggal', '')),
+            'thn_angkatan' => trim((string) $request->input('thn_angkatan', $request->query('thn_angkatan', ''))),
+            'kelas_id' => trim((string) $request->input('kelas_id', $request->query('kelas_id', ''))),
+            'nis' => trim((string) $request->input('nis', $request->query('nis', ''))),
+            'nama' => trim((string) $request->input('nama', $request->query('nama', ''))),
+            'dari_tanggal' => trim((string) $request->input('dari_tanggal', $request->query('dari_tanggal', ''))),
+            'sampai_tanggal' => trim((string) $request->input('sampai_tanggal', $request->query('sampai_tanggal', ''))),
         ];
     }
 
@@ -145,17 +139,13 @@ class RekapTopupController extends Controller
     }
 
     /** @return array{topup: int, fee: int, grand: int} */
-    private function sumTotals(array $filters): array
+    private function sumPageTotals(LengthAwarePaginator $paginator): array
     {
-        $raw = $this->baseQuery($filters)
-            ->get(['t.KREDIT as topup', 't.HELPDESK as helpdesk', 't.METODE as metode']);
-
         $topup = 0;
         $fee = 0;
-        foreach ($raw as $row) {
-            $nom = (int) ($row->topup ?? 0);
-            $topup += $nom;
-            $fee += $this->parseFee((string) ($row->helpdesk ?? ''), (string) ($row->metode ?? ''));
+        foreach ($paginator->items() as $row) {
+            $topup += (int) ($row->topup ?? 0);
+            $fee += (int) ($row->fee ?? 0);
         }
 
         return [
@@ -163,6 +153,45 @@ class RekapTopupController extends Controller
             'fee' => $fee,
             'grand' => $topup + $fee,
         ];
+    }
+
+    /** Agregat SQL — dipakai cetak PDF, tanpa load semua baris ke PHP. */
+    private function sumTotalsSql(array $filters): array
+    {
+        $cashFee = self::CASH_FEE;
+        $row = $this->baseQuery($filters)
+            ->selectRaw(
+                'CAST(COALESCE(SUM(t.KREDIT), 0) AS SIGNED) as topup_sum,
+                CAST(COALESCE(SUM(
+                    CASE
+                        WHEN t.HELPDESK LIKE ? THEN
+                            CAST(TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(t.HELPDESK, \'Biaya:\', -1), \'|\', 1)) AS SIGNED)
+                        WHEN UPPER(TRIM(t.METODE)) = \'CASH\' THEN ?
+                        ELSE 0
+                    END
+                ), 0) AS SIGNED) as fee_sum',
+                ['%Biaya:%', $cashFee]
+            )
+            ->first();
+
+        $topup = (int) ($row->topup_sum ?? 0);
+        $fee = (int) ($row->fee_sum ?? 0);
+
+        return [
+            'topup' => $topup,
+            'fee' => $fee,
+            'grand' => $topup + $fee,
+        ];
+    }
+
+    private function fetchAllRowsForPrint(array $filters): \Illuminate\Support\Collection
+    {
+        return $this->baseQuery($filters)
+            ->select($this->selectColumns())
+            ->orderByDesc('t.TRXDATE')
+            ->orderByDesc('t.urut')
+            ->get()
+            ->map(fn ($row) => $this->mapRow($row));
     }
 
     private function parseFee(string $helpdesk, string $metode): int

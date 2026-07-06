@@ -129,17 +129,17 @@
                     @if ($isSearch ?? false)
                         <div class="rt-summary-bar">
                             <div class="rt-summary-item">
-                                <span class="rt-summary-label">Total TOPUP</span>
+                                <span class="rt-summary-label">Total TOPUP (halaman)</span>
                                 <strong>Rp {{ number_format((int) ($totals['topup'] ?? 0), 0, ',', '.') }}</strong>
                             </div>
                             <div class="rt-summary-divider"></div>
                             <div class="rt-summary-item">
-                                <span class="rt-summary-label">Total Biaya</span>
+                                <span class="rt-summary-label">Total Biaya (halaman)</span>
                                 <strong>Rp {{ number_format((int) ($totals['fee'] ?? 0), 0, ',', '.') }}</strong>
                             </div>
                             <div class="rt-summary-divider"></div>
                             <div class="rt-summary-item rt-summary-grand">
-                                <span class="rt-summary-label">Grand Total</span>
+                                <span class="rt-summary-label">Grand Total (halaman)</span>
                                 <strong>Rp {{ number_format((int) ($totals['grand'] ?? 0), 0, ',', '.') }}</strong>
                             </div>
                         </div>
