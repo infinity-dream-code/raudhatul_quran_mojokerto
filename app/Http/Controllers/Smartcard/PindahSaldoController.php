@@ -27,7 +27,11 @@ class PindahSaldoController extends Controller
 
     private const FIDBANK = '1140002';
 
-    private const METODE_SPP = 'CASHLESS 1 VA';
+    private const METODE_SPP = 'PINDAH SALDO';
+
+    private const METODE_CASHLESS_CREDIT = 'FROM SALDO';
+
+    private const METODE_FEE = 'ADMIN FEE';
 
     private const TRANSNO_SEQ_LEN = 5;
 
@@ -192,16 +196,14 @@ class PindahSaldoController extends Controller
 
         $trxDate = $this->resolveTrxDate($tanggalManual);
         $transNo = $this->generateTransNo($trxDate);
-        $helpdeskCashless = $this->buildHelpdeskCashless($note, $adminFee, trim((string) session('auth_username', session('auth_name', ''))));
 
         try {
             DB::connection('sikeu')->transaction(function () use (
                 $custid,
                 $trxDate,
-                $nominal,
                 $totalPotong,
-                $transNo,
-                $helpdeskCashless
+                $adminFee,
+                $transNo
             ) {
                 DB::connection('sikeu')->table(self::TRAN_SPP)->insert([
                     'CUSTID' => $custid,
@@ -217,19 +219,7 @@ class PindahSaldoController extends Controller
                     'HELPDESK' => null,
                 ]);
 
-                DB::connection('sikeu')->table(self::TRAN_CASHLESS)->insert([
-                    'CUSTID' => $custid,
-                    'METODE' => 'FROM SALDO',
-                    'TRXDATE' => $trxDate->format('Y-m-d H:i:s'),
-                    'KREDIT' => $nominal,
-                    'DEBET' => 0,
-                    'TRANSNO' => $transNo,
-                    'NOREFF' => self::NOREFF_CHANNEL,
-                    'HELPDESK' => $helpdeskCashless,
-                    'FIDBANK' => self::FIDBANK,
-                    'KDCHANNEL' => 0,
-                    'REFFBANK' => '',
-                ]);
+                $this->insertCashlessRows($custid, $trxDate, $totalPotong, $adminFee, $transNo);
             });
         } catch (\Throwable $e) {
             return redirect()->back()->withInput()->with('smartcard_error', 'Gagal pindah saldo: ' . $e->getMessage());
@@ -252,21 +242,38 @@ class PindahSaldoController extends Controller
             );
     }
 
-    private function buildHelpdeskCashless(string $note, int $fee, string $user = ''): string
-    {
-        $parts = [];
-        if ($note !== '') {
-            $parts[] = mb_substr($note, 0, 120);
-        }
-        $parts[] = 'Pindah SPP';
-        if ($fee > 0) {
-            $parts[] = 'Biaya:' . $fee;
-        }
-        if (trim($user) !== '') {
-            $parts[] = 'User:' . mb_substr(trim($user), 0, 30);
-        }
+    private function insertCashlessRows(
+        int $custid,
+        Carbon $trxDate,
+        int $kredit,
+        int $adminFee,
+        string $transNo
+    ): void {
+        $common = [
+            'CUSTID' => $custid,
+            'TRXDATE' => $trxDate->format('Y-m-d H:i:s'),
+            'NOREFF' => self::NOREFF_CHANNEL,
+            'FIDBANK' => self::FIDBANK,
+            'KDCHANNEL' => 0,
+            'REFFBANK' => '',
+            'TRANSNO' => $transNo,
+        ];
 
-        return mb_substr(implode(' | ', $parts), 0, 255);
+        DB::connection('sikeu')->table(self::TRAN_CASHLESS)->insert(array_merge($common, [
+            'METODE' => self::METODE_CASHLESS_CREDIT,
+            'KREDIT' => $kredit,
+            'DEBET' => 0,
+            'HELPDESK' => null,
+        ]));
+
+        if ($adminFee > 0) {
+            DB::connection('sikeu')->table(self::TRAN_CASHLESS)->insert(array_merge($common, [
+                'METODE' => self::METODE_FEE,
+                'KREDIT' => 0,
+                'DEBET' => $adminFee,
+                'HELPDESK' => null,
+            ]));
+        }
     }
 
     private function resolveTrxDate(string $tanggalManual): Carbon
