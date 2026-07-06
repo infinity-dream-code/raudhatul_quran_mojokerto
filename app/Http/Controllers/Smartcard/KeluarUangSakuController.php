@@ -157,7 +157,7 @@ class KeluarUangSakuController extends Controller
         }
 
         if (!$this->hasActiveCard($custid)) {
-            return redirect()->back()->withInput()->with('smartcard_error', 'Siswa tidak memiliki kartu aktif (semua kartu diblokir atau belum terdaftar).');
+            return redirect()->back()->withInput()->with('smartcard_error', 'Kartu tidak aktif — silakan gunakan kartu lain.');
         }
 
         $saldo = $this->fetchSaldo($custid);

@@ -96,7 +96,7 @@
                 @elseif ((int) ($custid ?? 0) > 0 && !($hasActiveCard ?? false))
                     <div class="ku-kartu-warn">
                         <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
-                        Tidak ada kartu aktif — pengeluaran tidak dapat diproses.
+                        Kartu tidak aktif — silakan gunakan kartu lain.
                     </div>
                 @endif
 
@@ -194,7 +194,7 @@
                             <div class="sc-table-title">History Transaksi — {{ $nama ?? '' }}</div>
                             <span class="ku-count-badge">{{ $historyPaginator->total() ?? 0 }} baris</span>
                         </div>
-                        <div class="sc-table-wrap ku-table-wrap">
+                        <div class="sc-table-wrap ku-table-wrap ku-table-wrap-history">
                             <table class="sc-table">
                                 <thead>
                                     <tr>
@@ -311,7 +311,16 @@
             font-size: 12px; font-weight: 700; color: #5b21b6;
             background: #ede9fe; border: 1px solid #c4b5fd; border-radius: 999px; padding: 4px 12px;
         }
-        .ku-table-wrap { border: 1px solid #e9d5ff; border-radius: 12px; overflow: hidden; }
+        .ku-table-wrap {
+            border: 1px solid #e9d5ff;
+            border-radius: 12px;
+            overflow: auto;
+            -webkit-overflow-scrolling: touch;
+            max-height: min(480px, 58vh);
+        }
+        .ku-table-wrap-history {
+            max-height: min(360px, 42vh);
+        }
         .ku-col-expand { width: 44px; text-align: center; }
         .ku-expand-btn {
             width: 28px; height: 28px; border: 1px solid #c4b5fd; border-radius: 6px;
