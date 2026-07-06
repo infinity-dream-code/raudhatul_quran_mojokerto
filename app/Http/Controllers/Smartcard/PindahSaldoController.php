@@ -201,6 +201,7 @@ class PindahSaldoController extends Controller
             DB::connection('sikeu')->transaction(function () use (
                 $custid,
                 $trxDate,
+                $nominal,
                 $totalPotong,
                 $adminFee,
                 $transNo
@@ -219,7 +220,7 @@ class PindahSaldoController extends Controller
                     'HELPDESK' => null,
                 ]);
 
-                $this->insertCashlessRows($custid, $trxDate, $totalPotong, $adminFee, $transNo);
+                $this->insertCashlessRows($custid, $trxDate, $nominal, $adminFee, $transNo);
             });
         } catch (\Throwable $e) {
             return redirect()->back()->withInput()->with('smartcard_error', 'Gagal pindah saldo: ' . $e->getMessage());
@@ -245,7 +246,7 @@ class PindahSaldoController extends Controller
     private function insertCashlessRows(
         int $custid,
         Carbon $trxDate,
-        int $kredit,
+        int $nominal,
         int $adminFee,
         string $transNo
     ): void {
@@ -261,7 +262,7 @@ class PindahSaldoController extends Controller
 
         DB::connection('sikeu')->table(self::TRAN_CASHLESS)->insert(array_merge($common, [
             'METODE' => self::METODE_CASHLESS_CREDIT,
-            'KREDIT' => $kredit,
+            'KREDIT' => $nominal,
             'DEBET' => 0,
             'HELPDESK' => null,
         ]));

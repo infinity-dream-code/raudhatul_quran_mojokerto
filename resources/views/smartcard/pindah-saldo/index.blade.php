@@ -411,7 +411,11 @@
                     hiddenNominal.value = String(nominal);
                     formStore.appendChild(hiddenNominal);
 
-                    if (!confirm('Pindah Rp ' + formatRp(nominal) + ' ke uang saku?\nPotong SPP: Rp ' + formatRp(total) + ' (termasuk admin Rp ' + formatRp(adminFee) + ')')) {
+                    if (!confirm(
+                        'Pindah Rp ' + formatRp(nominal) + ' ke uang saku?\n'
+                        + 'Potong SPP: Rp ' + formatRp(total) + ' (termasuk admin Rp ' + formatRp(adminFee) + ')\n'
+                        + 'Uang saku masuk bersih: Rp ' + formatRp(Math.max(0, nominal - adminFee))
+                    )) {
                         e.preventDefault();
                     }
                 });
