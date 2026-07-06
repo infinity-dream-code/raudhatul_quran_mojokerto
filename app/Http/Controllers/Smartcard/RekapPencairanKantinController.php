@@ -29,7 +29,7 @@ class RekapPencairanKantinController extends Controller
 
         $transaksiRows = collect();
         $transaksiTotal = 0;
-        if ($cariTransaksi && $kdMercan !== '' && $dariTanggal !== '' && $sampaiTanggal !== '') {
+        if ($cariTransaksi) {
             [$transaksiRows, $transaksiTotal] = $this->fetchTransaksiRows($kdMercan, $dariTanggal, $sampaiTanggal);
             if ($nominal === '' && $transaksiTotal > 0) {
                 $nominal = (string) (int) $transaksiTotal;
@@ -38,7 +38,7 @@ class RekapPencairanKantinController extends Controller
 
         $pencairanRows = collect();
         $pencairanTotal = 0;
-        if ($liatPencairan && $kdMercan !== '') {
+        if ($liatPencairan) {
             [$pencairanRows, $pencairanTotal] = $this->fetchPencairanRows(
                 $kdMercan,
                 $dariTanggal,
@@ -182,38 +182,63 @@ class RekapPencairanKantinController extends Controller
    */
     private function fetchTransaksiRows(string $kdMercan, string $dari, string $sampai): array
     {
-        $from = $this->parseDate($dari);
-        $to = $this->parseDate($sampai);
-        if (!$from || !$to) {
-            return [collect(), 0];
-        }
-
         $query = DB::connection('sikeu')
             ->table('scctcashout')
-            ->join('sm_kantin', function ($join) {
+            ->join('scctcust', 'scctcashout.CUSTID', '=', 'scctcust.CUSTID')
+            ->leftJoin('sm_kantin', function ($join) {
                 $join->on(DB::raw('TRIM(sm_kantin.username)'), '=', DB::raw('TRIM(scctcashout.Teller)'));
             })
             ->leftJoin('sm_mercan', function ($join) {
                 $join->on(DB::raw('TRIM(sm_mercan.KDMERCAN)'), '=', DB::raw('TRIM(sm_kantin.KDMERCAN)'));
             })
-            ->whereRaw('UPPER(TRIM(scctcashout.FIDBANK)) = ?', ['BUY'])
-            ->whereRaw('TRIM(sm_kantin.KDMERCAN) = ?', [$kdMercan])
-            ->where('scctcashout.TanggalKeluar', '>=', $from->copy()->startOfDay())
-            ->where('scctcashout.TanggalKeluar', '<=', $to->copy()->endOfDay())
+            ->whereRaw('UPPER(TRIM(scctcashout.FIDBANK)) = ?', ['BUY']);
+
+        $this->applySchoolScope($query);
+
+        if ($kdMercan !== '') {
+            $query->whereRaw('TRIM(sm_kantin.KDMERCAN) = ?', [$kdMercan]);
+        }
+
+        $from = $this->parseDate($dari);
+        $to = $this->parseDate($sampai);
+        if ($from) {
+            $query->where('scctcashout.TanggalKeluar', '>=', $from->copy()->startOfDay());
+        }
+        if ($to) {
+            $query->where('scctcashout.TanggalKeluar', '<=', $to->copy()->endOfDay());
+        }
+
+        $rows = $query
             ->select([
                 'scctcashout.TanggalKeluar as tgl_transaksi',
                 'scctcashout.BILLAM as saldo',
-                DB::raw('COALESCE(NULLIF(TRIM(sm_mercan.NamaMercan), \'\'), TRIM(sm_kantin.KDMERCAN)) as mercan'),
-                DB::raw('COALESCE(NULLIF(TRIM(sm_kantin.NamaKantin), \'\'), TRIM(scctcashout.Teller)) as kantin'),
+                DB::raw('COALESCE(NULLIF(TRIM(sm_mercan.NamaMercan), \'\'), TRIM(sm_kantin.KDMERCAN), \'-\') as mercan'),
+                DB::raw('COALESCE(NULLIF(TRIM(sm_kantin.NamaKantin), \'\'), TRIM(scctcashout.Teller), \'-\') as kantin'),
             ])
             ->orderByDesc('scctcashout.TanggalKeluar')
             ->orderByDesc('scctcashout.urut')
-            ->limit(self::MAX_ROWS);
+            ->limit(self::MAX_ROWS)
+            ->get();
 
-        $rows = $query->get();
         $total = (float) $rows->sum(static fn ($r) => (float) ($r->saldo ?? 0));
 
         return [$rows, $total];
+    }
+
+    private function applySchoolScope($query): void
+    {
+        if (session('auth_is_superadmin')) {
+            return;
+        }
+
+        $code01 = trim((string) session('auth_sekolah_code01', session('auth_fid', '')));
+        if ($code01 === '') {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $query->whereRaw('TRIM(scctcust.CODE01) = ?', [$code01]);
     }
 
   /**
@@ -223,9 +248,12 @@ class RekapPencairanKantinController extends Controller
     {
         $query = DB::connection('sikeu')
             ->table('sm_mercan_cair')
-            ->whereRaw('TRIM(KDMERCAN) = ?', [$kdMercan])
             ->orderByDesc('TglTerima')
             ->orderByDesc('urut');
+
+        if ($kdMercan !== '') {
+            $query->whereRaw('TRIM(KDMERCAN) = ?', [$kdMercan]);
+        }
 
         $from = $this->parseDate($dari);
         $to = $this->parseDate($sampai);
