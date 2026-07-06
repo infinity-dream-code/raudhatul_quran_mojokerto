@@ -94,13 +94,13 @@
 
                     <div class="tc-actions">
                         <button type="submit" class="sc-btn sc-btn-primary tc-btn">
-                            <span class="tc-btn-icon">🔍</span> Cari
+                            <i class="fa-solid fa-magnifying-glass tc-btn-icon" aria-hidden="true"></i> Cari
                         </button>
                         <button type="submit" form="tcFormTopup" class="sc-btn sc-btn-success tc-btn" id="btnTopup">
-                            <span class="tc-btn-icon">↑</span> TOPUP
+                            <i class="fa-solid fa-circle-arrow-up tc-btn-icon" aria-hidden="true"></i> TOPUP
                         </button>
                         <button type="submit" form="tcFormKuitansi" class="sc-btn tc-btn tc-btn-outline" id="btnKuitansi" @disabled((int)($custid ?? 0) <= 0)>
-                            <span class="tc-btn-icon">🖨</span> Cetak Kuitansi
+                            <i class="fa-solid fa-print tc-btn-icon" aria-hidden="true"></i> Cetak Kuitansi
                         </button>
                     </div>
                 </form>
@@ -144,7 +144,16 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @if ($isSearch ?? false)
+                                @if ($searchTooShort ?? false)
+                                    <tr>
+                                        <td colspan="6" class="sc-empty">
+                                            <div class="tc-empty-state">
+                                                <i class="fa-solid fa-keyboard tc-empty-icon" aria-hidden="true"></i>
+                                                <div>Ketik minimal <strong>2 karakter</strong> NIS atau nama, lalu klik <strong>Cari</strong>.</div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @elseif ($isSearch ?? false)
                                     @forelse (($siswaRows ?? collect()) as $row)
                                         <tr class="tc-row-pick @if((int)($custid ?? 0) === (int)($row->custid ?? 0)) tc-row-active @endif"
                                             tabindex="0"
@@ -163,7 +172,7 @@
                                         <tr>
                                             <td colspan="6" class="sc-empty">
                                                 <div class="tc-empty-state">
-                                                    <div class="tc-empty-icon">📋</div>
+                                                    <i class="fa-solid fa-clipboard-list tc-empty-icon" aria-hidden="true"></i>
                                                     <div>Tidak ada data siswa.</div>
                                                 </div>
                                             </td>
@@ -173,8 +182,8 @@
                                     <tr>
                                         <td colspan="6" class="sc-empty">
                                             <div class="tc-empty-state">
-                                                <div class="tc-empty-icon">👆</div>
-                                                <div>Klik <strong>Cari</strong> untuk menampilkan daftar siswa.</div>
+                                                <i class="fa-regular fa-hand-pointer tc-empty-icon" aria-hidden="true"></i>
+                                                <div>Ketik NIS atau nama (min. 2 karakter), lalu klik <strong>Cari</strong>.</div>
                                             </div>
                                         </td>
                                     </tr>
@@ -354,7 +363,6 @@
         }
         .tc-btn:hover:not(:disabled) {
             transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0,0,0,.1);
         }
         .tc-btn:disabled {
             opacity: 0.45;
@@ -364,7 +372,7 @@
             background: #fff;
             border: 1px solid #d1d5db;
         }
-        .tc-btn-icon { font-size: 15px; line-height: 1; }
+        .tc-btn-icon { width: 1em; text-align: center; }
 
         .tc-table-head {
             display: flex;
@@ -408,7 +416,7 @@
             gap: 8px;
             padding: 16px;
         }
-        .tc-empty-icon { font-size: 28px; opacity: 0.7; }
+        .tc-empty-icon { font-size: 1.75rem; color: #a78bfa; opacity: 0.85; }
 
         .sc-field-nis { position: relative; z-index: 1; }
         .sc-field-nis.sc-dropdown-open { z-index: 50; }
@@ -459,6 +467,7 @@
             const noteInput = document.getElementById('note');
             const noteTopup = document.getElementById('noteTopup');
             const formTopup = document.getElementById('tcFormTopup');
+            const formSearch = document.getElementById('tcFormSearch');
             const formKuitansi = document.getElementById('tcFormKuitansi');
             const btnKuitansi = document.getElementById('btnKuitansi');
             const transnoKuitansi = document.getElementById('transnoKuitansi');
@@ -506,7 +515,11 @@
                 const noteKuitansi = document.getElementById('noteKuitansi');
                 const metodeKuitansi = document.getElementById('metodeKuitansi');
                 const tanggalManualKuitansi = document.getElementById('tanggalManualKuitansi');
-                if (nominalKuitansi) nominalKuitansi.value = String(parseNum(nominalTopup ? nominalTopup.value : 0));
+                const topupNominal = parseNum(nominalTopup ? nominalTopup.value : 0);
+                const saldoNominal = parseNum(saldoDisplay ? saldoDisplay.value : 0);
+                if (nominalKuitansi) {
+                    nominalKuitansi.value = String(topupNominal > 0 ? topupNominal : saldoNominal);
+                }
                 if (noteKuitansi && noteInput) noteKuitansi.value = noteInput.value || '';
                 if (metodeKuitansi && metodeSelect) metodeKuitansi.value = metodeSelect.value || 'Cash';
                 if (tanggalManualKuitansi && tanggalManual) tanggalManualKuitansi.value = tanggalManual.value || '';
@@ -528,6 +541,17 @@
                     nominalTopup.value = raw > 0 ? formatRp(raw) : '';
                     updateTotalBayar();
                     syncKuitansiFormFields();
+                });
+            }
+
+            if (formSearch) {
+                formSearch.addEventListener('submit', function (e) {
+                    const q = String(siswaInput ? siswaInput.value : '').trim();
+                    if (q.length < 2) {
+                        e.preventDefault();
+                        alert('Ketik minimal 2 karakter NIS atau nama sebelum Cari.');
+                        siswaInput?.focus();
+                    }
                 });
             }
 
@@ -574,8 +598,11 @@
                 });
             }
 
-            document.querySelectorAll('.tc-row-pick').forEach(function (row) {
-                const activate = function () {
+            const tableBody = document.querySelector('#tcTableSiswa tbody');
+            if (tableBody) {
+                tableBody.addEventListener('click', function (e) {
+                    const row = e.target.closest('.tc-row-pick');
+                    if (!row) return;
                     document.querySelectorAll('.tc-row-pick').forEach(function (r) { r.classList.remove('tc-row-active'); });
                     row.classList.add('tc-row-active');
                     pickSiswa(
@@ -585,15 +612,15 @@
                         row.getAttribute('data-saldo')
                     );
                     nominalTopup?.focus();
-                };
-                row.addEventListener('click', activate);
-                row.addEventListener('keydown', function (ev) {
-                    if (ev.key === 'Enter' || ev.key === ' ') {
-                        ev.preventDefault();
-                        activate();
-                    }
                 });
-            });
+                tableBody.addEventListener('keydown', function (e) {
+                    if (e.key !== 'Enter' && e.key !== ' ') return;
+                    const row = e.target.closest('.tc-row-pick');
+                    if (!row) return;
+                    e.preventDefault();
+                    row.click();
+                });
+            }
 
             if (!siswaInput || !custidHidden || !siswaList || !siswaWrap) {
                 syncHiddenFields();
@@ -617,26 +644,29 @@
                     return;
                 }
                 siswaList.innerHTML = matched.map(function (r) {
-                    const label = (r.label || '').replace(/"/g, '&quot;');
+                    const label = (r.label || '').replace(/</g, '&lt;').replace(/"/g, '&quot;');
                     const nmcust = (r.nmcust || '').replace(/"/g, '&quot;');
                     const nisVal = (r.nocust || r.nis_like || r.nis || '').replace(/"/g, '&quot;');
-                    return '<button type="button" data-cid="' + r.cid + '" data-nis="' + nisVal + '" data-nmcust="' + nmcust + '" class="tc-auto-item">' + (r.label || '—') + '</button>';
+                    return '<button type="button" data-cid="' + r.cid + '" data-nis="' + nisVal + '" data-nmcust="' + nmcust + '" class="tc-auto-item">' + label + '</button>';
                 }).join('');
                 siswaList.style.display = 'block';
-                Array.from(siswaList.querySelectorAll('button[data-cid]')).forEach(function (btn) {
-                    btn.addEventListener('click', function () {
-                        const cid = btn.getAttribute('data-cid') || '';
-                        const nisVal = btn.getAttribute('data-nis') || '';
-                        const nmcust = btn.getAttribute('data-nmcust') || '';
-                        pickSiswa(cid, nisVal, nmcust, 0);
-                        closeList();
-                    });
-                });
             };
+
+            siswaList.addEventListener('click', function (e) {
+                const btn = e.target.closest('button[data-cid]');
+                if (!btn) return;
+                pickSiswa(
+                    btn.getAttribute('data-cid') || '',
+                    btn.getAttribute('data-nis') || '',
+                    btn.getAttribute('data-nmcust') || '',
+                    0
+                );
+                closeList();
+            });
 
             const fetchSiswa = function (q) {
                 const query = String(q || '').trim();
-                if (query.length < 1) {
+                if (query.length < 2) {
                     closeList();
                     return;
                 }
@@ -667,7 +697,7 @@
                 setKuitansiState('', '', false);
                 syncHiddenFields();
                 clearTimeout(searchTimer);
-                searchTimer = setTimeout(function () { fetchSiswa(siswaInput.value); }, 280);
+                searchTimer = setTimeout(function () { fetchSiswa(siswaInput.value); }, 400);
             });
 
             siswaInput.addEventListener('focus', function () {
