@@ -173,7 +173,7 @@ class PindahSaldoController extends Controller
         $note = trim((string) ($validated['note'] ?? ''));
         $tanggalManual = trim((string) ($validated['tanggal_manual'] ?? ''));
         $adminFee = self::ADMIN_FEE;
-        $totalPotong = $nominal + $adminFee;
+        $saldoDidapat = $nominal - $adminFee;
 
         $siswa = $this->fetchSiswaByCustid($custid);
         if (!$siswa) {
@@ -184,13 +184,19 @@ class PindahSaldoController extends Controller
             return redirect()->back()->withInput()->with('smartcard_error', 'Siswa tidak termasuk unit sekolah Anda.');
         }
 
+        if ($nominal <= $adminFee) {
+            return redirect()->back()->withInput()->with(
+                'smartcard_error',
+                'Nominal pindah harus lebih dari biaya admin Rp ' . number_format($adminFee, 0, ',', '.') . '.'
+            );
+        }
+
         $saldoSpp = $this->fetchSaldoSpp($custid);
-        if ($totalPotong > $saldoSpp) {
+        if ($nominal > $saldoSpp) {
             return redirect()->back()->withInput()->with(
                 'smartcard_error',
                 'Saldo SPP tidak mencukupi. Saldo: Rp ' . number_format($saldoSpp, 0, ',', '.')
-                . ', dibutuhkan: Rp ' . number_format($totalPotong, 0, ',', '.')
-                . ' (pindah Rp ' . number_format($nominal, 0, ',', '.') . ' + admin Rp ' . number_format($adminFee, 0, ',', '.') . ').'
+                . ', dibutuhkan: Rp ' . number_format($nominal, 0, ',', '.') . '.'
             );
         }
 
@@ -202,7 +208,6 @@ class PindahSaldoController extends Controller
                 $custid,
                 $trxDate,
                 $nominal,
-                $totalPotong,
                 $adminFee,
                 $transNo
             ) {
@@ -213,7 +218,7 @@ class PindahSaldoController extends Controller
                     'NOREFF' => self::NOREFF_CHANNEL,
                     'FIDBANK' => self::FIDBANK,
                     'KDCHANNEL' => 0,
-                    'DEBET' => $totalPotong,
+                    'DEBET' => $nominal,
                     'KREDIT' => 0,
                     'REFFBANK' => '',
                     'TRANSNO' => $transNo,
@@ -226,7 +231,6 @@ class PindahSaldoController extends Controller
             return redirect()->back()->withInput()->with('smartcard_error', 'Gagal pindah saldo: ' . $e->getMessage());
         }
 
-        $saldoSppBaru = $saldoSpp - $totalPotong;
         $saldoCashlessBaru = $this->fetchSaldoCashless($custid);
 
         return redirect()
@@ -238,8 +242,9 @@ class PindahSaldoController extends Controller
             ->with(
                 'smartcard_success',
                 'Pindah saldo berhasil. No: ' . $transNo
-                . '. Saldo SPP: Rp ' . number_format($saldoSppBaru, 0, ',', '.')
-                . ' | Uang saku: Rp ' . number_format($saldoCashlessBaru, 0, ',', '.')
+                . '. Potong SPP: Rp ' . number_format($nominal, 0, ',', '.')
+                . ' | Uang saku +Rp ' . number_format($saldoDidapat, 0, ',', '.')
+                . ' (saldo uang saku: Rp ' . number_format($saldoCashlessBaru, 0, ',', '.') . ')'
             );
     }
 

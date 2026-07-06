@@ -20,9 +20,9 @@ class RekapTopupController extends Controller
 
     private const TRAN_TABLE = 'sccttran_cashless';
 
-    private const METODE_TOPUP = 'TOP UP CASHLESS';
+    private const METODE_TOPUP = 'TOP UP CASH';
 
-    private const METODE_FEE = 'ADMIN FEE';
+    private const METODE_FEE = 'biaya admin top up cash';
 
     private const FIDBANK = '1140002';
 
@@ -100,11 +100,17 @@ class RekapTopupController extends Controller
             ->leftJoin(self::TRAN_TABLE . ' as fee', function ($join) {
                 $join->on('fee.TRANSNO', '=', 't.TRANSNO')
                     ->on('fee.CUSTID', '=', 't.CUSTID')
-                    ->whereRaw('UPPER(TRIM(fee.METODE)) = ?', [self::METODE_FEE]);
+                    ->where(function ($q) {
+                        $q->whereRaw('UPPER(TRIM(fee.METODE)) = ?', [self::METODE_FEE])
+                            ->orWhereRaw('UPPER(TRIM(fee.METODE)) = ?', ['ADMIN FEE']);
+                    });
             })
             ->where(function ($q) {
                 $q->where(function ($q2) {
                     $q2->whereRaw('UPPER(TRIM(t.METODE)) = ?', [self::METODE_TOPUP])
+                        ->whereRaw('TRIM(t.FIDBANK) = ?', [self::FIDBANK]);
+                })->orWhere(function ($q2) {
+                    $q2->whereRaw('UPPER(TRIM(t.METODE)) = ?', ['TOP UP CASHLESS'])
                         ->whereRaw('TRIM(t.FIDBANK) = ?', [self::FIDBANK]);
                 })->orWhere(function ($q2) {
                     $q2->whereRaw('UPPER(TRIM(t.FIDBANK)) = ?', ['TOPUP'])
@@ -149,13 +155,14 @@ class RekapTopupController extends Controller
 
     private function mapRow(object $row): object
     {
-        $topup = (int) ($row->topup ?? 0);
+        $topupGross = (int) ($row->topup ?? 0);
         $fee = (int) ($row->fee_debet ?? 0);
         if ($fee <= 0) {
             $fee = $this->parseFee((string) ($row->helpdesk ?? ''), (string) ($row->metode ?? ''));
         }
+        $row->topup = $topupGross;
         $row->fee = $fee;
-        $row->total = $topup + $fee;
+        $row->total = max(0, $topupGross - $fee);
         $row->user = $this->parseUser((string) ($row->helpdesk ?? ''));
 
         return $row;
@@ -174,7 +181,7 @@ class RekapTopupController extends Controller
         return [
             'topup' => $topup,
             'fee' => $fee,
-            'grand' => $topup + $fee,
+            'grand' => max(0, $topup - $fee),
         ];
     }
 
@@ -182,6 +189,7 @@ class RekapTopupController extends Controller
     private function sumTotalsSql(array $filters): array
     {
         $cashFee = self::CASH_FEE;
+        $metodeTopup = self::METODE_TOPUP;
         $row = $this->baseQuery($filters)
             ->selectRaw(
                 'CAST(COALESCE(SUM(t.KREDIT), 0) AS SIGNED) as topup_sum,
@@ -190,11 +198,11 @@ class RekapTopupController extends Controller
                         WHEN COALESCE(fee.DEBET, 0) > 0 THEN CAST(fee.DEBET AS SIGNED)
                         WHEN t.HELPDESK LIKE ? THEN
                             CAST(TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(t.HELPDESK, \'Biaya:\', -1), \'|\', 1)) AS SIGNED)
-                        WHEN UPPER(TRIM(t.METODE)) IN (\'CASH\', ?) THEN ?
+                        WHEN UPPER(TRIM(t.METODE)) IN (\'CASH\', ?, \'TOP UP CASHLESS\') THEN ?
                         ELSE 0
                     END
                 ), 0) AS SIGNED) as fee_sum',
-                ['%Biaya:%', self::METODE_TOPUP, $cashFee]
+                ['%Biaya:%', $metodeTopup, $cashFee]
             )
             ->first();
 
@@ -204,7 +212,7 @@ class RekapTopupController extends Controller
         return [
             'topup' => $topup,
             'fee' => $fee,
-            'grand' => $topup + $fee,
+            'grand' => max(0, $topup - $fee),
         ];
     }
 
@@ -224,7 +232,9 @@ class RekapTopupController extends Controller
             return (int) $m[1];
         }
 
-        return strcasecmp(trim($metode), 'Cash') === 0 || strcasecmp(trim($metode), self::METODE_TOPUP) === 0
+        return strcasecmp(trim($metode), 'Cash') === 0
+            || strcasecmp(trim($metode), self::METODE_TOPUP) === 0
+            || strcasecmp(trim($metode), 'TOP UP CASHLESS') === 0
             ? self::CASH_FEE
             : 0;
     }

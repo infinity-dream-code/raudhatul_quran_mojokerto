@@ -87,8 +87,9 @@
     <table class="trx">
         <thead>
             <tr>
-                <th>Jumlah</th>
-                <th>Biaya Cash</th>
+                <th>Bayar</th>
+                <th>Biaya Admin</th>
+                <th>Masuk Uang Saku</th>
                 <th>Tanggal Bayar</th>
             </tr>
         </thead>
@@ -96,6 +97,7 @@
             <tr>
                 <td>{{ number_format((int) ($nominal ?? 0), 0, ',', '.') }}</td>
                 <td>{{ number_format((int) ($fee ?? 0), 0, ',', '.') }}</td>
+                <td>{{ number_format((int) ($saldoDidapat ?? max(0, (int) ($nominal ?? 0) - (int) ($fee ?? 0))), 0, ',', '.') }}</td>
                 <td>{{ ($trxDate ?? now())->format('Y-m-d H:i:s') }}</td>
             </tr>
         </tbody>

@@ -19,6 +19,15 @@
                     <div class="sc-alert sc-alert-error">{{ $errors->first() }}</div>
                 @endif
 
+                <div class="tc-keterangan">
+                    <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+                    <span>
+                        Kolom <strong>TOP UP</strong> = nominal bayar;
+                        uang saku masuk setelah biaya admin
+                        <strong>Rp {{ number_format((int) ($cashFee ?? 2000), 0, ',', '.') }}</strong>.
+                    </span>
+                </div>
+
                 <div class="tc-builder-title">TOPUP CASH SALDO</div>
 
                 <form method="GET" action="{{ route('smartcard.topup_cash') }}" id="tcFormSearch">
@@ -86,8 +95,8 @@
                             </div>
                             <div class="tc-summary-divider"></div>
                             <div class="tc-summary-item tc-summary-total">
-                                <span class="tc-summary-label">Total Top Up</span>
-                                <strong id="totalBayarDisplay">Rp 0</strong>
+                                <span class="tc-summary-label">Total Saldo Didapat</span>
+                                <strong id="saldoDidapatDisplay">Rp 0</strong>
                             </div>
                         </div>
                     </div>
@@ -214,6 +223,13 @@
     <style>
         .sc-page-wide { max-width: 1320px; }
 
+        .tc-keterangan {
+            display: flex; align-items: flex-start; gap: 10px;
+            padding: 12px 16px; margin-bottom: 16px;
+            background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px;
+            font-size: 13px; color: #1e40af;
+        }
+        .tc-keterangan i { margin-top: 2px; }
         .tc-builder-title {
             font-family: 'Sora', sans-serif;
             font-size: 18px;
@@ -502,7 +518,7 @@
             const siswaWrap = document.getElementById('siswaAutoWrap');
             const nisField = document.querySelector('.sc-field-nis');
             const nominalTopup = document.getElementById('nominalTopup');
-            const totalBayarDisplay = document.getElementById('totalBayarDisplay');
+            const saldoDidapatDisplay = document.getElementById('saldoDidapatDisplay');
             const metodeSelect = document.getElementById('metode');
             const metodeTopup = document.getElementById('metodeTopup');
             const tanggalManual = document.getElementById('tanggalManual');
@@ -525,12 +541,13 @@
                 return String(Math.max(0, parseInt(n, 10) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
             };
 
-            const updateTotalBayar = function () {
+            const updateSaldoDidapat = function () {
                 const nominal = parseNum(nominalTopup ? nominalTopup.value : 0);
                 const metode = metodeSelect ? metodeSelect.value : 'Cash';
                 const fee = metode === 'Cash' ? cashFee : 0;
-                if (totalBayarDisplay) {
-                    totalBayarDisplay.textContent = 'Rp ' + formatRp(nominal + fee);
+                const didapat = Math.max(0, nominal - fee);
+                if (saldoDidapatDisplay) {
+                    saldoDidapatDisplay.textContent = 'Rp ' + formatRp(didapat);
                 }
             };
 
@@ -539,7 +556,7 @@
                 if (metodeTopup && metodeSelect) metodeTopup.value = metodeSelect.value || 'Cash';
                 if (tanggalManualTopup && tanggalManual) tanggalManualTopup.value = tanggalManual.value || '';
                 if (noteTopup && noteInput) noteTopup.value = noteInput.value || '';
-                updateTotalBayar();
+                updateSaldoDidapat();
             };
 
             const setKuitansiState = function (custid, transno, reprint) {
@@ -581,7 +598,7 @@
                 nominalTopup.addEventListener('input', function () {
                     const raw = parseNum(nominalTopup.value);
                     nominalTopup.value = raw > 0 ? formatRp(raw) : '';
-                    updateTotalBayar();
+                    updateSaldoDidapat();
                     syncKuitansiFormFields();
                 });
             }
@@ -602,16 +619,28 @@
                         nominalTopup?.focus();
                         return;
                     }
+                    const metode = metodeSelect ? metodeSelect.value : 'Cash';
+                    const fee = metode === 'Cash' ? cashFee : 0;
+                    const didapat = Math.max(0, nominal - fee);
+
+                    if (metode === 'Cash' && nominal <= fee) {
+                        e.preventDefault();
+                        alert('Nominal top up harus lebih dari biaya admin Rp ' + formatRp(fee) + '.');
+                        nominalTopup?.focus();
+                        return;
+                    }
+
                     const hiddenNominal = document.createElement('input');
                     hiddenNominal.type = 'hidden';
                     hiddenNominal.name = 'nominal';
                     hiddenNominal.value = String(nominal);
                     formTopup.appendChild(hiddenNominal);
 
-                    const metode = metodeSelect ? metodeSelect.value : 'Cash';
                     if (metode === 'Cash') {
-                        const totalBayar = nominal + cashFee;
-                        if (!confirm('Top up Rp ' + formatRp(nominal) + ' + biaya cash Rp ' + formatRp(cashFee) + ' = Rp ' + formatRp(totalBayar) + ' ?')) {
+                        if (!confirm(
+                            'Bayar Rp ' + formatRp(nominal) + '\n'
+                            + 'Uang saku masuk: Rp ' + formatRp(didapat) + ' (setelah biaya admin Rp ' + formatRp(fee) + ')'
+                        )) {
                             e.preventDefault();
                         }
                     }

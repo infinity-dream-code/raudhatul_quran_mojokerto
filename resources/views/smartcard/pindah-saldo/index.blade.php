@@ -22,8 +22,9 @@
                 <div class="ps-keterangan">
                     <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
                     <span>
-                        Pindah saldo <strong>SPP</strong> ke <strong>uang saku</strong>,
-                        dipotong biaya admin <strong>Rp {{ number_format((int) ($adminFee ?? 1000), 0, ',', '.') }}</strong>.
+                        Pindah saldo <strong>SPP</strong> ke <strong>uang saku</strong>.
+                        Kolom <strong>PINDAH</strong> = total potong SPP; uang saku masuk setelah biaya admin
+                        <strong>Rp {{ number_format((int) ($adminFee ?? 1000), 0, ',', '.') }}</strong>.
                     </span>
                 </div>
 
@@ -106,8 +107,8 @@
                             </div>
                             <div class="ps-summary-divider"></div>
                             <div class="ps-summary-item ps-summary-total">
-                                <span class="ps-summary-label">Total Potong SPP</span>
-                                <strong id="totalPotongDisplay">Rp 0</strong>
+                                <span class="ps-summary-label">Total Saldo Didapat</span>
+                                <strong id="saldoDidapatDisplay">Rp 0</strong>
                             </div>
                         </div>
                     </div>
@@ -316,7 +317,7 @@
             const saldoSppDisplay = document.getElementById('saldoSppDisplay');
             const saldoCashlessDisplay = document.getElementById('saldoCashlessDisplay');
             const nominalPindah = document.getElementById('nominalPindah');
-            const totalPotongDisplay = document.getElementById('totalPotongDisplay');
+            const saldoDidapatDisplay = document.getElementById('saldoDidapatDisplay');
             const tanggalManual = document.getElementById('tanggalManual');
             const tanggalManualStore = document.getElementById('tanggalManualStore');
             const noteInput = document.getElementById('note');
@@ -332,16 +333,17 @@
             const parseNum = function (v) { return parseInt(String(v || '').replace(/\D/g, ''), 10) || 0; };
             const formatRp = function (n) { return String(Math.max(0, parseInt(n, 10) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, '.'); };
 
-            const updateTotalPotong = function () {
+            const updateSaldoDidapat = function () {
                 const nominal = parseNum(nominalPindah ? nominalPindah.value : 0);
-                if (totalPotongDisplay) totalPotongDisplay.textContent = 'Rp ' + formatRp(nominal + adminFee);
+                const didapat = Math.max(0, nominal - adminFee);
+                if (saldoDidapatDisplay) saldoDidapatDisplay.textContent = 'Rp ' + formatRp(didapat);
             };
 
             const syncHidden = function () {
                 if (custidStore && custidHidden) custidStore.value = custidHidden.value || '';
                 if (tanggalManualStore && tanggalManual) tanggalManualStore.value = tanggalManual.value || '';
                 if (noteStore && noteInput) noteStore.value = noteInput.value || '';
-                updateTotalPotong();
+                updateSaldoDidapat();
             };
 
             let saldoReq = 0;
@@ -385,7 +387,7 @@
                 nominalPindah.addEventListener('input', function () {
                     const raw = parseNum(nominalPindah.value);
                     nominalPindah.value = raw > 0 ? formatRp(raw) : '';
-                    updateTotalPotong();
+                    updateSaldoDidapat();
                 });
             }
 
@@ -395,13 +397,19 @@
                     const cid = parseInt(custidStore ? custidStore.value : '0', 10);
                     const nominal = parseNum(nominalPindah ? nominalPindah.value : 0);
                     const saldoSpp = parseNum(saldoSppDisplay ? saldoSppDisplay.value : 0);
-                    const total = nominal + adminFee;
+                    const didapat = Math.max(0, nominal - adminFee);
 
                     if (cid <= 0) { e.preventDefault(); alert('Pilih siswa terlebih dahulu.'); return; }
                     if (!nominal) { e.preventDefault(); alert('Isi nominal PINDAH.'); nominalPindah?.focus(); return; }
-                    if (total > saldoSpp) {
+                    if (nominal <= adminFee) {
                         e.preventDefault();
-                        alert('Saldo SPP tidak cukup.\nDibutuhkan: Rp ' + formatRp(total) + ' (pindah + admin).\nSaldo SPP: Rp ' + formatRp(saldoSpp));
+                        alert('Nominal pindah harus lebih dari biaya admin Rp ' + formatRp(adminFee) + '.');
+                        nominalPindah?.focus();
+                        return;
+                    }
+                    if (nominal > saldoSpp) {
+                        e.preventDefault();
+                        alert('Saldo SPP tidak cukup.\nPotong SPP: Rp ' + formatRp(nominal) + '\nSaldo SPP: Rp ' + formatRp(saldoSpp));
                         return;
                     }
 
@@ -412,9 +420,8 @@
                     formStore.appendChild(hiddenNominal);
 
                     if (!confirm(
-                        'Pindah Rp ' + formatRp(nominal) + ' ke uang saku?\n'
-                        + 'Potong SPP: Rp ' + formatRp(total) + ' (termasuk admin Rp ' + formatRp(adminFee) + ')\n'
-                        + 'Uang saku masuk bersih: Rp ' + formatRp(Math.max(0, nominal - adminFee))
+                        'Potong SPP: Rp ' + formatRp(nominal) + '\n'
+                        + 'Uang saku masuk: Rp ' + formatRp(didapat) + ' (setelah biaya admin Rp ' + formatRp(adminFee) + ')'
                     )) {
                         e.preventDefault();
                     }

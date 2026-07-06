@@ -25,9 +25,9 @@ class TopupCashController extends Controller
 
     private const FIDBANK = '1140002';
 
-    private const METODE_TOPUP = 'TOP UP CASHLESS';
+    private const METODE_TOPUP = 'TOP UP CASH';
 
-    private const METODE_FEE = 'ADMIN FEE';
+    private const METODE_FEE = 'biaya admin top up cash';
 
     private const TRANSNO_SEQ_LEN = 5;
 
@@ -157,16 +157,25 @@ class TopupCashController extends Controller
                 ->with('smartcard_error', 'Siswa tidak termasuk unit sekolah Anda.');
         }
 
+        $fee = strcasecmp($metode, 'Cash') === 0 ? self::CASH_FEE : 0;
+
+        if ($fee > 0 && $nominal <= $fee) {
+            return redirect()
+                ->back()
+                ->withInput()
+                ->with(
+                    'smartcard_error',
+                    'Nominal top up harus lebih dari biaya admin Rp ' . number_format($fee, 0, ',', '.') . '.'
+                );
+        }
+
+        $saldoDidapat = $nominal - $fee;
         $trxDate = $this->resolveTrxDate($tanggalManual);
         $transNo = $this->generateTransNo($trxDate);
 
-        $fee = strcasecmp($metode, 'Cash') === 0 ? self::CASH_FEE : 0;
-        $user = trim((string) session('auth_username', session('auth_name', '')));
-        $helpdesk = $this->buildHelpdesk($note, $fee, $user);
-
         try {
-            DB::connection('sikeu')->transaction(function () use ($custid, $trxDate, $nominal, $fee, $transNo, $helpdesk) {
-                $this->insertTopupRows($custid, $trxDate, $nominal, $fee, $transNo, $helpdesk);
+            DB::connection('sikeu')->transaction(function () use ($custid, $trxDate, $nominal, $fee, $transNo) {
+                $this->insertTopupRows($custid, $trxDate, $nominal, $fee, $transNo);
             });
         } catch (\Throwable $e) {
             return redirect()
@@ -185,7 +194,13 @@ class TopupCashController extends Controller
                 'metode' => $metode,
                 'note' => $note,
             ])
-            ->with('smartcard_success', 'Top up berhasil. No transaksi: ' . $transNo . '. Saldo baru: ' . number_format($saldoBaru, 0, ',', '.'))
+            ->with(
+                'smartcard_success',
+                'Top up berhasil. No: ' . $transNo
+                . '. Bayar Rp ' . number_format($nominal, 0, ',', '.')
+                . ' | Uang saku +Rp ' . number_format($saldoDidapat, 0, ',', '.')
+                . ' (saldo: Rp ' . number_format($saldoBaru, 0, ',', '.') . ')'
+            )
             ->with('topup_cash_transno', $transNo)
             ->with('topup_cash_custid', $custid);
     }
@@ -239,6 +254,7 @@ class TopupCashController extends Controller
                 })
                 ->where(function ($q) {
                     $q->whereRaw('UPPER(TRIM(METODE)) = ?', [self::METODE_TOPUP])
+                        ->orWhereRaw('UPPER(TRIM(METODE)) = ?', ['TOP UP CASHLESS'])
                         ->orWhereRaw('UPPER(TRIM(FIDBANK)) = ?', ['TOPUP']);
                 })
                 ->orderByDesc('TRXDATE')
@@ -258,7 +274,10 @@ class TopupCashController extends Controller
                     ->table(self::TRAN_TABLE)
                     ->where('CUSTID', $custid)
                     ->whereRaw('TRIM(TRANSNO) = ?', [trim((string) ($tran->TRANSNO ?? $transNo))])
-                    ->whereRaw('UPPER(TRIM(METODE)) = ?', [self::METODE_FEE])
+                    ->where(function ($q) {
+                        $q->whereRaw('UPPER(TRIM(METODE)) = ?', [self::METODE_FEE])
+                            ->orWhereRaw('UPPER(TRIM(METODE)) = ?', ['ADMIN FEE']);
+                    })
                     ->first();
                 if ($feeRow) {
                     $fee = (int) ($feeRow->DEBET ?? 0);
@@ -266,8 +285,7 @@ class TopupCashController extends Controller
             }
         }
 
-        $saldo = $this->fetchSaldo($custid);
-        $jumlah = $saldo > 0 ? $saldo : $nominalTopup;
+        $saldoDidapat = max(0, $nominalTopup - $fee);
 
         if ($transNo === '') {
             $transNo = $this->generateTransNo($trxDate);
@@ -283,8 +301,8 @@ class TopupCashController extends Controller
             'nis' => trim((string) ($siswa->nis ?? '')),
             'unit' => $unit,
             'kelas' => $kelas,
-            'nominal' => $jumlah,
-            'nominalTopup' => $nominalTopup,
+            'nominal' => $nominalTopup,
+            'saldoDidapat' => $saldoDidapat,
             'fee' => $fee,
             'transNo' => $transNo,
             'trxDate' => $trxDate,
@@ -300,8 +318,7 @@ class TopupCashController extends Controller
         Carbon $trxDate,
         int $nominal,
         int $fee,
-        string $transNo,
-        string $helpdesk
+        string $transNo
     ): void {
         $common = [
             'CUSTID' => $custid,
@@ -317,7 +334,7 @@ class TopupCashController extends Controller
             'METODE' => self::METODE_TOPUP,
             'KREDIT' => $nominal,
             'DEBET' => 0,
-            'HELPDESK' => $helpdesk !== '' ? $helpdesk : null,
+            'HELPDESK' => null,
         ]));
 
         if ($fee > 0) {
@@ -328,22 +345,6 @@ class TopupCashController extends Controller
                 'HELPDESK' => null,
             ]));
         }
-    }
-
-    private function buildHelpdesk(string $note, int $fee, string $user = ''): string
-    {
-        $parts = [];
-        if ($note !== '') {
-            $parts[] = $note;
-        }
-        if ($fee > 0) {
-            $parts[] = 'Biaya:' . $fee;
-        }
-        if (trim($user) !== '') {
-            $parts[] = 'User:' . trim($user);
-        }
-
-        return implode(' | ', $parts);
     }
 
     private function resolveTrxDate(string $tanggalManual): Carbon
