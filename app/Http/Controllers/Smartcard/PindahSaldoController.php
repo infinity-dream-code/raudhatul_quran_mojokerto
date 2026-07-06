@@ -136,7 +136,8 @@ class PindahSaldoController extends Controller
         $trxDate = $this->resolveTrxDate($tanggalManual);
         $transNo = $this->generateTransNo($trxDate);
         $user = trim((string) session('auth_username', session('auth_name', '')));
-        $helpdesk = $this->buildHelpdesk($note, $adminFee, $user);
+        $helpdeskSpp = $this->buildHelpdeskSpp($user);
+        $helpdeskCashless = $this->buildHelpdeskCashless($note, $adminFee, $user);
 
         try {
             DB::connection('sikeu')->transaction(function () use (
@@ -145,7 +146,8 @@ class PindahSaldoController extends Controller
                 $nominal,
                 $totalPotong,
                 $transNo,
-                $helpdesk
+                $helpdeskSpp,
+                $helpdeskCashless
             ) {
                 DB::connection('sikeu')->table(self::TRAN_SPP)->insert([
                     'CUSTID' => $custid,
@@ -158,7 +160,7 @@ class PindahSaldoController extends Controller
                     'KREDIT' => 0,
                     'REFFBANK' => '',
                     'TRANSNO' => $transNo,
-                    'HELPDESK' => $helpdesk,
+                    'HELPDESK' => $helpdeskSpp,
                 ]);
 
                 DB::connection('sikeu')->table(self::TRAN_CASHLESS)->insert([
@@ -169,7 +171,7 @@ class PindahSaldoController extends Controller
                     'DEBET' => 0,
                     'TRANSNO' => $transNo,
                     'NOREFF' => $transNo,
-                    'HELPDESK' => $helpdesk,
+                    'HELPDESK' => $helpdeskCashless,
                     'FIDBANK' => 'PINDAH',
                     'KDCHANNEL' => 0,
                     'REFFBANK' => '',
@@ -197,21 +199,29 @@ class PindahSaldoController extends Controller
             );
     }
 
-    private function buildHelpdesk(string $note, int $fee, string $user = ''): string
+    /** Kolom HELPDESK sccttran pendek — cukup simpan user (seperti data lama). */
+    private function buildHelpdeskSpp(string $user): string
+    {
+        $user = trim($user);
+
+        return mb_substr($user !== '' ? $user : 'pindah', 0, 20);
+    }
+
+    private function buildHelpdeskCashless(string $note, int $fee, string $user = ''): string
     {
         $parts = [];
         if ($note !== '') {
-            $parts[] = $note;
+            $parts[] = mb_substr($note, 0, 120);
         }
-        $parts[] = 'Pindah saldo SPP ke uang saku';
+        $parts[] = 'Pindah SPP';
         if ($fee > 0) {
             $parts[] = 'Biaya:' . $fee;
         }
         if (trim($user) !== '') {
-            $parts[] = 'User:' . trim($user);
+            $parts[] = 'User:' . mb_substr(trim($user), 0, 30);
         }
 
-        return implode(' | ', $parts);
+        return mb_substr(implode(' | ', $parts), 0, 255);
     }
 
     private function resolveTrxDate(string $tanggalManual): Carbon
