@@ -128,7 +128,7 @@
                     <div class="tc-table-head">
                         <div class="sc-table-title">Daftar Siswa</div>
                         @if ($isSearch ?? false)
-                            <span class="tc-count-badge">{{ ($siswaRows ?? collect())->count() }} siswa</span>
+                            <span class="tc-count-badge">{{ ($siswaPaginator ?? null)?->total() ?? 0 }} siswa</span>
                         @endif
                     </div>
                     <div class="sc-table-wrap tc-table-wrap">
@@ -144,17 +144,8 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @if ($searchTooShort ?? false)
-                                    <tr>
-                                        <td colspan="6" class="sc-empty">
-                                            <div class="tc-empty-state">
-                                                <i class="fa-solid fa-keyboard tc-empty-icon" aria-hidden="true"></i>
-                                                <div>Ketik minimal <strong>2 karakter</strong> NIS atau nama, lalu klik <strong>Cari</strong>.</div>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                @elseif ($isSearch ?? false)
-                                    @forelse (($siswaRows ?? collect()) as $row)
+                                @if ($isSearch ?? false)
+                                    @forelse (($siswaPaginator ?? null)?->items() ?? [] as $row)
                                         <tr class="tc-row-pick @if((int)($custid ?? 0) === (int)($row->custid ?? 0)) tc-row-active @endif"
                                             tabindex="0"
                                             data-custid="{{ (int) ($row->custid ?? 0) }}"
@@ -183,7 +174,7 @@
                                         <td colspan="6" class="sc-empty">
                                             <div class="tc-empty-state">
                                                 <i class="fa-regular fa-hand-pointer tc-empty-icon" aria-hidden="true"></i>
-                                                <div>Ketik NIS atau nama (min. 2 karakter), lalu klik <strong>Cari</strong>.</div>
+                                                <div>Klik <strong>Cari</strong> untuk menampilkan daftar siswa (10 data per halaman).</div>
                                             </div>
                                         </td>
                                     </tr>
@@ -191,6 +182,28 @@
                             </tbody>
                         </table>
                     </div>
+
+                    @if (($isSearch ?? false) && ($siswaPaginator ?? null))
+                        <div class="tc-table-footer">
+                            <div>
+                                Menampilkan {{ $siswaPaginator->firstItem() ?? 0 }}–{{ $siswaPaginator->lastItem() ?? 0 }}
+                                dari {{ $siswaPaginator->total() }} siswa
+                            </div>
+                            <div class="tc-table-pages">
+                                @if ($siswaPaginator->onFirstPage())
+                                    <span class="tc-page disabled">Sebelumnya</span>
+                                @else
+                                    <a class="tc-page" href="{{ $siswaPaginator->appends(request()->query())->previousPageUrl() }}">Sebelumnya</a>
+                                @endif
+                                <span class="tc-page active">{{ $siswaPaginator->currentPage() }}</span>
+                                @if ($siswaPaginator->hasMorePages())
+                                    <a class="tc-page" href="{{ $siswaPaginator->appends(request()->query())->nextPageUrl() }}">Selanjutnya</a>
+                                @else
+                                    <span class="tc-page disabled">Selanjutnya</span>
+                                @endif
+                            </div>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>
@@ -438,6 +451,36 @@
 
         .tc-hidden-form { display: none; }
 
+        .tc-table-footer {
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 12px;
+            color: #6b7280;
+            border-top: 1px solid #ede9fe;
+            background: #faf5ff;
+        }
+        .tc-table-pages { display: flex; gap: 6px; align-items: center; }
+        .tc-page {
+            min-width: 30px;
+            height: 30px;
+            border: 1px solid #c4b5fd;
+            border-radius: 999px;
+            padding: 0 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            color: #5b21b6;
+            font-weight: 700;
+            background: #fff;
+        }
+        .tc-page.active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
+        .tc-page.disabled { pointer-events: none; opacity: 0.45; }
+
         @media (max-width: 768px) {
             .tc-builder-grid { min-width: 760px; }
             .tc-actions { padding: 12px; }
@@ -467,7 +510,6 @@
             const noteInput = document.getElementById('note');
             const noteTopup = document.getElementById('noteTopup');
             const formTopup = document.getElementById('tcFormTopup');
-            const formSearch = document.getElementById('tcFormSearch');
             const formKuitansi = document.getElementById('tcFormKuitansi');
             const btnKuitansi = document.getElementById('btnKuitansi');
             const transnoKuitansi = document.getElementById('transnoKuitansi');
@@ -541,17 +583,6 @@
                     nominalTopup.value = raw > 0 ? formatRp(raw) : '';
                     updateTotalBayar();
                     syncKuitansiFormFields();
-                });
-            }
-
-            if (formSearch) {
-                formSearch.addEventListener('submit', function (e) {
-                    const q = String(siswaInput ? siswaInput.value : '').trim();
-                    if (q.length < 2) {
-                        e.preventDefault();
-                        alert('Ketik minimal 2 karakter NIS atau nama sebelum Cari.');
-                        siswaInput?.focus();
-                    }
                 });
             }
 

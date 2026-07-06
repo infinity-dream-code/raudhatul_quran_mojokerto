@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +15,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class TopupCashController extends Controller
 {
-    private const MAX_ROWS = 500;
+    private const PER_PAGE_DEFAULT = 10;
 
     private const CASH_FEE = 2000;
 
@@ -32,23 +33,39 @@ class TopupCashController extends Controller
         $tanggalManual = trim((string) $request->query('tanggal_manual', ''));
         $note = trim((string) $request->query('note', ''));
 
+        $perPage = (int) $request->query('per_page', self::PER_PAGE_DEFAULT);
+        if (!in_array($perPage, [10, 25, 50], true)) {
+            $perPage = self::PER_PAGE_DEFAULT;
+        }
+        $page = max(1, (int) $request->query('page', 1));
+
         $nama = '';
         $nis = '';
         $saldo = 0;
 
-        $siswaRows = collect();
-        $searchTooShort = false;
+        $siswaPaginator = new LengthAwarePaginator([], 0, $perPage, $page, [
+            'path' => $request->url(),
+            'query' => $request->query(),
+        ]);
+
         if ($isSearch) {
-            if ($nisFilter !== '' && mb_strlen($nisFilter) >= 2) {
-                $siswaRows = $this->fetchSiswaRows($nisFilter);
-            } else {
-                $searchTooShort = true;
-            }
+            $result = $this->fetchSiswaRowsPaginated(
+                $nisFilter !== '' ? $nisFilter : null,
+                $perPage,
+                $page
+            );
+            $siswaPaginator = new LengthAwarePaginator(
+                $result['rows'],
+                $result['total'],
+                $perPage,
+                $page,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
         }
 
         if ($custid > 0) {
             $fromList = $isSearch
-                ? $siswaRows->first(static fn ($r) => (int) ($r->custid ?? 0) === $custid)
+                ? collect($siswaPaginator->items())->first(static fn ($r) => (int) ($r->custid ?? 0) === $custid)
                 : null;
 
             if ($fromList) {
@@ -87,11 +104,11 @@ class TopupCashController extends Controller
             'metode' => $metode,
             'tanggalManual' => $tanggalManual,
             'note' => $note,
-            'siswaRows' => $siswaRows,
+            'siswaPaginator' => $siswaPaginator,
+            'perPage' => $perPage,
             'cashFee' => self::CASH_FEE,
             'selectedTransNo' => $selectedTransNo,
             'reprintKuitansi' => $reprintKuitansi,
-            'searchTooShort' => $searchTooShort,
         ]);
     }
 
@@ -368,58 +385,80 @@ class TopupCashController extends Controller
             ]);
     }
 
-    private function fetchSiswaRows(string $nisFilter): Collection
+    /**
+     * @return array{rows: Collection, total: int}
+     */
+    private function fetchSiswaRowsPaginated(?string $nisFilter, int $perPage, int $page): array
     {
-        $like = '%' . $nisFilter . '%';
+        $base = $this->buildSiswaListQuery($nisFilter);
 
-        $custFilterSub = DB::connection('sikeu')
-            ->table('scctcust')
-            ->select('scctcust.CUSTID')
-            ->where(function ($q) use ($like) {
-                $q->where('scctcust.NOCUST', 'like', $like)
-                    ->orWhere('scctcust.NMCUST', 'like', $like);
-            });
+        $total = (int) (clone $base)->count('scctcust.CUSTID');
 
-        if (!session('auth_is_superadmin')) {
-            $code01 = trim((string) session('auth_sekolah_code01', session('auth_fid', '')));
-            if ($code01 !== '') {
-                $custFilterSub->whereRaw('TRIM(scctcust.CODE01) = ?', [$code01]);
-            } else {
-                $custFilterSub->whereRaw('1 = 0');
-            }
-        }
-
-        $salSub = DB::connection('sikeu')
-            ->table(self::TRAN_TABLE . ' as t')
-            ->whereIn('t.CUSTID', $custFilterSub)
-            ->selectRaw('t.CUSTID, CAST(COALESCE(SUM(t.KREDIT), 0) AS SIGNED) - CAST(COALESCE(SUM(t.DEBET), 0) AS SIGNED) AS saldo_net')
-            ->groupBy('t.CUSTID');
-
-        $query = DB::connection('sikeu')
-            ->table('scctcust')
-            ->leftJoin('mst_kelas', DB::raw('CAST(mst_kelas.id AS CHAR)'), '=', DB::raw('TRIM(scctcust.CODE03)'))
-            ->leftJoinSub($salSub, 'sal', 'sal.CUSTID', '=', 'scctcust.CUSTID');
-
-        $this->applySchoolScope($query);
-
-        $query->where(function ($q) use ($like) {
-            $q->where('scctcust.NOCUST', 'like', $like)
-                ->orWhere('scctcust.NMCUST', 'like', $like);
-        });
-
-        return $query
+        $rows = (clone $base)
             ->select([
                 'scctcust.CUSTID as custid',
                 'scctcust.NOCUST as nis',
                 'scctcust.NMCUST as nama',
-                DB::raw('COALESCE(sal.saldo_net, 0) as saldo'),
                 DB::raw('COALESCE(NULLIF(TRIM(mst_kelas.unit), \'\'), TRIM(scctcust.CODE02)) as kelas'),
                 DB::raw('COALESCE(NULLIF(TRIM(mst_kelas.kelas), \'\'), TRIM(scctcust.DESC03)) as kelompok'),
                 DB::raw('COALESCE(NULLIF(TRIM(mst_kelas.jenjang), \'\'), TRIM(scctcust.DESC02)) as jenjang'),
             ])
             ->orderBy('scctcust.NMCUST')
-            ->limit(self::MAX_ROWS)
+            ->offset(max(0, ($page - 1) * $perPage))
+            ->limit($perPage)
             ->get();
+
+        $saldoMap = $this->fetchSaldoMap(
+            $rows->pluck('custid')->map(static fn ($id) => (int) $id)->filter(static fn ($id) => $id > 0)->values()->all()
+        );
+
+        foreach ($rows as $row) {
+            $row->saldo = $saldoMap[(int) ($row->custid ?? 0)] ?? 0;
+        }
+
+        return ['rows' => $rows, 'total' => $total];
+    }
+
+    private function buildSiswaListQuery(?string $nisFilter)
+    {
+        $query = DB::connection('sikeu')
+            ->table('scctcust')
+            ->leftJoin('mst_kelas', DB::raw('CAST(mst_kelas.id AS CHAR)'), '=', DB::raw('TRIM(scctcust.CODE03)'));
+
+        $this->applySchoolScope($query);
+        $this->applySiswaFilter($query, $nisFilter);
+
+        return $query;
+    }
+
+    private function applySiswaFilter($query, ?string $nisFilter): void
+    {
+        if ($nisFilter === null || $nisFilter === '') {
+            return;
+        }
+
+        $like = '%' . $nisFilter . '%';
+        $query->where(function ($q) use ($like) {
+            $q->where('scctcust.NOCUST', 'like', $like)
+                ->orWhere('scctcust.NMCUST', 'like', $like);
+        });
+    }
+
+    /** @param list<int> $custids */
+    private function fetchSaldoMap(array $custids): array
+    {
+        if ($custids === []) {
+            return [];
+        }
+
+        return DB::connection('sikeu')
+            ->table(self::TRAN_TABLE)
+            ->whereIn('CUSTID', $custids)
+            ->selectRaw('CUSTID, CAST(COALESCE(SUM(KREDIT), 0) AS SIGNED) - CAST(COALESCE(SUM(DEBET), 0) AS SIGNED) AS saldo')
+            ->groupBy('CUSTID')
+            ->pluck('saldo', 'CUSTID')
+            ->map(static fn ($saldo) => (int) $saldo)
+            ->all();
     }
 
     private function applySchoolScope($query): void
