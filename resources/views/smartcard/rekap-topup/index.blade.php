@@ -66,37 +66,44 @@
                                         <input type="text" name="nis" value="{{ $filters['nis'] ?? '' }}" placeholder="Nomor induk" autocomplete="off">
                                     </div>
                                 </div>
-                                <div class="rt-cell">
+                                <div class="rt-cell rt-cell-end">
                                     <div class="rt-cell-label">NAMA</div>
                                     <div class="rt-cell-input">
                                         <input type="text" name="nama" value="{{ $filters['nama'] ?? '' }}" placeholder="Nama siswa" autocomplete="off">
                                     </div>
                                 </div>
-                                <div class="rt-cell">
+
+                                <div class="rt-cell rt-cell-row2">
                                     <div class="rt-cell-label">Dari Tanggal</div>
                                     <div class="rt-cell-input">
                                         <input type="date" name="dari_tanggal"
                                                value="{{ ($filters['dari_tanggal'] ?? '') !== '0000-00-00' ? ($filters['dari_tanggal'] ?? '') : '' }}">
                                     </div>
                                 </div>
-                                <div class="rt-cell">
+                                <div class="rt-cell rt-cell-row2">
                                     <div class="rt-cell-label">Sampai Tanggal</div>
                                     <div class="rt-cell-input">
                                         <input type="date" name="sampai_tanggal"
                                                value="{{ ($filters['sampai_tanggal'] ?? '') !== '0000-00-00' ? ($filters['sampai_tanggal'] ?? '') : '' }}">
                                     </div>
                                 </div>
+                                <div class="rt-cell rt-cell-row2 rt-cell-action">
+                                    <div class="rt-cell-label rt-cell-label-muted">Aksi</div>
+                                    <div class="rt-cell-input rt-cell-input-action">
+                                        <button type="submit" class="rt-action-btn rt-action-search">
+                                            <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Cari
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="rt-cell rt-cell-row2 rt-cell-end rt-cell-action">
+                                    <div class="rt-cell-label rt-cell-label-muted">Cetak</div>
+                                    <div class="rt-cell-input rt-cell-input-action">
+                                        <button type="submit" form="rtFormCetak" class="rt-action-btn rt-action-print" @disabled(!($isSearch ?? false))>
+                                            <i class="fa-solid fa-print" aria-hidden="true"></i> Cetak Rekap
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-
-                        <div class="rt-actions">
-                            <button type="submit" class="sc-btn sc-btn-primary rt-btn">
-                                <i class="fa-solid fa-magnifying-glass rt-btn-icon" aria-hidden="true"></i> Cari
-                            </button>
-                            <button type="submit" form="rtFormCetak" class="sc-btn sc-btn-success rt-btn" @disabled(!($isSearch ?? false))>
-                                <i class="fa-solid fa-print rt-btn-icon" aria-hidden="true"></i> Cetak Rekap
-                            </button>
-                            <a href="{{ route('smartcard.rekap_topup') }}" class="sc-btn rt-btn rt-btn-reset">Reset</a>
                         </div>
                     </div>
                 </form>
@@ -257,22 +264,18 @@
 
         .rt-builder-grid {
             display: grid;
-            grid-template-columns:
-                minmax(120px, 1fr)
-                minmax(150px, 1.3fr)
-                minmax(110px, 1fr)
-                minmax(140px, 1.2fr)
-                minmax(130px, 1fr)
-                minmax(130px, 1fr);
-            min-width: 900px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            min-width: 720px;
         }
 
         .rt-cell {
             display: flex;
             flex-direction: column;
             border-right: 1px solid #e9d5ff;
+            border-bottom: 1px solid #e9d5ff;
         }
-        .rt-cell:last-child { border-right: 0; }
+        .rt-cell-end { border-right: 0; }
+        .rt-cell-row2 { border-bottom: 0; }
 
         .rt-cell-label {
             font-size: 12px;
@@ -284,6 +287,13 @@
             background: linear-gradient(180deg, #ede9fe 0%, #e9d5ff 100%);
             border-bottom: 1px solid #ddd6fe;
             white-space: nowrap;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+        }
+        .rt-cell-label-muted {
+            color: #7c3aed;
+            background: linear-gradient(180deg, #f5f3ff 0%, #ede9fe 100%);
         }
 
         .rt-cell-input {
@@ -315,32 +325,41 @@
             padding-right: 32px;
         }
 
-        .rt-actions {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            padding: 14px 16px;
-            background: linear-gradient(180deg, #faf5ff 0%, #f5f3ff 100%);
-            border-top: 1px solid #e9d5ff;
+        .rt-cell-input-action {
+            padding: 8px 10px;
+            background: #faf5ff;
         }
 
-        .rt-btn {
-            min-width: 140px;
+        .rt-action-btn {
+            width: 100%;
+            height: 40px;
+            border: 0;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             gap: 6px;
+            transition: background 0.15s, opacity 0.15s;
         }
-        .rt-btn-icon { font-size: 14px; }
-        .rt-btn-reset {
+        .rt-action-search {
+            background: #4f6ef7;
+            color: #fff;
+        }
+        .rt-action-search:hover { background: #4338ca; }
+        .rt-action-print {
             background: #fff;
-            border: 1px solid #d1d5db;
-            color: #4b5563;
-            text-decoration: none;
+            color: #5b21b6;
+            border: 1px solid #c4b5fd;
         }
-        .rt-btn-reset:hover { background: #f9fafb; color: #374151; }
+        .rt-action-print:hover:not(:disabled) { background: #f5f3ff; }
+        .rt-action-print:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
         .rt-hidden-form { display: none; }
 
         .rt-table-head {
@@ -468,10 +487,8 @@
         .rt-page.disabled { pointer-events: none; opacity: 0.45; }
 
         @media (max-width: 768px) {
-            .rt-builder-grid { min-width: 760px; }
+            .rt-builder-grid { min-width: 640px; }
             .rt-summary-divider { display: none; }
-            .rt-actions { padding: 12px; }
-            .rt-btn { min-width: 120px; flex: 1; }
         }
     </style>
 @endsection
