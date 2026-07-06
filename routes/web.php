@@ -32,6 +32,7 @@ use App\Http\Controllers\Smartcard\SettingBatasanKartuController;
 use App\Http\Controllers\Smartcard\SettingBlokirKartuController;
 use App\Http\Controllers\Smartcard\RekapPencairanKantinController;
 use App\Http\Controllers\Smartcard\SmartcardPlaceholderController;
+use App\Http\Controllers\Smartcard\TopupCashController;
 use App\Http\Controllers\Smartcard\TransaksiBelanjaController;
 use Illuminate\Support\Facades\Route;
 
@@ -232,7 +233,9 @@ Route::middleware(['web', 'dummy.auth'])->group(function () {
         Route::get('/rekap-pencairan-kantin', [RekapPencairanKantinController::class, 'index'])->name('rekap_pencairan_kantin');
         Route::post('/rekap-pencairan-kantin', [RekapPencairanKantinController::class, 'store'])->name('rekap_pencairan_kantin.store');
         Route::get('/rekap-topup', fn () => app(SmartcardPlaceholderController::class)->show('rekap-topup'))->name('rekap_topup');
-        Route::get('/topup-cash', fn () => app(SmartcardPlaceholderController::class)->show('topup-cash'))->name('topup_cash');
+        Route::get('/topup-cash', [TopupCashController::class, 'index'])->name('topup_cash');
+        Route::post('/topup-cash', [TopupCashController::class, 'store'])->name('topup_cash.store');
+        Route::post('/topup-cash/kuitansi', [TopupCashController::class, 'printKuitansi'])->name('topup_cash.kuitansi');
         Route::get('/rekap-keluar-uang-saku', fn () => app(SmartcardPlaceholderController::class)->show('rekap-keluar-uang-saku'))->name('rekap_keluar_uang_saku');
         Route::get('/keluar-uang-saku', fn () => app(SmartcardPlaceholderController::class)->show('keluar-uang-saku'))->name('keluar_uang_saku');
         Route::get('/tap-ambil-rutin', fn () => app(SmartcardPlaceholderController::class)->show('tap-ambil-rutin'))->name('tap_ambil_rutin');
