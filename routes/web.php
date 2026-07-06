@@ -31,6 +31,7 @@ use App\Http\Controllers\Smartcard\DataKartuSiswaController;
 use App\Http\Controllers\Smartcard\SettingBatasanKartuController;
 use App\Http\Controllers\Smartcard\SettingBlokirKartuController;
 use App\Http\Controllers\Smartcard\RekapPencairanKantinController;
+use App\Http\Controllers\Smartcard\RekapTopupController;
 use App\Http\Controllers\Smartcard\SmartcardPlaceholderController;
 use App\Http\Controllers\Smartcard\TopupCashController;
 use App\Http\Controllers\Smartcard\TransaksiBelanjaController;
@@ -232,7 +233,8 @@ Route::middleware(['web', 'dummy.auth'])->group(function () {
         Route::get('/transaksi-belanja', [TransaksiBelanjaController::class, 'index'])->name('transaksi_belanja');
         Route::get('/rekap-pencairan-kantin', [RekapPencairanKantinController::class, 'index'])->name('rekap_pencairan_kantin');
         Route::post('/rekap-pencairan-kantin', [RekapPencairanKantinController::class, 'store'])->name('rekap_pencairan_kantin.store');
-        Route::get('/rekap-topup', fn () => app(SmartcardPlaceholderController::class)->show('rekap-topup'))->name('rekap_topup');
+        Route::get('/rekap-topup', [RekapTopupController::class, 'index'])->name('rekap_topup');
+        Route::post('/rekap-topup/cetak', [RekapTopupController::class, 'printRekap'])->name('rekap_topup.cetak');
         Route::get('/topup-cash', [TopupCashController::class, 'index'])->name('topup_cash');
         Route::post('/topup-cash', [TopupCashController::class, 'store'])->name('topup_cash.store');
         Route::post('/topup-cash/kuitansi', [TopupCashController::class, 'printKuitansi'])->name('topup_cash.kuitansi');

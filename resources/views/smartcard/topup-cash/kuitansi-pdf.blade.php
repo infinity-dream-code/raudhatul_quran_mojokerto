@@ -108,7 +108,7 @@
     <table class="footer">
         <tr>
             <td style="width:50%;">
-                Kudus, {{ ($trxDate ?? now())->format('Y-m-d') }}<br>
+                Raudhatul Quran, {{ ($trxDate ?? now())->format('Y-m-d') }}<br>
                 Teller: {{ $teller ?? 'BMI' }}
             </td>
             <td style="width:50%; text-align:right;">

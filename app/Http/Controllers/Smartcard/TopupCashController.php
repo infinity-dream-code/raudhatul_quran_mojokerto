@@ -151,7 +151,8 @@ class TopupCashController extends Controller
         $transNo = $this->generateTransNo($trxDate);
 
         $fee = strcasecmp($metode, 'Cash') === 0 ? self::CASH_FEE : 0;
-        $helpdesk = $this->buildHelpdesk($note, $fee);
+        $user = trim((string) session('auth_username', session('auth_name', '')));
+        $helpdesk = $this->buildHelpdesk($note, $fee, $user);
 
         try {
             DB::connection('sikeu')->transaction(function () use ($custid, $metode, $trxDate, $nominal, $transNo, $helpdesk) {
@@ -295,7 +296,7 @@ class TopupCashController extends Controller
         DB::connection('sikeu')->table(self::TRAN_TABLE)->insert($payload);
     }
 
-    private function buildHelpdesk(string $note, int $fee): string
+    private function buildHelpdesk(string $note, int $fee, string $user = ''): string
     {
         $parts = [];
         if ($note !== '') {
@@ -303,6 +304,9 @@ class TopupCashController extends Controller
         }
         if ($fee > 0) {
             $parts[] = 'Biaya:' . $fee;
+        }
+        if (trim($user) !== '') {
+            $parts[] = 'User:' . trim($user);
         }
 
         return implode(' | ', $parts);
