@@ -75,7 +75,7 @@
                             <div class="sc-field">
                                 <label>No Terima</label>
                                 <div class="sc-control-wrap sc-control-readonly">
-                                    <input type="text" value="Otomatis (YYYYMMDD + 001)" readonly tabindex="-1">
+                                    <input type="text" value="{{ $previewNoTerima ?? '' }}" readonly tabindex="-1">
                                 </div>
                             </div>
                             <div class="rp-btn-row rp-btn-row-right">

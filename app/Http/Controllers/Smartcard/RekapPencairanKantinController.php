@@ -31,9 +31,6 @@ class RekapPencairanKantinController extends Controller
         $transaksiTotal = 0;
         if ($cariTransaksi) {
             [$transaksiRows, $transaksiTotal] = $this->fetchTransaksiRows($kdMercan, $dariTanggal, $sampaiTanggal);
-            if ($nominal === '' && $transaksiTotal > 0) {
-                $nominal = (string) (int) $transaksiTotal;
-            }
         }
 
         $pencairanRows = collect();
@@ -59,6 +56,7 @@ class RekapPencairanKantinController extends Controller
             'transaksiTotal' => $transaksiTotal,
             'pencairanRows' => $pencairanRows,
             'pencairanTotal' => $pencairanTotal,
+            'previewNoTerima' => $this->generateNoTerima(),
         ]);
     }
 
