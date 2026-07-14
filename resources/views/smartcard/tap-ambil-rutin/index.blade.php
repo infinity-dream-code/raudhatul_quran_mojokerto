@@ -184,6 +184,9 @@
             const form = document.getElementById('tarForm');
 
             let cardLoaded = false;
+            let lookingUp = false;
+            let suppressBlurLookup = false;
+            let lastFailedTapId = '';
 
             const enableTapInput = function () {
                 tapId.removeAttribute('readonly');
@@ -207,12 +210,23 @@
             const parseNum = function (v) {
                 return parseInt(String(v || '').replace(/\D/g, ''), 10) || 0;
             };
-            const alertMsg = function (msg, focusEl) {
-                alert(msg);
-                if (focusEl) focusEl.focus();
+
+            const focusTapIdSafe = function () {
+                suppressBlurLookup = true;
+                window.setTimeout(function () {
+                    tapId.focus();
+                    window.setTimeout(function () {
+                        suppressBlurLookup = false;
+                    }, 300);
+                }, 50);
             };
 
-            const resetCard = function () {
+            const alertMsg = function (msg, focusTap) {
+                alert(msg);
+                if (focusTap) focusTapIdSafe();
+            };
+
+            const resetCard = function (clearTapId) {
                 cardLoaded = false;
                 nama.value = '';
                 saldo.value = '0';
@@ -221,15 +235,26 @@
                 maxAmbil.value = '0';
                 batasCash.value = '0';
                 tarInfo.hidden = true;
+                if (clearTapId) {
+                    tapId.value = '';
+                }
             };
 
             const doLookup = async function () {
                 const id = tapId.value.trim();
                 if (!id) {
-                    resetCard();
+                    resetCard(false);
+                    return;
+                }
+                // Jangan ulang lookup kartu yang baru gagal / sedang diproses
+                if (lookingUp) return;
+                if (id === lastFailedTapId) {
+                    tapId.value = '';
+                    lastFailedTapId = '';
                     return;
                 }
 
+                lookingUp = true;
                 try {
                     const res = await fetch(lookupUrl, {
                         method: 'POST',
@@ -245,11 +270,14 @@
                     const json = await res.json();
 
                     if (!json.ok) {
-                        resetCard();
-                        alertMsg(json.message || 'Gagal membaca kartu.', tapId);
+                        lastFailedTapId = id;
+                        resetCard(true);
+                        lookingUp = false;
+                        alertMsg(json.message || 'Gagal membaca kartu.', true);
                         return;
                     }
 
+                    lastFailedTapId = '';
                     const d = json.data || {};
                     cardLoaded = true;
                     nama.value = d.nama || '';
@@ -261,8 +289,11 @@
                     tarInfo.hidden = false;
                     ambil.focus();
                 } catch (e) {
-                    resetCard();
-                    alertMsg('Gagal menghubungi server.', tapId);
+                    lastFailedTapId = id;
+                    resetCard(true);
+                    alertMsg('Gagal menghubungi server.', true);
+                } finally {
+                    lookingUp = false;
                 }
             };
 
@@ -274,23 +305,27 @@
                 const saldoVal = parseNum(saldo.value);
 
                 if (!id || !cardLoaded) {
-                    alertMsg('Tap kartu terlebih dahulu.', tapId);
+                    alertMsg('Tap kartu terlebih dahulu.', true);
                     return;
                 }
                 if (!nominal) {
-                    alertMsg('Isi nominal AMBIL.', ambil);
+                    alertMsg('Isi nominal AMBIL.', false);
+                    ambil.focus();
                     return;
                 }
                 if (!pinVal) {
-                    alertMsg('Isi PIN kartu.', pin);
+                    alertMsg('Isi PIN kartu.', false);
+                    pin.focus();
                     return;
                 }
                 if (nominal > saldoVal) {
-                    alertMsg('Saldo tidak mencukupi.', ambil);
+                    alertMsg('Saldo tidak mencukupi.', false);
+                    ambil.focus();
                     return;
                 }
                 if (maxVal > 0 && nominal > maxVal) {
-                    alertMsg('Nominal melebihi batas cash / saldo.', ambil);
+                    alertMsg('Nominal melebihi batas cash / saldo.', false);
+                    ambil.focus();
                     return;
                 }
 
@@ -314,13 +349,15 @@
 
                     if (!json.ok) {
                         if (json.pin_error) {
-                            alertMsg(json.message || 'PIN salah.', pin);
+                            alertMsg(json.message || 'PIN salah.', false);
+                            pin.focus();
                         } else if (json.blocked) {
-                            alertMsg(json.message || 'Kartu terblokir.', tapId);
-                            resetCard();
-                            tapId.value = '';
+                            lastFailedTapId = id;
+                            resetCard(true);
+                            alertMsg(json.message || 'Kartu terblokir.', true);
                         } else {
-                            alertMsg(json.message || 'Transaksi gagal.', ambil);
+                            alertMsg(json.message || 'Transaksi gagal.', false);
+                            ambil.focus();
                         }
                         return;
                     }
@@ -334,10 +371,12 @@
                     );
 
                     form.reset();
-                    resetCard();
-                    tapId.focus();
+                    resetCard(true);
+                    lastFailedTapId = '';
+                    focusTapIdSafe();
                 } catch (e) {
-                    alertMsg('Gagal memproses transaksi.', ambil);
+                    alertMsg('Gagal memproses transaksi.', false);
+                    ambil.focus();
                 }
             };
 
@@ -352,7 +391,13 @@
                 }
             });
 
+            // Saat user ketik/tap ulang, izinkan lookup lagi
+            tapId.addEventListener('input', function () {
+                lastFailedTapId = '';
+            });
+
             tapId.addEventListener('blur', function () {
+                if (suppressBlurLookup || lookingUp) return;
                 if (tapId.value.trim() && !cardLoaded) {
                     doLookup();
                 }
