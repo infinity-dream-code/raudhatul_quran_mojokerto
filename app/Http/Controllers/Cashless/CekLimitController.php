@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Cashless;
 
 use App\Http\Controllers\Controller;
 use App\Models\ValidationMessage;
+use App\Services\Cashless\CashlessCardService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
@@ -16,8 +16,9 @@ class CekLimitController extends Controller
     private string $mainTitle = 'Cek Limit';
     private string $cacheKey = 'Cek Limit';
 
-    public function __construct()
-    {
+    public function __construct(
+        private readonly CashlessCardService $cardService,
+    ) {
         $key = Str::slug($this->cacheKey) . '_cache_version';
         Cache::add($key, 1);
     }
@@ -34,6 +35,7 @@ class CekLimitController extends Controller
             $request->all(),
             [
                 "tap_id" => ["required", "string"],
+                "auth_mode" => ["nullable", "in:qr,pin"],
             ],
             ValidationMessage::messages(),
             ValidationMessage::attributes(),
@@ -53,22 +55,47 @@ class CekLimitController extends Controller
             );
         }
 
+        $authMode = $request->input('auth_mode', 'qr');
+        $tapId = $this->cardService->parseQrToTapId((string) $request->tap_id);
+
+        if ($tapId === '') {
+            return response()->json([
+                "message" => $authMode === 'qr'
+                    ? "QR / PID tidak valid, silahkan scan ulang"
+                    : "TAP ID tidak valid, silahkan tap kartu",
+                "errors" => ["tap_id" => ["Identifikasi kartu tidak valid"]],
+            ], 422);
+        }
+
         try {
-            \Log::info('CekLimit - Request tap_id:', ['tap_id' => $request->tap_id]);
+            \Log::info('CekLimit - Request tap_id:', ['tap_id' => $tapId, 'auth_mode' => $authMode]);
 
-            // LIMIT FIX 20.000
-            $limit = 20000;
-            
-            // TETAP AMBIL NAMA DAN NIS DARI DATABASE
-            $siswa = DB::connection('DATA_MYSQL')
-                ->table('scctcust')
-                ->leftJoin('sm_pin', 'sm_pin.CUSTID', '=', 'scctcust.CUSTID')
-                ->select(['scctcust.nmcust', 'scctcust.nocust'])
-                ->where('sm_pin.PID', $request->tap_id)
-                ->first();
+            $card = $this->cardService->fetchCardByTapId($tapId);
+            if (!$card) {
+                return response()->json([
+                    'data' => 'error',
+                    'nama' => '',
+                    'nis' => '',
+                    'message' => 'Kartu tidak ditemukan',
+                ], 422);
+            }
 
-            $nama = $siswa->nmcust ?? '';
-            $nis = $siswa->nocust ?? '';
+            if ($this->cardService->isBlocked($card)) {
+                return response()->json([
+                    'data' => 'error',
+                    'nama' => '',
+                    'nis' => '',
+                    'message' => 'Kartu terblokir',
+                ], 422);
+            }
+
+            $limit = $this->cardService->fetchBatasBelanjaHari();
+            if ($limit <= 0) {
+                $limit = 20000;
+            }
+
+            $nama = trim((string) ($card->nama ?? ''));
+            $nis = trim((string) ($card->nis ?? ''));
 
             \Log::info('CekLimit - Student data:', [
                 'nama' => $nama,
@@ -80,6 +107,7 @@ class CekLimitController extends Controller
                 'data' => $limit,
                 'nama' => $nama,
                 'nis' => $nis,
+                'tap_id' => $tapId,
             ], 200);
 
         } catch (\Exception $e) {
