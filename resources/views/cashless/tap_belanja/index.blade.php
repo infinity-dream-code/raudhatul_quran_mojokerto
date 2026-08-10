@@ -19,7 +19,13 @@
                 <div class="card">
                     <div class="card-body">
                         <fieldset class="form-fieldset pb-0">
-                            @include('cashless.partials.auth-mode')
+                            <div class="col mb-5">
+                                <div class="input-group">
+                                    <span class="input-group-text" style="width: 120px;">TAP ID</span>
+                                    <input type="text" class="form-control form-control-lg" placeholder="TAP ID"
+                                           name="tap_id" id="tap_id" aria-describedby="tap_id" enterkeyhint="done" inputmode="numeric">
+                                </div>
+                            </div>
                             <div class="col mb-5">
                                 <div class="input-group">
                                     <span class="input-group-text" style="width: 120px;">NAMA</span>
@@ -64,31 +70,28 @@
                 return 'Rp. ' + amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
             }
 
-            document.getElementById('pin')?.addEventListener('keypress', function (e) {
-                if (e.key === 'Enter') {
-                    document.getElementById('form-data').requestSubmit();
-                }
-            });
+            // document.getElementById('pin').addEventListener('keypress', function (e) {
+            //     if (e.key === 'Enter') {
+            //         document.getElementById('form-data').requestSubmit();
+            //     }
+            // })
 
             let currentIDStatus = false;
-            window.CashlessAuthMode?.focusPrimaryInput();
+            // document.getElementById('tap_id').focus({focusVisible: true});
+            const tapIdInput = document.getElementById('tap_id');
+            tapIdInput.focus()
             document.getElementById('form-data').addEventListener('submit', async function (e) {
                 e.preventDefault();
                 clearErrorMessages('form-data');
-                window.CashlessAuthMode?.syncTapIdFromMode();
                 const form = e.target;
                 let request = false;
                 const formData = new FormData(this);
                 let tap_id = formData.get('tap_id');
                 let belanja = formData.get('belanja');
-                let auth_mode = formData.get('auth_mode') || 'qr';
-                let pin = formData.get('pin');
+                // let pin = formData.get('pin');
 
                 if (!tap_id && !belanja) {
-                    warningAlert(
-                        auth_mode === 'qr' ? 'Silahkan scan QR terlebih dahulu' : 'Silahkan tap kartu terlebih dahulu',
-                        auth_mode === 'qr' ? 'tap_id' : 'tap_id_pin_mirror'
-                    );
+                    warningAlert('Silahkan tap kartu terlebih dahulu', 'tap_id');
                 } else if (tap_id && !belanja) {
                     loadingAlert("Memproses Kartu...");
                     request = new Request('{{route('cashless.tap-belanja.get-saldo')}}', {
@@ -97,10 +100,6 @@
                         body: formData
                     });
                 } else if (tap_id && belanja) {
-                    if (auth_mode === 'pin' && !pin) {
-                        warningAlert('PIN wajib diisi untuk mode PIN', 'pin');
-                        return;
-                    }
                     loadingAlert("Memproses Belanja...");
                     request = new Request('{{route('cashless.tap-belanja.payment')}}', {
                         method: "POST",
@@ -123,16 +122,8 @@
                                 document.getElementById('belanja').setAttribute('max', result[1]);
                                 document.getElementById('saldo').value = result[1];
                                 document.getElementById('nama').value = result[2];
-                                if (processForm.data.tap_id) {
-                                    window.CashlessAuthMode?.setTapId(processForm.data.tap_id);
-                                }
                                 currentIDStatus = true;
                                 Swal.close();
-                                if (auth_mode === 'pin') {
-                                    document.getElementById('pin')?.focus();
-                                } else {
-                                    document.getElementById('belanja')?.focus();
-                                }
                             }
                         } else if (tap_id && belanja) {
                             const hasil = processForm.data;
@@ -144,10 +135,6 @@
                                     let sisa = formatRupiah(hasil.data.sisa_saldo ?? 0);
                                     successAlert(`${message} <br> Nama Siswa : ${nama} <br> Sisa Saldo : ${sisa}` , 'tap_id');
                                     currentIDStatus = false;
-                                    window.CashlessAuthMode?.focusPrimaryInput();
-                                    break;
-                                case 2004:
-                                    warningAlert(hasil.message, 'pin');
                                     break;
                                 case 2001:
                                     warningAlert(hasil.message, 'belanja');
@@ -311,5 +298,4 @@
             }
         }
     </script>
-    @include('cashless.partials.auth-mode-script')
 @endsection

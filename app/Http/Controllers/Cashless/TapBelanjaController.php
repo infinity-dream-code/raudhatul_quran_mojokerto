@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Cashless;
 
 use App\Http\Controllers\Controller;
 use App\Models\ValidationMessage;
-use App\Services\Cashless\CashlessCardService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
@@ -15,9 +15,8 @@ class TapBelanjaController extends Controller
     public $datasUrl;
     public $columnsUrl;
 
-    public function __construct(
-        private readonly CashlessCardService $cardService,
-    ) {
+    public function __construct()
+    {
         $this->title = "TAP KARTU";
     }
 
@@ -33,7 +32,6 @@ class TapBelanjaController extends Controller
             $request->all(),
             [
                 "tap_id" => ["required", "string"],
-                "auth_mode" => ["nullable", "in:qr,pin"],
             ],
             ValidationMessage::messages(),
             ValidationMessage::attributes(),
@@ -54,37 +52,25 @@ class TapBelanjaController extends Controller
             );
         }
 
-        $authMode = $request->input('auth_mode', 'qr');
-        $tapId = $this->cardService->parseQrToTapId((string) $request->tap_id);
-
-        if ($tapId === '') {
-            return response()->json([
-                "message" => $authMode === 'qr'
-                    ? "QR / PID tidak valid, silahkan scan ulang"
-                    : "TAP ID tidak valid, silahkan tap kartu",
-                "errors" => ["tap_id" => ["Identifikasi kartu tidak valid"]],
-            ], 422);
-        }
-
         try {
-            \Log::info('getSaldo - Request tap_id:', ['tap_id' => $tapId, 'auth_mode' => $authMode]);
-
+            \Log::info('getSaldo - Request tap_id:', ['tap_id' => $request->tap_id]);
+            
             $saldo = DB::connection('DATA_MYSQL')
-                ->select('SELECT GetSaldoCard_1VACashless(?) AS saldo', [$tapId]);
-
+                ->select('SELECT GetSaldoCard_1VACashless(?) AS saldo', [$request->tap_id]);
+            
             \Log::info('getSaldo - Raw result from DB:', ['result' => $saldo[0]->saldo ?? 'NULL']);
-
+            
             $data = explode("|", $saldo[0]->saldo);
-
+            
             \Log::info('getSaldo - Exploded data:', ['data' => $data, 'count' => count($data)]);
-
-            return response()->json(["data" => $data, "tap_id" => $tapId]);
+            
+            return response()->json(["data" => $data]);
         } catch (\Exception $e) {
             \Log::error('getSaldo - Error:', [
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-
+            
             return response()->json([
                 "message" => "gagal mendapatkan data saldo, silahkan coba lagi",
                 "error" => $e->getMessage()
@@ -113,29 +99,18 @@ class TapBelanjaController extends Controller
 
     public function payment(Request $request)
     {
-        $authMode = $request->input('auth_mode', 'qr');
-        $tapId = $this->cardService->parseQrToTapId((string) $request->tap_id);
-
         \Log::info('payment - Started', [
-            'tap_id' => $tapId,
-            'auth_mode' => $authMode,
+            'tap_id' => $request->tap_id,
             'belanja_raw' => $request->belanja,
             'session_user' => session('user.username')
         ]);
 
-        $rules = [
-            "tap_id" => ["required", "string"],
-            "belanja" => ["required", 'regex:/^[0-9]+(\.[0-9]{3})*$/', 'not_in:0'],
-            "auth_mode" => ["nullable", "in:qr,pin"],
-        ];
-
-        if ($authMode === 'pin') {
-            $rules['pin'] = ['required', 'string', 'min:1', 'max:20'];
-        }
-
         $validator = Validator::make(
             $request->all(),
-            $rules,
+            [
+                "tap_id" => ["required", "string"],
+                "belanja" => ["required", 'regex:/^[0-9]+(\.[0-9]{3})*$/', 'not_in:0'],
+            ],
             ValidationMessage::messages(),
             ValidationMessage::attributes(),
         );
@@ -159,47 +134,10 @@ class TapBelanjaController extends Controller
             );
         }
 
-        if ($tapId === '') {
-            return response()->json([
-                "message" => "Identifikasi kartu tidak valid",
-                "errors" => ["tap_id" => ["Identifikasi kartu tidak valid"]],
-            ], 422);
-        }
-
-        if ($authMode === 'pin') {
-            $card = $this->cardService->fetchCardByTapId($tapId);
-            if (!$card) {
-                return response()->json([
-                    'status' => 'unknown_or_blocked_card',
-                    'code' => self::STATUS_MAP['unknown_or_blocked_card']['code'],
-                    'message' => 'Kartu tidak ditemukan',
-                    'data' => [],
-                ], 422);
-            }
-
-            if ($this->cardService->isBlocked($card)) {
-                return response()->json([
-                    'status' => 'unknown_or_blocked_card',
-                    'code' => self::STATUS_MAP['unknown_or_blocked_card']['code'],
-                    'message' => self::STATUS_MAP['unknown_or_blocked_card']['message'],
-                    'data' => [],
-                ], 422);
-            }
-
-            if (!$this->cardService->validatePin($card, (string) $request->pin)) {
-                return response()->json([
-                    'status' => 'pin_error',
-                    'code' => 2004,
-                    'message' => 'PIN salah',
-                    'data' => [],
-                ], 422);
-            }
-        }
-
         try {
             $nominal = str_replace('.', '', $request->belanja);
             \Log::info('payment - Process payment', [
-                'tap_id' => $tapId,
+                'tap_id' => $request->tap_id,
                 'nominal' => $nominal,
                 'teller' => session('user.username')
             ]);
@@ -208,7 +146,7 @@ class TapBelanjaController extends Controller
                 ->select(
                     'SELECT WebPaymentBUY(?,?,?) AS result',
                     [
-                        $tapId,
+                        $request->tap_id,
                         $nominal,
                         session('user.username'),
                     ]);
