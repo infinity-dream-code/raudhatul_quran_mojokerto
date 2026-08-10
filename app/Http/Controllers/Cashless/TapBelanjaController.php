@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Cashless;
 
 use App\Http\Controllers\Controller;
 use App\Models\ValidationMessage;
+use App\Services\Cashless\CashlessQrParser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -52,11 +53,19 @@ class TapBelanjaController extends Controller
             );
         }
 
+        $tapId = CashlessQrParser::toPid((string) $request->tap_id);
+        if ($tapId === '') {
+            return response()->json([
+                "message" => "QR / PID tidak valid",
+                "errors" => ["tap_id" => ["QR / PID tidak valid"]],
+            ], 422);
+        }
+
         try {
-            \Log::info('getSaldo - Request tap_id:', ['tap_id' => $request->tap_id]);
+            \Log::info('getSaldo - Request tap_id:', ['tap_id' => $tapId]);
             
             $saldo = DB::connection('DATA_MYSQL')
-                ->select('SELECT GetSaldoCard_1VACashless(?) AS saldo', [$request->tap_id]);
+                ->select('SELECT GetSaldoCard_1VACashless(?) AS saldo', [$tapId]);
             
             \Log::info('getSaldo - Raw result from DB:', ['result' => $saldo[0]->saldo ?? 'NULL']);
             
@@ -64,7 +73,7 @@ class TapBelanjaController extends Controller
             
             \Log::info('getSaldo - Exploded data:', ['data' => $data, 'count' => count($data)]);
             
-            return response()->json(["data" => $data]);
+            return response()->json(["data" => $data, "tap_id" => $tapId]);
         } catch (\Exception $e) {
             \Log::error('getSaldo - Error:', [
                 'message' => $e->getMessage(),
@@ -99,8 +108,10 @@ class TapBelanjaController extends Controller
 
     public function payment(Request $request)
     {
+        $tapId = CashlessQrParser::toPid((string) $request->tap_id);
+
         \Log::info('payment - Started', [
-            'tap_id' => $request->tap_id,
+            'tap_id' => $tapId,
             'belanja_raw' => $request->belanja,
             'session_user' => session('user.username')
         ]);
@@ -134,10 +145,17 @@ class TapBelanjaController extends Controller
             );
         }
 
+        if ($tapId === '') {
+            return response()->json([
+                "message" => "QR / PID tidak valid",
+                "errors" => ["tap_id" => ["QR / PID tidak valid"]],
+            ], 422);
+        }
+
         try {
             $nominal = str_replace('.', '', $request->belanja);
             \Log::info('payment - Process payment', [
-                'tap_id' => $request->tap_id,
+                'tap_id' => $tapId,
                 'nominal' => $nominal,
                 'teller' => session('user.username')
             ]);
@@ -146,7 +164,7 @@ class TapBelanjaController extends Controller
                 ->select(
                     'SELECT WebPaymentBUY(?,?,?) AS result',
                     [
-                        $request->tap_id,
+                        $tapId,
                         $nominal,
                         session('user.username'),
                     ]);

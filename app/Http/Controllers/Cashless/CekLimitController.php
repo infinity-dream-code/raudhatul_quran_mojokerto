@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Cashless;
 
 use App\Http\Controllers\Controller;
 use App\Models\ValidationMessage;
+use App\Services\Cashless\CashlessQrParser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -53,8 +54,16 @@ class CekLimitController extends Controller
             );
         }
 
+        $tapId = CashlessQrParser::toPid((string) $request->tap_id);
+        if ($tapId === '') {
+            return response()->json([
+                "message" => "QR / PID tidak valid",
+                "errors" => ["tap_id" => ["QR / PID tidak valid"]],
+            ], 422);
+        }
+
         try {
-            \Log::info('CekLimit - Request tap_id:', ['tap_id' => $request->tap_id]);
+            \Log::info('CekLimit - Request tap_id:', ['tap_id' => $tapId]);
 
             // LIMIT FIX 20.000
             $limit = 20000;
@@ -64,7 +73,7 @@ class CekLimitController extends Controller
                 ->table('scctcust')
                 ->leftJoin('sm_pin', 'sm_pin.CUSTID', '=', 'scctcust.CUSTID')
                 ->select(['scctcust.nmcust', 'scctcust.nocust'])
-                ->where('sm_pin.PID', $request->tap_id)
+                ->where('sm_pin.PID', $tapId)
                 ->first();
 
             $nama = $siswa->nmcust ?? '';
@@ -80,6 +89,7 @@ class CekLimitController extends Controller
                 'data' => $limit,
                 'nama' => $nama,
                 'nis' => $nis,
+                'tap_id' => $tapId,
             ], 200);
 
         } catch (\Exception $e) {

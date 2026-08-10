@@ -19,13 +19,7 @@
                 <div class="card">
                     <div class="card-body">
                         <fieldset class="form-fieldset pb-0">
-                            <div class="col mb-5">
-                                <div class="input-group">
-                                    <span class="input-group-text" style="width: 120px;">TAP ID</span>
-                                    <input type="text" class="form-control form-control-lg" placeholder="TAP ID"
-                                           name="tap_id" id="tap_id" aria-describedby="tap_id" enterkeyhint="done" inputmode="numeric">
-                                </div>
-                            </div>
+                            @include('cashless.partials.qr-pid-input')
                             <div class="col mb-5">
                                 <div class="input-group">
                                     <span class="input-group-text" style="width: 120px;">LIMIT</span>
@@ -71,27 +65,21 @@
                 return 'Rp. ' + amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
             }
 
-            // document.getElementById('pin').addEventListener('keypress', function (e) {
-            //     if (e.key === 'Enter') {
-            //         document.getElementById('form-data').requestSubmit();
-            //     }
-            // })
-
-            let currentIDStatus = false;
-            // document.getElementById('tap_id').focus({focusVisible: true});
-            const tapIdInput = document.getElementById('tap_id');
-            tapIdInput.focus()
             document.getElementById('form-data').addEventListener('submit', async function (e) {
                 e.preventDefault();
                 clearErrorMessages('form-data');
+                window.CashlessQrPid?.syncTapId();
                 const form = e.target;
                 let request = false;
                 const formData = new FormData(this);
                 let tap_id = formData.get('tap_id');
-                // let pin = formData.get('pin');
+                const inputMode = window.CashlessQrPid?.getMode() || 'qr';
 
                 if (!tap_id) {
-                    warningAlert('Silahkan tap kartu terlebih dahulu', 'tap_id');
+                    warningAlert(
+                        inputMode === 'qr' ? 'Silahkan scan QR terlebih dahulu' : 'Silahkan tap kartu / isi PID terlebih dahulu',
+                        inputMode === 'qr' ? 'tap_id' : 'tap_id_pid'
+                    );
                     return;
                 }
 
@@ -111,6 +99,9 @@
                             document.getElementById('limit').value = formatRupiah(hasil.data ?? 0);
                             document.getElementById('nis').value = hasil.nis;
                             document.getElementById('nama').value = hasil.nama;
+                            if (hasil.tap_id) {
+                                window.CashlessQrPid?.setTapId(hasil.tap_id);
+                            }
                         }
                     } else {
                         processErrors(processForm.errors, 'tap_id');
@@ -159,4 +150,5 @@
             }
         }
     </script>
+    @include('cashless.partials.qr-pid-script')
 @endsection
