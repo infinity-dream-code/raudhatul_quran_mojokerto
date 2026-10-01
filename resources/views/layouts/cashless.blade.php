@@ -370,6 +370,7 @@
         });
     });
 </script>
+@include('partials.session-keepalive')
 
 @hasSection('formattedNumber')
     <script src="{{asset('js/helper/formattedNumber.min.js')}}"></script>

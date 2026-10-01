@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\SessionKeepAliveController;
 use App\Http\Controllers\Cashless\AdminController as CashlessAdminController;
 use App\Http\Controllers\Cashless\CekLimitController;
 use App\Http\Controllers\Cashless\DataTransaksiBelanjaController;
@@ -53,6 +54,24 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', fn () => redirect()->route('login'));
+
+Route::get('/session/keep-alive', SessionKeepAliveController::class)->name('session.keep-alive');
+
+Route::get('/admin', function () {
+    if (!session('sso_authenticated')) {
+        return redirect()->route('login');
+    }
+    if (session('auth_module') === 'sikeu' && session('dummy_logged_in')) {
+        return redirect()->route('dashboard');
+    }
+    if (session('auth_module') === 'cashless') {
+        return redirect()->route('cashless.index');
+    }
+
+    return redirect()->route('portal');
+})->name('admin.index');
+
+Route::get('/home', fn () => redirect()->route('admin.index'));
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');

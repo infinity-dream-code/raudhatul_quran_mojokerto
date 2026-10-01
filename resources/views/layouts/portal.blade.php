@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', 'Portal') - {{ config('app.name') }}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="icon" type="image/png" href="{{ asset('mojokerto.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('mojokerto.png') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -234,5 +235,6 @@
 </head>
 <body>
     @yield('content')
+    @include('partials.session-keepalive')
 </body>
 </html>

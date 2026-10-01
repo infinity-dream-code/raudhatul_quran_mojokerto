@@ -493,7 +493,7 @@
                             var msg = (j && j.message) ? j.message : '';
                             if (!msg) {
                                 if (pack.status === 401 || pack.status === 419) {
-                                    msg = 'Sesi login habis. Silakan refresh/login ulang.';
+                                    msg = 'Gagal memuat data. Silakan coba lagi.';
                                 } else if (pack.status >= 500) {
                                     msg = 'Server internal error (' + pack.status + ').';
                                 } else if (pack.status > 0) {

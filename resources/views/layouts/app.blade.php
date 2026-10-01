@@ -526,6 +526,7 @@
         });
     })
 </script>
+@include('partials.session-keepalive')
 
 @hasSection('errorInputHelper')
     <script src="{{asset('js/helper/errorInputHelper.min.js')}}"></script>

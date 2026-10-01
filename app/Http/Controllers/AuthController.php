@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\CyberKeyAuthService;
+use App\Support\PersistentLogin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
@@ -70,12 +71,15 @@ class AuthController extends Controller
             'auth_sekolah_nama' => (string) ($user['sekolah_nama'] ?? ($user['unit'] ?? '')),
         ]);
         $request->session()->regenerate();
+        PersistentLogin::queueSet();
 
         return redirect()->route('portal');
     }
 
     public function logout(Request $request)
     {
+        PersistentLogin::queueForget();
+
         session()->forget([
             'sso_authenticated',
             'auth_module',
