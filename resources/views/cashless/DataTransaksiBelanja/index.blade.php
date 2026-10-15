@@ -116,25 +116,6 @@
                     <div class="row">
                         <div class="col-lg-6">
                             <div class="mb-3 row">
-                                <label for="filter[tahun_akademik]" class="col-sm-4 col-form-label form-label">Tahun Akademik</label>
-                                <div class="col">
-                                    <select class="form-select select2" id="filter[tahun_akademik]"
-                                            name="filter[tahun_akademik]"
-                                            data-control="select2"
-                                            data-placeholder="Pilih Tahun Akademik">
-                                        <option value="all">Semua</option>
-                                        @isset($thn_aka)
-                                            @foreach($thn_aka as $item)
-                                                <option value="{{$item->thn_aka}}">{{$item->thn_aka}}</option>
-                                            @endforeach
-                                        @else
-                                            <option>data kosong</option>
-                                        @endisset
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div class="mb-3 row">
                                 <label for="filter[nis]" class="col-sm-4 col-form-label form-label">Nis</label>
                                 <div class="col">
                                     <input type="text" class="form-control"

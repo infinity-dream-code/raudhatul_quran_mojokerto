@@ -17,7 +17,7 @@
 
     <div class="page-heading">
         <h2>Tambah Beban Post</h2>
-        <p>Isi data Tahun Angkatan, Kelas, Kode Akun, dan Nominal.</p>
+        <p>Isi data Tahun Angkatan, Kelas, Kelompok Kelas, Kode Akun, dan Nominal.</p>
     </div>
 
     <div class="bp-form-card">
@@ -44,21 +44,41 @@
                             @endforeach
                         </select>
                     </div>
+                    @php
+                        $oldKodeProd = (string) old('kode_prod', '');
+                        $oldKelasKey = (string) old('kelas_key', '');
+                        if ($oldKelasKey === '' && $oldKodeProd !== '') {
+                            foreach (($kelasOptions ?? []) as $kls) {
+                                if ((string) ($kls['id'] ?? '') === $oldKodeProd) {
+                                    $oldKelasKey = (string) ($kls['unit'] ?? '') . '|' . (string) ($kls['jenjang'] ?? '');
+                                    break;
+                                }
+                            }
+                        }
+                    @endphp
                     <div>
                         <label class="bp-label">Kelas <span class="bp-required">*</span></label>
-                        <select name="kode_prod" class="bp-input" required>
+                        <select name="kelas_key" id="bpKelasKey" class="bp-input" required>
                             <option value="">Pilih Kelas</option>
+                            @foreach (($kelasGroups ?? []) as $key => $groupLabel)
+                                <option value="{{ $key }}" {{ $oldKelasKey === (string) $key ? 'selected' : '' }}>{{ $groupLabel }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="bp-label">Kelompok Kelas <span class="bp-required">*</span></label>
+                        <select name="kode_prod" id="bpKodeProd" class="bp-input" required>
+                            <option value="">Pilih Kelompok Kelas</option>
                             @foreach (($kelasOptions ?? []) as $kls)
                                 @php
                                     $kp = (string) ($kls['id'] ?? '');
                                     $un = (string) ($kls['unit'] ?? '');
                                     $klKelas = (string) ($kls['jenjang'] ?? '');
-                                    $klKelompok = (string) ($kls['kelompok'] ?? $kls['kelas'] ?? '');
-                                    $parts = array_values(array_filter([$un, $klKelas, $klKelompok], static fn ($v) => $v !== ''));
-                                    $label = implode(' - ', $parts);
+                                    $klKelompok = (string) ($kls['kelas'] ?? '');
+                                    $label = $klKelompok !== '' ? $klKelompok : implode(' - ', array_values(array_filter([$un, $klKelas], static fn ($v) => $v !== '')));
                                 @endphp
                                 @if ($kp !== '' && $label !== '')
-                                    <option value="{{ $kp }}" {{ old('kode_prod') === $kp ? 'selected' : '' }}>{{ $label }}</option>
+                                    <option value="{{ $kp }}" data-kelas-key="{{ $un . '|' . $klKelas }}" {{ $oldKodeProd === $kp ? 'selected' : '' }}>{{ $label }}</option>
                                 @endif
                             @endforeach
                         </select>
@@ -91,6 +111,31 @@
     </div>
 
     <script>
+        (function () {
+            var kelasKey = document.getElementById('bpKelasKey');
+            var kodeProd = document.getElementById('bpKodeProd');
+            if (!kelasKey || !kodeProd) return;
+
+            var syncKelompok = function () {
+                var key = kelasKey.value;
+                Array.prototype.forEach.call(kodeProd.options, function (opt) {
+                    if (!opt.value) return;
+                    var match = key !== '' && opt.getAttribute('data-kelas-key') === key;
+                    opt.hidden = !match;
+                    opt.disabled = !match;
+                    if (!match && opt.selected) {
+                        kodeProd.value = '';
+                    }
+                });
+            };
+
+            kelasKey.addEventListener('change', function () {
+                kodeProd.value = '';
+                syncKelompok();
+            });
+            syncKelompok();
+        })();
+
         (function () {
             var nominalInput = document.querySelector('input[name="nominal"]');
             if (!nominalInput) return;

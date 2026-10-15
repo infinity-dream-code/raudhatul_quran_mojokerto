@@ -155,7 +155,7 @@ class CekPelunasanController extends Controller
             fwrite($out, "\xEF\xBB\xBF");
             fputcsv($out, [
                 'No', 'Tahun Pelajaran', 'NIS', 'No Pendaftaran', 'Nama', 'Nama Tagihan',
-                'Kode Post', 'Nama Post', 'Nominal', 'Total Tagihan', 'Lunas',
+                'Nominal Tagihan', 'Lunas',
             ], ';');
             $no = 1;
             foreach ($rows as $r) {
@@ -169,9 +169,6 @@ class CekPelunasanController extends Controller
                     $r['no_pendaftaran'] ?? '',
                     $r['nama'] ?? '',
                     $r['nama_tagihan'] ?? '',
-                    $r['kode_post'] ?? '',
-                    $r['nama_post'] ?? '',
-                    (string) ((int) ($r['nominal'] ?? 0)),
                     (string) ((int) ($r['tagihan'] ?? 0)),
                     ((int) ($r['lunas'] ?? 0)) === 1 ? 'LUNAS' : 'BELUM',
                 ], ';');
@@ -199,7 +196,7 @@ class CekPelunasanController extends Controller
         $buf .= '<Row>';
         foreach ([
             'TAHUN PELAJARAN', 'NIS', 'NO PENDAFTARAN', 'NAMA', 'NAMA TAGIHAN',
-            'KODE POST', 'NAMA POST', 'NOMINAL', 'TOTAL TAGIHAN', 'LUNAS',
+            'NOMINAL TAGIHAN', 'LUNAS',
         ] as $h) {
             $buf .= '<Cell ss:StyleID="hdr"><Data ss:Type="String">' . $esc($h) . '</Data></Cell>';
         }
@@ -209,7 +206,6 @@ class CekPelunasanController extends Controller
             if (!is_array($r)) {
                 continue;
             }
-            $nominal = (int) ($r['nominal'] ?? 0);
             $tagihan = (int) ($r['tagihan'] ?? 0);
             $lunas = ((int) ($r['lunas'] ?? 0)) === 1 ? 'LUNAS' : 'BELUM';
             $buf .= '<Row>';
@@ -218,9 +214,6 @@ class CekPelunasanController extends Controller
             $buf .= '<Cell><Data ss:Type="String">' . $esc((string) ($r['no_pendaftaran'] ?? '')) . '</Data></Cell>';
             $buf .= '<Cell><Data ss:Type="String">' . $esc((string) ($r['nama'] ?? '')) . '</Data></Cell>';
             $buf .= '<Cell><Data ss:Type="String">' . $esc((string) ($r['nama_tagihan'] ?? '')) . '</Data></Cell>';
-            $buf .= '<Cell><Data ss:Type="String">' . $esc((string) ($r['kode_post'] ?? '')) . '</Data></Cell>';
-            $buf .= '<Cell><Data ss:Type="String">' . $esc((string) ($r['nama_post'] ?? '')) . '</Data></Cell>';
-            $buf .= '<Cell ss:StyleID="n"><Data ss:Type="Number">' . $nominal . '</Data></Cell>';
             $buf .= '<Cell ss:StyleID="n"><Data ss:Type="Number">' . $tagihan . '</Data></Cell>';
             $buf .= '<Cell><Data ss:Type="String">' . $esc($lunas) . '</Data></Cell>';
             $buf .= '</Row>' . "\n";

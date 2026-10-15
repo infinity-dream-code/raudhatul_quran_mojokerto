@@ -17,13 +17,12 @@ class ExportImportDataController extends Controller
     public function index(Request $request, AmalFatimahApiService $api): View
     {
         $perPage = (int) $request->query('per_page', 10);
-        if (!in_array($perPage, [10, 25, 50], true)) {
+        if (!in_array($perPage, [10, 25, 50, 100], true)) {
             $perPage = 10;
         }
         $page = max(1, (int) $request->query('page', 1));
         $keyword = trim((string) $request->query('q', ''));
-        // Preview data hanya tampil sekali setelah import.
-        $allRows = $request->session()->pull('import_preview_rows', []);
+        $allRows = $request->session()->get('import_preview_rows', []);
         if (!is_array($allRows)) {
             $allRows = [];
         }
@@ -46,6 +45,10 @@ class ExportImportDataController extends Controller
             }));
         }
         $total = count($allRows);
+        $lastPage = max(1, (int) ceil($total / $perPage));
+        if ($page > $lastPage) {
+            $page = $lastPage;
+        }
         $offset = ($page - 1) * $perPage;
         $rows = array_slice($allRows, $offset, $perPage);
 
@@ -160,7 +163,7 @@ class ExportImportDataController extends Controller
 
         $absolutePath = Storage::path($storedPath);
         $result = $api->importSiswaByFilePath($absolutePath, $originalName, [
-            'sekolah' => trim((string) $validated['sekolah']),
+            'sekolah' => trim((string) ($validated['sekolah'] ?? '')),
             'metode' => trim((string) $validated['metode']),
         ]);
 
@@ -263,7 +266,7 @@ class ExportImportDataController extends Controller
                 'alamat' => trim((string) ($row['alamat'] ?? '')),
                 'wali' => trim((string) ($row['wali'] ?? '')),
             ];
-        }, $decoded), static fn ($row) => is_array($row) && (($row['nis'] ?? '') !== '' || ($row['nama'] ?? '') !== '')));
+        }, $decoded), static fn ($row) => is_array($row) && (($row['nis'] ?? '') !== '' || ($row['nodaf'] ?? '') !== '' || ($row['nama'] ?? '') !== '')));
     }
 }
 

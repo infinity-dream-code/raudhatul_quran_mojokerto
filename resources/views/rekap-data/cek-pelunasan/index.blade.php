@@ -40,7 +40,7 @@
         .cp-search { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #4b5563; }
         .cp-search input { height: 34px; border: 1px solid #d1d5db; border-radius: 8px; padding: 0 10px; min-width: 220px; font-size: 12px; }
         .cp-table-wrap { overflow-x: auto; }
-        .cp-table { width: 100%; min-width: 1280px; border-collapse: collapse; font-size: 12px; }
+        .cp-table { width: 100%; min-width: 960px; border-collapse: collapse; font-size: 12px; }
         .cp-table th, .cp-table td { border-bottom: 1px solid #eef2f7; padding: 8px 6px; text-align: left; vertical-align: middle; }
         .cp-table th { background: #fafbfd; color: #4b5563; font-weight: 700; white-space: nowrap; }
         .cp-check { width: 36px; text-align: center; }
@@ -184,16 +184,13 @@
                             <th>No Pendaftaran</th>
                             <th>NAMA</th>
                             <th>Nama Tagihan</th>
-                            <th>Kode Post</th>
-                            <th>Nama Post</th>
-                            <th class="cp-num">Nominal</th>
-                            <th class="cp-num">Total Tagihan</th>
+                            <th class="cp-num">Nominal Tagihan</th>
                             <th class="cp-center">Lunas</th>
                         </tr>
                     </thead>
                     <tbody id="cpTbody">
                         <tr>
-                            <td colspan="12" style="text-align:center;color:#6b7280;padding:20px;">Memuat data...</td>
+                            <td colspan="9" style="text-align:center;color:#6b7280;padding:20px;">Memuat data...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -366,14 +363,14 @@
                             errEl.style.display = 'block';
                             errEl.textContent = j.message || 'Gagal memuat data.';
                         }
-                        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#b91c1c;padding:20px;">' +
+                        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#b91c1c;padding:20px;">' +
                             esc(j.message || 'Gagal memuat data.') + '</td></tr>';
                         return;
                     }
 
                     var rows = j.rows || [];
                     if (rows.length === 0) {
-                        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#6b7280;padding:20px;">Tidak ada data untuk filter ini.</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#6b7280;padding:20px;">Tidak ada data untuk filter ini.</td></tr>';
                     } else {
                         var start = Number(j.first_item || 1);
                         tbody.innerHTML = rows.map(function (r, idx) {
@@ -386,9 +383,6 @@
                                 '<td>' + esc(r.no_pendaftaran || '-') + '</td>' +
                                 '<td>' + esc(r.nama || '-') + '</td>' +
                                 '<td>' + esc(r.nama_tagihan || '-') + '</td>' +
-                                '<td>' + esc(r.kode_post || '-') + '</td>' +
-                                '<td>' + esc(r.nama_post || '-') + '</td>' +
-                                '<td class="cp-num">' + fmtRp(r.nominal) + '</td>' +
                                 '<td class="cp-num">' + fmtRp(r.tagihan) + '</td>' +
                                 '<td class="cp-center"><span class="cp-pill ' + (lunas ? 'cp-pill-ok' : 'cp-pill-no') + '">' + (lunas ? 'LUNAS' : 'BELUM') + '</span></td>' +
                                 '</tr>';
@@ -410,7 +404,7 @@
                         errEl.style.display = 'block';
                         errEl.textContent = 'Gagal menghubungi server.';
                     }
-                    tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#b91c1c;padding:20px;">Gagal menghubungi server.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#b91c1c;padding:20px;">Gagal menghubungi server.</td></tr>';
                 });
         })();
     </script>

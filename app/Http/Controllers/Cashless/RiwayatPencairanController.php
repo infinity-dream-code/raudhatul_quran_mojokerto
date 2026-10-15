@@ -53,9 +53,7 @@ class RiwayatPencairanController extends Controller
         return [
             ['data' => null, 'name' => 'no', 'columnType' => 'row', 'exportable' => true],
             ['data' => 'Nominal', 'name' => 'Nominal', 'searchable' => true, 'orderable' => true, 'exportable' => true],
-            ['data' => 'TglTerima', 'name' => 'Tanggal', 'searchable' => true, 'orderable' => true, 'exportable' => true, "columnType" => "timestamp"],
-            ['data' => 'dari_tgl_tran', 'name' => 'Tanggal', 'searchable' => true, 'orderable' => true, 'exportable' => true, "columnType" => "date"],
-            ['data' => 'akhir_tgl_tran', 'name' => 'Tanggal', 'searchable' => true, 'orderable' => true, 'exportable' => true, "columnType" => "date"]
+            ['data' => 'TglTerima', 'name' => 'Tanggal Pencairan', 'searchable' => true, 'orderable' => true, 'exportable' => true, "columnType" => "timestamp"],
         ];
     }
 
@@ -70,19 +68,17 @@ class RiwayatPencairanController extends Controller
         $search_arr = $request->get('search', []);
         $searchValue = $search_arr['value'] ?? '';
 
-        $columnName = "sm_mercan_cair.akhir_tgl_tran";
+        $columnName = "sm_mercan_cair.TglTerima";
         $columnSortOrder = "desc";
 
         if (!empty($order_arr)) {
             $columnIndex = $columnIndex_arr[0]["column"] ?? null;
             if (
                 $columnIndex !== null &&
-                !empty($columnName_arr[$columnIndex]["data"]) &&
-                $columnName_arr[$columnIndex]["data"] !== "no" &&
-                $columnName_arr[$columnIndex]["data"] !== "AA"
+                in_array($columnName_arr[$columnIndex]["data"] ?? null, ['Nominal', 'TglTerima'], true)
             ) {
-                $columnName = $columnName_arr[$columnIndex]["data"];
-                $columnSortOrder = $order_arr[0]["dir"] ?? "desc";
+                $columnName = 'sm_mercan_cair.' . $columnName_arr[$columnIndex]["data"];
+                $columnSortOrder = strtolower($order_arr[0]["dir"] ?? "desc") === "asc" ? "asc" : "desc";
             }
         }
 
@@ -94,26 +90,23 @@ class RiwayatPencairanController extends Controller
         if ($filter) {
             foreach ($filter as $key => $val) {
                 switch ($key) {
-                    case 'sm_mercan_cair.PAIDDT_start':
+                    case 'sm_mercan_cair.dari_tgl_tran':
                         $date = Carbon::createFromFormat('d-m-Y', $val);
                         if ($date) {
-                            $filters[] = ['sm_mercan_cair.dari_tgl_tran', '>=', $date];
+                            $filters[] = ['sm_mercan_cair.dari_tgl_tran', '>=', $date->toDateString()];
                         }
                         break;
-                    case 'sm_mercan_cair.PAIDDT_end':
+                    case 'sm_mercan_cair.akhir_tgl_tran':
                         $date = Carbon::createFromFormat('d-m-Y', $val);
                         if ($date) {
-                            $filters[] = ['sm_mercan_cair.akhir_tgl_tran', '<=', $date];
+                            $filters[] = ['sm_mercan_cair.akhir_tgl_tran', '<=', $date->toDateString()];
                         }
                         break;
                     case 'sm_mercan_cair.TglTerima':
                         $date = Carbon::createFromFormat('d-m-Y', $val);
                         if ($date) {
-                            $filters[] = ['sm_mercan_cair.TglTerima', '=', $date];
+                            $filters[] = ['sm_mercan_cair.TglTerima', '=', $date->toDateString(), 'whereDate'];
                         }
-                        break;
-                    default:
-                        ($key) && $filters[] = [$key, '=', $val];
                         break;
                 }
             };
@@ -164,7 +157,7 @@ class RiwayatPencairanController extends Controller
 
         $totalRecordswithFilter =
             Cache::remember(
-                CacheHandler::cacheKey($this->cacheKey, 'total_filtered_data', $filter, $searchValue ?? ''),
+                CacheHandler::cacheKey($this->cacheKey, 'total_filtered_data', array_merge($filter, ['kantin' => (string) session('user.kantin')]), $searchValue ?? ''),
                 now()->addMinutes(10),
                 fn() => (clone $query)->count()
             );
@@ -190,7 +183,7 @@ class RiwayatPencairanController extends Controller
     {
         $key = Str::slug($this->cacheKey);
         return Cache::remember(
-            "{$key}:total_all_data",
+            "{$key}:total_all_data:" . Str::slug((string) session('user.kantin')),
             now()->addMinutes(10),
             fn() => DB::connection('DATA_MYSQL')->table('sm_mercan_cair')
                 ->where('sm_mercan_cair.NamaPenerima', 'like', "%" . session('user.kantin') . "%")

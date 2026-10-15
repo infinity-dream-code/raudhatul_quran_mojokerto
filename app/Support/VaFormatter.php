@@ -4,8 +4,10 @@ namespace App\Support;
 
 final class VaFormatter
 {
+    public const PREFIX = '06202';
+
     /**
-     * Format No VA: prefix 06202 + NIS (digit only), total 16 digit.
+     * Format No VA: prefix 06202 + NIS (digit only), tanpa padding nol.
      */
     public static function fromNis(?string $nis): string
     {
@@ -14,10 +16,7 @@ final class VaFormatter
         if ($digits === '') {
             return '';
         }
-        if (strlen($digits) > 11) {
-            $digits = substr($digits, -11);
-        }
 
-        return '06202' . str_pad($digits, 11, '0', STR_PAD_LEFT);
+        return self::PREFIX . $digits;
     }
 }

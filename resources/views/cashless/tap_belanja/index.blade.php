@@ -149,13 +149,15 @@
                         }
                     } else {
                         if (tap_id && !belanja) {
-                            warningAlert(
-                                'Data tidak ditemukan, silahkan tap kartu yang valid',
-                                'tap_id'
-                            )
+                            if (processForm.success !== 422) {
+                                warningAlert(
+                                    'Data tidak ditemukan, silahkan tap kartu yang valid',
+                                    'tap_id'
+                                )
+                            }
                             currentIDStatus = false
                         }
-                        if (processForm.errors) {
+                        if (processForm.errors && typeof processForm.errors === 'object') {
                             processErrors(processForm.errors, 'tap_id');
                         }
                     }

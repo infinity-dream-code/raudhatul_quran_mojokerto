@@ -13,6 +13,9 @@
         .rk-btn { height: 36px; border-radius: 8px; border: 1px solid #d1d5db; padding: 0 14px; font-size: 13px; font-weight: 700; cursor: pointer; background: #fff; color: #374151; text-decoration: none; display: inline-flex; align-items:center; }
         .rk-btn-search { background: #4f6ef7; border-color: #4f6ef7; color: #fff; }
         .rk-btn-print { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+        .rk-btn-excel { background: #059669; border-color: #059669; color: #fff; }
+        .rk-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid #eef2f7; font-size: 12px; color: #4b5563; }
+        .rk-select { height: 34px; border: 1px solid #d1d5db; border-radius: 8px; padding: 0 10px; font-size: 12px; }
         .rk-table-wrap { overflow-x:auto; }
         .rk-table { width:100%; min-width:1280px; border-collapse: collapse; font-size:12px; }
         .rk-table th,.rk-table td { border-bottom:1px solid #eef2f7; padding:9px 8px; text-align:left; white-space: nowrap; }
@@ -42,9 +45,10 @@
             @endif
 
             <form method="GET" action="{{ route('keu.tagihan.rekap') }}" id="rkFormFilter">
+                <input type="hidden" name="per_page" value="{{ $rekapRows->perPage() }}">
                 <div class="rk-filter">
                     <div class="rk-fld">
-                        <label>Tahun Pelajaran</label>
+                        <label>Tahun Akademik</label>
                         <select name="thn_akademik">
                             <option value="">Semua</option>
                             @foreach (($filterOptions['thn_akademik'] ?? []) as $th)
@@ -92,24 +96,19 @@
                         </select>
                     </div>
                     <div class="rk-fld">
-                        <label>Nama Post</label>
-                        <select name="nama_post">
+                        <label>Kelompok Kelas</label>
+                        <select name="kelompok">
                             <option value="">Semua</option>
                             @php
-                                $namaPostSeen = [];
+                                $rkKelompokOpts = collect($filterOptions['kelas'] ?? [])
+                                    ->map(static fn ($k) => is_array($k) ? trim((string) ($k['kelas'] ?? '')) : '')
+                                    ->filter(static fn ($v) => $v !== '')
+                                    ->unique()
+                                    ->sort(SORT_NATURAL | SORT_FLAG_CASE)
+                                    ->values();
                             @endphp
-                            @foreach (($filterOptions['akun'] ?? []) as $ak)
-                                @php
-                                    $namaAkun = trim((string) (is_array($ak) ? ($ak['nama'] ?? '') : ''));
-                                    $kode = trim((string) (is_array($ak) ? ($ak['kode'] ?? '') : ''));
-                                    if ($namaAkun === '') {
-                                        $namaAkun = $kode;
-                                    }
-                                @endphp
-                                @if ($namaAkun !== '' && !isset($namaPostSeen[$namaAkun]))
-                                    @php $namaPostSeen[$namaAkun] = true; @endphp
-                                    <option value="{{ $namaAkun }}" {{ (($filters['nama_post'] ?? '') === $namaAkun) ? 'selected' : '' }}>{{ $namaAkun }}</option>
-                                @endif
+                            @foreach ($rkKelompokOpts as $kl)
+                                <option value="{{ $kl }}" {{ (($filters['kelompok'] ?? '') === $kl) ? 'selected' : '' }}>{{ $kl }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -145,32 +144,56 @@
                     <button type="button" class="rk-btn rk-btn-print" id="rkCetakRekapBtn">Cetak Rekap</button>
                     <button type="button" class="rk-btn rk-btn-print" id="rkCetakPerNisBtn">Cetak Per NIS</button>
                     <button type="button" class="rk-btn rk-btn-print" id="rkCetakKartuBtn">Cetak Kartu Siswa</button>
+                    <button type="button" class="rk-btn rk-btn-excel" id="rkExportExcelBtn">Export Excel</button>
                     <a class="rk-btn" href="{{ route('keu.tagihan.rekap') }}">Reset</a>
                     <button type="submit" class="rk-btn rk-btn-search">Cari</button>
                 </div>
             </form>
             <form id="rkFormRekap" method="POST" action="{{ route('keu.tagihan.data_print_rekap') }}" target="_blank" style="display:none;">
                 @csrf
-                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'kode_post', 'nama_post', 'siswa', 'sort_urutan'] as $fk)
+                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'kelompok', 'nama_tagihan', 'kode_post', 'siswa', 'sort_urutan'] as $fk)
                     <input type="hidden" name="{{ $fk }}" value="{{ $filters[$fk] ?? '' }}">
                 @endforeach
                 <input type="hidden" name="has_search_context" value="{{ !empty($hasSearchRequest) ? '1' : '0' }}">
             </form>
             <form id="rkFormKartu" method="POST" action="{{ route('keu.tagihan.data_print_kartu') }}" target="_blank" style="display:none;">
                 @csrf
-                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'kode_post', 'nama_post', 'siswa', 'sort_urutan'] as $fk)
+                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'kelompok', 'nama_tagihan', 'kode_post', 'siswa', 'sort_urutan'] as $fk)
                     <input type="hidden" name="{{ $fk }}" value="{{ $filters[$fk] ?? '' }}">
                 @endforeach
                 <input type="hidden" name="selected_rows" id="rkSelectedRowsKartu" value="">
             </form>
             <form id="rkFormPerNis" method="POST" action="{{ route('keu.tagihan.export_print') }}" target="_blank" style="display:none;">
                 @csrf
-                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'kode_post', 'nama_post', 'siswa', 'sort_urutan'] as $fk)
+                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'kelompok', 'nama_tagihan', 'kode_post', 'siswa', 'sort_urutan'] as $fk)
                     <input type="hidden" name="{{ $fk }}" value="{{ $filters[$fk] ?? '' }}">
                 @endforeach
                 <input type="hidden" name="print_mode" value="by_custid">
                 <input type="hidden" name="selected_rows" id="rkSelectedRowsPerNis" value="">
             </form>
+            <form id="rkFormExcel" method="POST" action="{{ route('keu.tagihan.rekap_export_excel') }}" style="display:none;">
+                @csrf
+                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'kelompok', 'nama_tagihan', 'kode_post', 'siswa', 'sort_urutan'] as $fk)
+                    <input type="hidden" name="{{ $fk }}" value="{{ $filters[$fk] ?? '' }}">
+                @endforeach
+            </form>
+
+            <div class="rk-toolbar">
+                <form method="GET" action="{{ route('keu.tagihan.rekap') }}" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    @foreach ($filters as $fk => $fv)
+                        @if ($fv !== '')
+                            <input type="hidden" name="{{ $fk }}" value="{{ $fv }}">
+                        @endif
+                    @endforeach
+                    <span>Tampilkan</span>
+                    <select class="rk-select" name="per_page" onchange="this.form.submit()">
+                        @foreach ([10, 25, 50, 100] as $pp)
+                            <option value="{{ $pp }}" {{ (int) $rekapRows->perPage() === $pp ? 'selected' : '' }}>{{ $pp }}</option>
+                        @endforeach
+                    </select>
+                    <span>entri</span>
+                </form>
+            </div>
 
             <div class="rk-table-wrap">
                 <table class="rk-table">
@@ -357,6 +380,7 @@
                         b.disabled = true;
                     });
                     btnRekap.textContent = 'Membuat PDF rekap…';
+                    const pdfWin = window.open('', '_blank');
 
                     try {
                         const res = await fetch(rekapPrintUrl, {
@@ -370,7 +394,7 @@
                         });
 
                         const contentType = (res.headers.get('content-type') || '').toLowerCase();
-                        if (!res.ok || contentType.includes('application/json')) {
+                        if (!res.ok || !contentType.includes('application/pdf')) {
                             const err = contentType.includes('application/json')
                                 ? await res.json().catch(function () { return {}; })
                                 : {};
@@ -379,15 +403,19 @@
 
                         const blob = await res.blob();
                         const blobUrl = URL.createObjectURL(blob);
-                        const win = window.open(blobUrl, '_blank');
-                        if (!win) {
+                        if (pdfWin && !pdfWin.closed) {
+                            pdfWin.location.href = blobUrl;
+                        } else {
                             const a = document.createElement('a');
                             a.href = blobUrl;
                             a.download = 'rekap-tagihan.pdf';
+                            document.body.appendChild(a);
                             a.click();
+                            a.remove();
                         }
                         window.setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 120000);
                     } catch (err) {
+                        if (pdfWin && !pdfWin.closed) pdfWin.close();
                         alert(err && err.message ? err.message : 'Gagal membuat PDF rekap.');
                     } finally {
                         buttons.forEach(function (b) {
@@ -397,6 +425,19 @@
                             }
                         });
                     }
+                });
+            }
+
+            const btnExcel = document.getElementById('rkExportExcelBtn');
+            const formExcel = document.getElementById('rkFormExcel');
+            if (btnExcel && formExcel) {
+                btnExcel.addEventListener('click', function () {
+                    if (rowChecks.length === 0) {
+                        alert('Data masih kosong. Klik Cari dulu sebelum export Excel.');
+                        return;
+                    }
+                    rkFillExportForm(formExcel, 'data-rk-export-dyn');
+                    formExcel.submit();
                 });
             }
 

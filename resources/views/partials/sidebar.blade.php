@@ -19,9 +19,6 @@
             <span class="chevron">›</span>
         </button>
         <div class="sidebar-subnav {{ request()->routeIs('master.*') ? 'open' : '' }}" id="mdSubnav">
-            @if ($authIsSuperadmin ?? false)
-                <a href="{{ route('master.sekolah') }}" class="{{ request()->routeIs('master.sekolah*') ? 'active' : '' }}">Master Sekolah</a>
-            @endif
             <a href="{{ route('master.kelas') }}" class="{{ request()->routeIs('master.kelas*') ? 'active' : '' }}">Master Kelas</a>
             <a href="{{ route('master.tahun_pelajaran') }}" class="{{ request()->routeIs('master.tahun_pelajaran*') ? 'active' : '' }}">Tahun Pelajaran</a>
             <a href="{{ route('master.post') }}" class="{{ request()->routeIs('master.post*') ? 'active' : '' }}">Master Post</a>
@@ -43,7 +40,6 @@
             </button>
             <div class="sidebar-subnav {{ request()->routeIs('keu.tagihan.*') ? 'open' : '' }}" id="tagihanSiswaSubnav" style="padding-left:14px;">
                 <a href="{{ route('keu.tagihan.buat') }}" class="{{ request()->routeIs('keu.tagihan.buat') ? 'active' : '' }}">Buat Tagihan</a>
-                <a href="{{ route('keu.tagihan.upload_excel') }}" class="{{ request()->routeIs(['keu.tagihan.upload_excel', 'keu.tagihan.upload_excel.contoh', 'keu.tagihan.upload_excel.import', 'keu.tagihan.upload_excel.save', 'keu.tagihan.upload_excel.clear']) ? 'active' : '' }}">Buat Tagihan Excel</a>
                 <a href="{{ route('keu.tagihan.data') }}" class="{{ request()->routeIs('keu.tagihan.data') ? 'active' : '' }}">Data Tagihan</a>
                 <a href="{{ route('keu.tagihan.rekap') }}" class="{{ request()->routeIs('keu.tagihan.rekap') ? 'active' : '' }}">Rekap Tagihan</a>
             </div>

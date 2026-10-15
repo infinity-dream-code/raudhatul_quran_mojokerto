@@ -148,7 +148,26 @@ class TagihanSiswaController extends Controller
             'siswaRows' => $siswaPaginator,
             'daftarHargaRows' => $daftarHarga,
             'errorMsg' => $error,
+            'thnAkaDepanStart' => $this->thnAkademikDepanStartYear(),
         ]);
+    }
+
+    private function thnAkademikDepanStartYear(): int
+    {
+        $year = (int) now()->format('Y');
+        $currentStart = (int) now()->format('n') >= 7 ? $year : $year - 1;
+
+        return $currentStart + 1;
+    }
+
+    private function isTagihanBulanan(string $tagihan): bool
+    {
+        $name = mb_strtoupper(trim($tagihan));
+        if ($name === '') {
+            return false;
+        }
+
+        return (bool) preg_match('/JANUARI|JANUARY|FEBRUARI|FEBRUARY|MARET|MARCH|APRIL|MEI|MAY|JUNI|JUNE|JULI|JULY|AGUSTUS|AUGUST|SEPTEMBER|OKTOBER|OCTOBER|NOVEMBER|DESEMBER|DECEMBER/u', $name);
     }
 
     public function store(Request $request, AmalFatimahApiService $api): RedirectResponse
@@ -179,6 +198,16 @@ class TagihanSiswaController extends Controller
             'custids.required' => 'Pilih minimal satu siswa.',
             'kode_akuns.required' => 'Pilih minimal satu akun tagihan.',
         ]);
+
+        $tagihanNama = trim((string) ($validated['tagihan'] ?? ''));
+        if ($tagihanNama !== '' && !$this->isTagihanBulanan($tagihanNama)) {
+            $depanStart = $this->thnAkademikDepanStartYear();
+            preg_match('/\d{4}/', (string) $validated['thn_akademik'], $thnMatch);
+            if ((int) ($thnMatch[0] ?? 0) !== $depanStart) {
+                return redirect()->route('keu.tagihan.buat', $request->only(['thn_akademik', 'thn_angkatan', 'kelas_id', 'search', 'fungsi', 'tagihan']))
+                    ->with('error', sprintf('Tagihan non-bulanan (daftar ulang) hanya untuk tahun pelajaran depan (%d/%d).', $depanStart, $depanStart + 1));
+            }
+        }
 
         $res = $api->createBuatTagihan($validated);
         if (!$res['ok']) {
@@ -723,6 +752,7 @@ XML);
             'thn_angkatan' => trim((string) $request->query('thn_angkatan', '')),
             'thn_akademik' => trim((string) $request->query('thn_akademik', '')),
             'kelas_id' => trim((string) $request->query('kelas_id', '')),
+            'kelompok' => trim((string) $request->query('kelompok', '')),
             'nama_tagihan' => trim((string) $request->query('nama_tagihan', '')),
             'nis' => trim((string) $request->query('nis', '')),
             'nama' => trim((string) $request->query('nama', '')),
@@ -742,9 +772,12 @@ XML);
         $total = 0;
         $errorMsg = '';
         if ($shouldLoadData) {
-            $res = $api->getDataTagihan($filters, $perPage, ($page - 1) * $perPage);
+            $res = $api->getDataTagihan(array_merge($filters, ['only_unpaid' => '1']), $perPage, ($page - 1) * $perPage);
             if ($res['ok']) {
-                $rows = $res['data']['rows'] ?? [];
+                $rows = array_values(array_filter(
+                    $res['data']['rows'] ?? [],
+                    static fn ($r) => !is_array($r) || trim((string) ($r['paidst'] ?? '0')) !== '1'
+                ));
                 $total = (int) ($res['data']['total'] ?? 0);
             } else {
                 $errorMsg = $res['message'] ?? 'Gagal memuat data.';
@@ -857,7 +890,7 @@ XML);
         ], $status);
     }
 
-    public function dataExportExcel(Request $request, AmalFatimahApiService $api): StreamedResponse|RedirectResponse
+    public function dataExportExcel(Request $request, AmalFatimahApiService $api): Response|RedirectResponse
     {
         set_time_limit(900);
         @ini_set('memory_limit', '512M');
@@ -872,34 +905,75 @@ XML);
             return redirect()->back()->with('export_error', 'Tidak ada data yang cocok dengan filter saat ini.');
         }
 
-        $filename = 'data-tagihan-' . date('Ymd-His') . '.csv';
+        $sheetRows = [];
+        foreach ($rows as $r) {
+            $sheetRows[] = [
+                (int) $r['no'],
+                (string) $r['nis'],
+                (string) $r['no_daftar'],
+                (string) $r['no_va'],
+                (string) $r['nama'],
+                (string) $r['unit'],
+                (string) $r['kelas'],
+                (string) $r['kelompok'],
+                (string) $r['nama_tagihan'],
+                (int) $r['tagihan'],
+                (string) $r['tahun_aka'],
+                (int) $r['urutan'],
+                (string) $r['status'],
+            ];
+        }
 
-        return response()->streamDownload(function () use ($rows) {
-            $h = fopen('php://output', 'w');
-            if ($h !== false) {
-                fprintf($h, chr(0xEF) . chr(0xBB) . chr(0xBF));
-                fputcsv($h, ['No', 'NIS', 'NO DAFT', 'NO VA', 'NAMA', 'Unit', 'Kelas', 'Kelompok', 'Nama Tagihan', 'Tagihan (Rp)', 'Tahun AKA', 'Urutan', 'Status'], ';');
-                foreach ($rows as $r) {
-                    fputcsv($h, [
-                        $r['no'],
-                        $r['nis'],
-                        $r['no_daftar'],
-                        $r['no_va'],
-                        $r['nama'],
-                        $r['unit'],
-                        $r['kelas'],
-                        $r['kelompok'],
-                        $r['nama_tagihan'],
-                        $r['tagihan'],
-                        $r['tahun_aka'],
-                        $r['urutan'],
-                        $r['status'],
-                    ], ';');
+        return $this->spreadsheetXmlResponse(
+            'Data Tagihan',
+            ['No', 'NIS', 'NO DAFT', 'NO VA', 'NAMA', 'Unit', 'Kelas', 'Kelompok', 'Nama Tagihan', 'Tagihan (Rp)', 'Tahun AKA', 'Urutan', 'Status'],
+            $sheetRows,
+            'data-tagihan-' . date('Ymd-His') . '.xls'
+        );
+    }
+
+    /**
+     * Excel 2003 XML (SpreadsheetML): int => Number, selain itu String (NIS / VA tetap teks utuh).
+     *
+     * @param list<string> $headers
+     * @param list<list<int|string>> $rows
+     */
+    private function spreadsheetXmlResponse(string $sheetName, array $headers, array $rows, string $filename): Response
+    {
+        $esc = static fn (string $s): string => htmlspecialchars(
+            (string) preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', $s),
+            ENT_XML1 | ENT_COMPAT | ENT_SUBSTITUTE,
+            'UTF-8'
+        );
+
+        $buf = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+        $buf .= '<?mso-application progid="Excel.Sheet"?>' . "\n";
+        $buf .= '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' . "\n";
+        $buf .= '<Styles><Style ss:ID="hdr"><Font ss:Bold="1"/></Style><Style ss:ID="n"><NumberFormat ss:Format="#,##0"/></Style><Style ss:ID="t"><NumberFormat ss:Format="@"/></Style></Styles>' . "\n";
+        $buf .= '<Worksheet ss:Name="' . $esc(mb_substr($sheetName, 0, 31)) . '"><Table>' . "\n";
+        $buf .= '<Row>';
+        foreach ($headers as $h) {
+            $buf .= '<Cell ss:StyleID="hdr"><Data ss:Type="String">' . $esc((string) $h) . '</Data></Cell>';
+        }
+        $buf .= '</Row>' . "\n";
+
+        foreach ($rows as $row) {
+            $buf .= '<Row>';
+            foreach ($row as $cell) {
+                if (is_int($cell)) {
+                    $buf .= '<Cell ss:StyleID="n"><Data ss:Type="Number">' . $cell . '</Data></Cell>';
+                } else {
+                    $buf .= '<Cell ss:StyleID="t"><Data ss:Type="String">' . $esc((string) $cell) . '</Data></Cell>';
                 }
-                fclose($h);
             }
-        }, $filename, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
+            $buf .= '</Row>' . "\n";
+        }
+
+        $buf .= '</Table></Worksheet></Workbook>';
+
+        return response($buf, 200, [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ]);
     }
 
@@ -1031,6 +1105,10 @@ XML);
 
     private function rekapPrintClientExpectsJson(Request $request): bool
     {
+        if ($request->ajax()) {
+            return true;
+        }
+
         $accept = strtolower((string) $request->header('Accept', ''));
 
         return str_contains($accept, 'application/json')
@@ -1070,6 +1148,7 @@ XML);
                 }
                 $all[] = [
                     'bta' => trim((string) ($r['tahun_aka'] ?? $r['bta'] ?? '')),
+                    'periode' => trim((string) ($r['rek'] ?? $r['billac'] ?? '')),
                     'kode_post' => trim((string) ($r['kode_post'] ?? $r['kode'] ?? '')),
                     'nama_post' => trim((string) ($r['nama_post'] ?? '')),
                     'nama_tagihan' => trim((string) ($r['nama_tagihan'] ?? '')),
@@ -1130,6 +1209,7 @@ XML);
             }
 
             $tahun = trim((string) ($row['bta'] ?? '-'));
+            $periode = trim((string) ($row['periode'] ?? ''));
             $kode = trim((string) ($row['kode_post'] ?? $row['kode'] ?? '-'));
             $nama = trim((string) ($row['nama_post'] ?? $row['nama_tagihan'] ?? '-'));
             $val = (int) ($row['billam'] ?? 0);
@@ -1137,9 +1217,11 @@ XML);
                 continue;
             }
 
-            $mapKey = $tahun . '||' . $kode . '||' . $nama;
+            $mapKey = $periode . '||' . $tahun . '||' . $kode . '||' . $nama;
             if (!isset($rowMap[$mapKey])) {
                 $rowMap[$mapKey] = [
+                    'periode' => $periode,
+                    'periode_label' => $this->rekapPeriodeLabel($periode),
                     'tahun' => $tahun,
                     'kode' => $kode,
                     'nama' => $nama,
@@ -1159,6 +1241,9 @@ XML);
 
         $rows = array_values($rowMap);
         usort($rows, static function (array $a, array $b): int {
+            if ($a['periode'] !== $b['periode']) {
+                return strcmp((string) $a['periode'], (string) $b['periode']);
+            }
             if ($a['tahun'] !== $b['tahun']) {
                 return strcmp((string) $a['tahun'], (string) $b['tahun']);
             }
@@ -1175,6 +1260,20 @@ XML);
             'kelompokOrder' => $kelompokOrder,
             'rows' => $rows,
         ];
+    }
+
+    private function rekapPeriodeLabel(string $periode): string
+    {
+        if ($periode === '') {
+            return '-';
+        }
+        if (preg_match('/^(\d{4})(\d{2})/', $periode, $m) && (int) $m[2] >= 1 && (int) $m[2] <= 12) {
+            $bulan = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+            return $bulan[(int) $m[2] - 1] . ' ' . $m[1];
+        }
+
+        return $periode;
     }
 
     /**
@@ -1202,8 +1301,8 @@ XML);
             'dari_tanggal' => trim((string) ($filters['tgl_dari'] ?? '')) ?: '-',
             'sampai_tanggal' => trim((string) ($filters['tgl_sampai'] ?? '')) ?: '-',
             'kelas' => $kelasLabel,
+            'kelompok' => trim((string) ($filters['kelompok'] ?? '')) ?: 'Semua',
             'kode_post' => trim((string) ($filters['kode_post'] ?? '')) ?: 'Semua',
-            'nama_post' => trim((string) ($filters['nama_post'] ?? '')) ?: 'Semua',
             'nama_tagihan' => trim((string) ($filters['nama_tagihan'] ?? '')) ?: 'Semua',
         ];
     }
@@ -1219,6 +1318,7 @@ XML);
             'thn_angkatan' => trim((string) $request->input('thn_angkatan', '')),
             'thn_akademik' => trim((string) $request->input('thn_akademik', '')),
             'kelas_id' => trim((string) $request->input('kelas_id', '')),
+            'kelompok' => trim((string) $request->input('kelompok', '')),
             'nama_tagihan' => trim((string) $request->input('nama_tagihan', '')),
             'kode_post' => trim((string) $request->input('kode_post', '')),
             'nama_post' => trim((string) $request->input('nama_post', '')),
@@ -1228,6 +1328,7 @@ XML);
             'sort_urutan' => in_array(strtolower(trim((string) $request->input('sort_urutan', 'asc'))), ['asc', 'desc'], true)
                 ? strtolower(trim((string) $request->input('sort_urutan', 'asc')))
                 : 'asc',
+            'only_unpaid' => '1',
         ];
     }
 
@@ -1697,9 +1798,9 @@ XML);
             'thn_angkatan' => trim((string) $request->query('thn_angkatan', '')),
             'thn_akademik' => trim((string) $request->query('thn_akademik', '')),
             'kelas_id' => trim((string) $request->query('kelas_id', '')),
+            'kelompok' => trim((string) $request->query('kelompok', '')),
             'nama_tagihan' => trim((string) $request->query('nama_tagihan', '')),
             'kode_post' => trim((string) $request->query('kode_post', '')),
-            'nama_post' => trim((string) $request->query('nama_post', '')),
             'siswa' => trim((string) $request->query('siswa', '')),
             'sort_urutan' => in_array(strtolower(trim((string) $request->query('sort_urutan', 'asc'))), ['asc', 'desc'], true)
                 ? strtolower(trim((string) $request->query('sort_urutan', 'asc')))
@@ -1737,6 +1838,52 @@ XML);
             'errorMsg' => $errorMsg,
             'hasSearchRequest' => $hasSearchRequest,
         ]);
+    }
+
+    public function rekapExportExcel(Request $request, AmalFatimahApiService $api): Response|RedirectResponse
+    {
+        set_time_limit(900);
+        @ini_set('memory_limit', '512M');
+
+        $filters = $this->validatedDataTagihanFiltersFromRequest($request);
+        $filters['nama_post'] = '';
+        $rawRows = $this->fetchAllDataTagihanRowsForExport($api, $filters, self::REKAP_EXPORT_MAX_ROWS, [], true);
+        if ($rawRows === null) {
+            return redirect()->back()->with('export_error', 'Gagal mengambil data dari server. Pastikan ws.php terbaru sudah di-upload.');
+        }
+        $rows = $this->normalizeRekapTagihanRows($rawRows);
+        if ($rows === []) {
+            return redirect()->back()->with('export_error', 'Tidak ada data yang cocok dengan filter saat ini.');
+        }
+
+        $sheetRows = [];
+        $no = 1;
+        foreach ($rows as $r) {
+            $sheetRows[] = [
+                $no++,
+                trim((string) ($r['nis'] ?? '')),
+                trim((string) ($r['no_va'] ?? '')),
+                trim((string) ($r['nama'] ?? '')),
+                trim((string) ($r['unit'] ?? '')),
+                trim((string) ($r['kelas'] ?? '')),
+                trim((string) ($r['kelompok'] ?? '')),
+                trim((string) ($r['angkatan'] ?? '')),
+                trim((string) ($r['kode'] ?? '')),
+                trim((string) ($r['nama_post'] ?? '')),
+                trim((string) ($r['nama_tagihan'] ?? '')),
+                $this->rekapPeriodeLabel(trim((string) ($r['rek'] ?? ''))),
+                trim((string) ($r['tahun_aka'] ?? '')),
+                (int) ($r['tagihan'] ?? 0),
+                (int) ($r['furutan'] ?? 0),
+            ];
+        }
+
+        return $this->spreadsheetXmlResponse(
+            'Rekap Tagihan',
+            ['No', 'NIS', 'No VA', 'Nama', 'Unit', 'Kelas', 'Kelompok', 'Angkatan', 'Kode', 'Nama Post', 'Nama Tagihan', 'Periode', 'Tahun AKA', 'Tagihan (Rp)', 'Urutan'],
+            $sheetRows,
+            'rekap-tagihan-' . date('Ymd-His') . '.xls'
+        );
     }
 }
 

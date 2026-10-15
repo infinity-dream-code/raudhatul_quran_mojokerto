@@ -37,9 +37,6 @@
                 <div>Master Data</div>
             </a>
             <ul class="menu-sub">
-                <li class="menu-item {{ request()->routeIs('master.sekolah*') ? 'active' : '' }}">
-                    <a href="{{ route('master.sekolah') }}" class="menu-link"><div>Master Sekolah</div></a>
-                </li>
                 <li class="menu-item {{ request()->routeIs('master.kelas*') ? 'active' : '' }}">
                     <a href="{{ route('master.kelas') }}" class="menu-link"><div>Master Kelas</div></a>
                 </li>
@@ -58,9 +55,11 @@
                 <li class="menu-item {{ request()->routeIs('master.data_siswa*') ? 'active' : '' }}">
                     <a href="{{ route('master.data_siswa') }}" class="menu-link"><div>Data Siswa</div></a>
                 </li>
+                {{-- Setting Atribut Siswa disembunyikan sementara.
                 <li class="menu-item {{ request()->routeIs('master.setting_atribut_siswa*') ? 'active' : '' }}">
                     <a href="{{ route('master.setting_atribut_siswa') }}" class="menu-link"><div>Setting Atribut Siswa</div></a>
                 </li>
+                --}}
                 <li class="menu-item {{ request()->routeIs('master.pindah_kelas*') ? 'active' : '' }}">
                     <a href="{{ route('master.pindah_kelas') }}" class="menu-link"><div>Pindah Kelas</div></a>
                 </li>
@@ -81,9 +80,11 @@
                         <li class="menu-item {{ request()->routeIs('keu.tagihan.buat') ? 'active' : '' }}">
                             <a href="{{ route('keu.tagihan.buat') }}" class="menu-link"><div>Buat Tagihan</div></a>
                         </li>
+                        {{-- Buat Tagihan Excel disembunyikan sementara.
                         <li class="menu-item {{ request()->routeIs(['keu.tagihan.upload_excel', 'keu.tagihan.upload_excel.contoh', 'keu.tagihan.upload_excel.import', 'keu.tagihan.upload_excel.save', 'keu.tagihan.upload_excel.clear']) ? 'active' : '' }}">
                             <a href="{{ route('keu.tagihan.upload_excel') }}" class="menu-link"><div>Buat Tagihan Excel</div></a>
                         </li>
+                        --}}
                         <li class="menu-item {{ request()->routeIs('keu.tagihan.data') ? 'active' : '' }}">
                             <a href="{{ route('keu.tagihan.data') }}" class="menu-link"><div>Data Tagihan</div></a>
                         </li>

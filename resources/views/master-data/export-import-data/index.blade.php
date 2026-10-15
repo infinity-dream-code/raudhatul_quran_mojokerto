@@ -15,6 +15,10 @@
         .eid-footer { padding:14px 18px; border-top:1px solid #eef2f7; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
         .eid-info { font-size:12px; color:#6b7280; }
         .eid-actions { display:flex; gap:10px; flex-wrap:wrap; }
+        .eid-pagination { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+        .eid-page-link { display:inline-flex; align-items:center; justify-content:center; min-width:30px; height:30px; padding:0 10px; border:1px solid #d1d5db; border-radius:6px; text-decoration:none; color:#374151; font-size:12px; font-weight:600; background:#fff; }
+        .eid-page-link.active { background:#4f6ef7; color:#fff; border-color:#4f6ef7; }
+        .eid-page-link.disabled { color:#9ca3af; border-color:#e5e7eb; pointer-events:none; background:#f9fafb; }
         .eid-alert { margin:12px 18px 0; padding:10px 12px; border-radius:8px; font-size:13px; font-weight:600; }
         .eid-alert.ok { background:#ecfdf5; color:#047857; }
         .eid-alert.err { background:#fef2f2; color:#b91c1c; }
@@ -51,6 +55,7 @@
                     <option value="10" {{ (int) ($perPage ?? 10) === 10 ? 'selected' : '' }}>10</option>
                     <option value="25" {{ (int) ($perPage ?? 10) === 25 ? 'selected' : '' }}>25</option>
                     <option value="50" {{ (int) ($perPage ?? 10) === 50 ? 'selected' : '' }}>50</option>
+                    <option value="100" {{ (int) ($perPage ?? 10) === 100 ? 'selected' : '' }}>100</option>
                 </select>
                 @if (($keyword ?? '') !== '')
                     <input type="hidden" name="q" value="{{ $keyword }}">
@@ -98,6 +103,33 @@
         @if (($importRows->total() ?? 0) > 0)
             <div class="eid-footer">
                 <div class="eid-info">Menampilkan {{ $importRows->firstItem() }} sampai {{ $importRows->lastItem() }} dari {{ $importRows->total() }} entri</div>
+                @if ($importRows->hasPages())
+                    @php
+                        $eidCurrent = $importRows->currentPage();
+                        $eidLast = $importRows->lastPage();
+                        $eidStart = max(1, $eidCurrent - 2);
+                        $eidEnd = min($eidLast, $eidCurrent + 2);
+                    @endphp
+                    <div class="eid-pagination">
+                        @if ($importRows->onFirstPage())
+                            <span class="eid-page-link disabled">Prev</span>
+                        @else
+                            <a class="eid-page-link" href="{{ $importRows->url($eidCurrent - 1) }}">Prev</a>
+                        @endif
+                        @for ($p = $eidStart; $p <= $eidEnd; $p++)
+                            @if ($p === $eidCurrent)
+                                <span class="eid-page-link active">{{ $p }}</span>
+                            @else
+                                <a class="eid-page-link" href="{{ $importRows->url($p) }}">{{ $p }}</a>
+                            @endif
+                        @endfor
+                        @if ($importRows->hasMorePages())
+                            <a class="eid-page-link" href="{{ $importRows->url($eidCurrent + 1) }}">Next</a>
+                        @else
+                            <span class="eid-page-link disabled">Next</span>
+                        @endif
+                    </div>
+                @endif
                 <div class="eid-actions">
                     <form method="POST" action="{{ route('master.export_import.clear') }}">@csrf
                         <button type="submit" class="btn btn-outline-danger btn-sm"><i class="ri-delete-bin-line me-1"></i> Bersihkan Data</button>
@@ -195,7 +227,7 @@
                                 <select class="form-select" id="save-metode" name="metode" required>
                                     <option value="1" {{ old('metode', '1') === '1' ? 'selected' : '' }}>Simpan data siswa dengan NIS</option>
                                     <option value="2" {{ old('metode') === '2' ? 'selected' : '' }}>Simpan data siswa dengan Nomor Pendaftaran</option>
-                                    <option value="3" {{ old('metode') === '3' ? 'selected' : '' }}>Update kelas siswa (by NIS)</option>
+                                    <option value="3" {{ old('metode') === '3' ? 'selected' : '' }}>Update kelas siswa (by NIS / Nomor Pendaftaran)</option>
                                     <option value="4" {{ old('metode') === '4' ? 'selected' : '' }}>Upgrade nomor pendaftaran ke NIS</option>
                                 </select>
                             </div>
@@ -323,13 +355,13 @@
                             }
                             return {
                                 nis: g('NIS'),
-                                nodaf: g('NODAF', 'NODAFTAR', 'NO PEND', 'NO_PEND', 'NO DAFT'),
+                                nodaf: g('NODAF', 'NODAFTAR', 'NO PEND', 'NO_PEND', 'NO DAFT', 'NO DAFTAR', 'NO PENDAFTARAN', 'NOMOR PENDAFTARAN', 'NUM2ND'),
                                 nama: g('NAMA', 'Nama'),
                                 unit: g('UNIT'),
                                 kelas: g('KELAS'),
                                 kelompok: g('KELOMPOK'),
                                 angkatan: g('ANGKATAN'),
-                                gender: g('GENDER'),
+                                gender: g('GENDER', 'JENIS KELAMIN'),
                                 alamat: g('ALAMAT'),
                                 wali: g('WALI', 'ORTU', 'AYAH', 'GENUS')
                             };

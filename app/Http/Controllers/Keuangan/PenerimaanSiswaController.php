@@ -49,6 +49,7 @@ class PenerimaanSiswaController extends Controller
     public function dataRows(Request $request, AmalFatimahApiService $api): JsonResponse
     {
         [$filters, $perPage, $page] = $this->penerimaanPagingFromRequest($request);
+        $filters['per_tagihan'] = '1';
 
         $res = $api->getDataPenerimaan($filters, $perPage, ($page - 1) * $perPage);
         if (!$res['ok']) {
@@ -81,7 +82,7 @@ class PenerimaanSiswaController extends Controller
             $r['tbayar_display'] = $tbayar;
             $r['search_hay'] = mb_strtolower(trim(
                 ($r['nis'] ?? '') . ' ' . ($r['nama'] ?? '') . ' ' . ($r['unit'] ?? '') . ' ' . ($r['kelas'] ?? '') . ' '
-                . ($r['kelompok'] ?? '') . ' ' . ($r['nama_tagihan'] ?? '') . ' ' . ($r['kode_post'] ?? '') . ' ' . ($r['nama_post'] ?? '') . ' '
+                . ($r['kelompok'] ?? '') . ' ' . ($r['nama_tagihan'] ?? '') . ' '
                 . ($r['metode'] ?? '') . ' ' . $tbayar . ' ' . ($r['tahun_aka'] ?? '')
             ));
             $outRows[] = $r;
@@ -110,6 +111,48 @@ class PenerimaanSiswaController extends Controller
     }
 
     /**
+     * JSON rincian per post satu tagihan (expand baris Data Penerimaan).
+     */
+    public function billDetail(Request $request, AmalFatimahApiService $api): JsonResponse
+    {
+        $custid = (int) $request->query('custid', 0);
+        $billcd = trim((string) $request->query('billcd', ''));
+        if ($custid <= 0 || $billcd === '') {
+            return response()->json([
+                'ok' => false,
+                'message' => 'custid dan billcd wajib diisi',
+            ], 422);
+        }
+
+        $data = $api->getEditManualBillDetailRows($custid, $billcd);
+        if (!empty($data['error'])) {
+            return response()->json([
+                'ok' => false,
+                'message' => $data['error'],
+            ], 422);
+        }
+
+        $lines = [];
+        foreach (($data['lines'] ?? []) as $ln) {
+            if (!is_array($ln)) {
+                continue;
+            }
+            $kode = trim((string) ($ln['kode_post'] ?? ''));
+            $nama = trim((string) ($ln['nama_akun'] ?? ''));
+            $lines[] = [
+                'kode_post' => $kode,
+                'nama_post' => $nama !== '' ? $nama : $kode,
+                'billam' => (int) ($ln['billam'] ?? 0),
+            ];
+        }
+
+        return response()->json([
+            'ok' => true,
+            'lines' => $lines,
+        ]);
+    }
+
+    /**
      * @return array{0: array<string, string>, 1: int, 2: int}
      */
     private function penerimaanPagingFromRequest(Request $request): array
@@ -133,9 +176,6 @@ class PenerimaanSiswaController extends Controller
             'fidbank' => trim((string) $request->query('fidbank', '')),
             'sekolah' => trim((string) $request->query('sekolah', '')),
             'kode_post' => trim((string) $request->query('kode_post', '')),
-            'nama_post' => trim((string) $request->query('nama_post', '')),
-            'periode_mulai' => trim((string) $request->query('periode_mulai', '')),
-            'periode_akhir' => trim((string) $request->query('periode_akhir', '')),
         ];
 
         return [$filters, $perPage, $page];
@@ -236,6 +276,126 @@ class PenerimaanSiswaController extends Controller
             ->setPaper('a4', 'landscape');
 
         return $pdf->stream('rekap-penerimaan-' . date('Ymd-His') . '.pdf');
+    }
+
+    /**
+     * Rekap penerimaan (Excel) — matrix sama dengan Cetak PDF Rekap.
+     */
+    public function printRekapMatrixExcel(Request $request, AmalFatimahApiService $api): Response|RedirectResponse
+    {
+        $export = $this->buildRekapPenerimaanExport($request, $api);
+        if ($export instanceof RedirectResponse) {
+            return $export;
+        }
+
+        $matrix = $export['matrix'];
+        $rows = $matrix['rows'];
+        $kelasOrder = $matrix['kelasOrder'];
+        $kelompokOrder = $matrix['kelompokOrder'];
+        $filterSummary = $export['filterSummary'];
+        $esc = static fn (string $s): string => htmlspecialchars($s, ENT_XML1 | ENT_COMPAT, 'UTF-8');
+
+        $perKelas = count($kelompokOrder) + 1;
+        $lastIdx = 4 + count($kelasOrder) * $perKelas;
+
+        $buf = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+        $buf .= '<?mso-application progid="Excel.Sheet"?>' . "\n";
+        $buf .= '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' . "\n";
+        $buf .= '<Styles>'
+            . '<Style ss:ID="title"><Font ss:Bold="1" ss:Size="14"/></Style>'
+            . '<Style ss:ID="metaKey"><Font ss:Bold="1"/></Style>'
+            . '<Style ss:ID="hdr"><Font ss:Bold="1"/><Alignment ss:Horizontal="Center" ss:Vertical="Center"/></Style>'
+            . '<Style ss:ID="num"><Alignment ss:Horizontal="Right"/><NumberFormat ss:Format="#,##0"/></Style>'
+            . '<Style ss:ID="numBold"><Font ss:Bold="1"/><Alignment ss:Horizontal="Right"/><NumberFormat ss:Format="#,##0"/></Style>'
+            . '</Styles>' . "\n";
+        $buf .= '<Worksheet ss:Name="REKAP PENERIMAAN"><Table>' . "\n";
+
+        $buf .= '<Row><Cell ss:StyleID="title" ss:MergeAcross="' . $lastIdx . '"><Data ss:Type="String">REKAP PEMBAYARAN SISWA</Data></Cell></Row>' . "\n";
+        foreach ([
+            'Unit_Kelas' => 'unit_kelas',
+            'Tahun Akademik' => 'thn_akademik',
+            'Dari' => 'dari',
+            'Hingga' => 'hingga',
+        ] as $label => $key) {
+            $buf .= '<Row><Cell ss:StyleID="metaKey"><Data ss:Type="String">' . $esc($label) . '</Data></Cell><Cell ss:MergeAcross="' . max(0, $lastIdx - 1) . '"><Data ss:Type="String">' . $esc((string) ($filterSummary[$key] ?? '-')) . '</Data></Cell></Row>' . "\n";
+        }
+        $buf .= '<Row/>' . "\n";
+
+        $buf .= '<Row>';
+        foreach (['Thn Akademik', 'Kode', 'Nama Post', 'Nama Tagihan'] as $h) {
+            $buf .= '<Cell ss:StyleID="hdr" ss:MergeDown="1"><Data ss:Type="String">' . $esc($h) . '</Data></Cell>';
+        }
+        foreach ($kelasOrder as $kelas) {
+            $buf .= '<Cell ss:StyleID="hdr" ss:MergeAcross="' . ($perKelas - 1) . '"><Data ss:Type="String">' . $esc((string) $kelas) . '</Data></Cell>';
+        }
+        $buf .= '<Cell ss:StyleID="hdr" ss:MergeDown="1"><Data ss:Type="String">Total</Data></Cell>';
+        $buf .= '</Row>' . "\n";
+
+        $buf .= '<Row>';
+        $firstSub = true;
+        foreach ($kelasOrder as $kelas) {
+            foreach (array_merge($kelompokOrder, ['Sum']) as $k) {
+                $idxAttr = $firstSub ? ' ss:Index="5"' : '';
+                $firstSub = false;
+                $buf .= '<Cell ss:StyleID="hdr"' . $idxAttr . '><Data ss:Type="String">' . $esc((string) $k) . '</Data></Cell>';
+            }
+        }
+        $buf .= '</Row>' . "\n";
+
+        $colTotals = [];
+        $grandTotal = 0;
+        $prevTahun = null;
+        foreach ($rows as $r) {
+            $tahun = (string) ($r['tahun'] ?? '-');
+            $showTahun = $tahun !== $prevTahun ? $tahun : '';
+            $prevTahun = $tahun;
+
+            $buf .= '<Row>';
+            $buf .= '<Cell><Data ss:Type="String">' . $esc($showTahun) . '</Data></Cell>';
+            $buf .= '<Cell><Data ss:Type="String">' . $esc((string) ($r['kode'] ?? '-')) . '</Data></Cell>';
+            $buf .= '<Cell><Data ss:Type="String">' . $esc((string) ($r['nama_post'] ?? '-')) . '</Data></Cell>';
+            $buf .= '<Cell><Data ss:Type="String">' . $esc((string) ($r['nama_tagihan'] ?? '-')) . '</Data></Cell>';
+            foreach ($kelasOrder as $ki => $kelas) {
+                $sub = 0;
+                foreach ($kelompokOrder as $kj => $k) {
+                    $v = (int) ($r['byClass'][$kelas][$k] ?? 0);
+                    $sub += $v;
+                    $key = $ki . '_' . $kj;
+                    $colTotals[$key] = ($colTotals[$key] ?? 0) + $v;
+                    $buf .= '<Cell ss:StyleID="num"><Data ss:Type="Number">' . $v . '</Data></Cell>';
+                }
+                $colTotals['sum_' . $ki] = ($colTotals['sum_' . $ki] ?? 0) + $sub;
+                $buf .= '<Cell ss:StyleID="num"><Data ss:Type="Number">' . $sub . '</Data></Cell>';
+            }
+            $rowTotal = (int) ($r['total'] ?? 0);
+            $grandTotal += $rowTotal;
+            $buf .= '<Cell ss:StyleID="num"><Data ss:Type="Number">' . $rowTotal . '</Data></Cell>';
+            $buf .= '</Row>' . "\n";
+        }
+
+        $buf .= '<Row>';
+        $buf .= '<Cell ss:StyleID="metaKey" ss:MergeAcross="3"><Data ss:Type="String">Total</Data></Cell>';
+        foreach ($kelasOrder as $ki => $kelas) {
+            foreach ($kelompokOrder as $kj => $k) {
+                $buf .= '<Cell ss:StyleID="numBold"><Data ss:Type="Number">' . (int) ($colTotals[$ki . '_' . $kj] ?? 0) . '</Data></Cell>';
+            }
+            $buf .= '<Cell ss:StyleID="numBold"><Data ss:Type="Number">' . (int) ($colTotals['sum_' . $ki] ?? 0) . '</Data></Cell>';
+        }
+        $buf .= '<Cell ss:StyleID="numBold"><Data ss:Type="Number">' . $grandTotal . '</Data></Cell>';
+        $buf .= '</Row>' . "\n";
+
+        if (!empty($export['maybeTruncated'])) {
+            $buf .= '<Row/><Row><Cell ss:MergeAcross="' . $lastIdx . '"><Data ss:Type="String">Catatan: data dibatasi maksimal 50.000 baris agregasi per export. Persempit filter bila perlu.</Data></Cell></Row>' . "\n";
+        }
+
+        $buf .= '</Table></Worksheet></Workbook>';
+
+        $fn = 'rekap-penerimaan-' . date('Ymd-His') . '.xls';
+
+        return response($buf, 200, [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $fn . '"',
+        ]);
     }
 
     /**
@@ -529,9 +689,6 @@ class PenerimaanSiswaController extends Controller
             'fidbank' => trim((string) $request->input('fidbank', '')),
             'sekolah' => $sekolah,
             'kode_post' => trim((string) $request->input('kode_post', '')),
-            'nama_post' => trim((string) $request->input('nama_post', '')),
-            'periode_mulai' => trim((string) $request->input('periode_mulai', '')),
-            'periode_akhir' => trim((string) $request->input('periode_akhir', '')),
         ];
     }
 

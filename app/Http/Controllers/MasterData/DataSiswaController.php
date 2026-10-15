@@ -71,7 +71,8 @@ class DataSiswaController extends Controller
 
     public function exportExcel(Request $request, AmalFatimahApiService $api): StreamedResponse
     {
-        $rows = $api->getSiswa(array_merge($this->toWsFilters($this->extractUiFilters($request)), TableSort::resolve($request->query(), 'nocust', 'asc')), 200, 0);
+        @set_time_limit(300);
+        $rows = $this->fetchAllSiswaRows($api, array_merge($this->toWsFilters($this->extractUiFilters($request)), TableSort::resolve($request->query(), 'nocust', 'asc')));
 
         $filename = 'data-siswa-' . now()->format('Ymd-His') . '.xls';
         $headers = [
@@ -96,7 +97,12 @@ class DataSiswaController extends Controller
                 return;
             }
 
-            fwrite($output, implode("\t", $headers) . PHP_EOL);
+            $esc = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
+            $textCols = [1, 2, 4];
+
+            fwrite($output, '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">'
+                . '<head><meta charset="UTF-8"><style>td,th{border:1px solid #999;} .txt{mso-number-format:"\@";}</style></head><body><table>');
+            fwrite($output, '<tr>' . implode('', array_map(static fn ($h) => '<th>' . $esc($h) . '</th>', $headers)) . '</tr>');
 
             foreach ($rows as $index => $row) {
                 $r = array_change_key_case((array) $row, CASE_LOWER);
@@ -125,9 +131,17 @@ class DataSiswaController extends Controller
                     trim((string) ($r['desc05'] ?? '')) !== '' ? (string) $r['desc05'] : '-',
                     $wali !== '' ? $wali : '-',
                 ];
-                fwrite($output, implode("\t", array_map(static fn ($v) => str_replace(["\r", "\n", "\t"], ' ', $v), $line)) . PHP_EOL);
+                $cells = '';
+                foreach ($line as $col => $v) {
+                    $v = str_replace(["\r", "\n", "\t"], ' ', $v);
+                    $cells .= in_array($col, $textCols, true)
+                        ? '<td class="txt" style="mso-number-format:\'\@\';">' . $esc($v) . '</td>'
+                        : '<td>' . $esc($v) . '</td>';
+                }
+                fwrite($output, '<tr>' . $cells . '</tr>');
             }
 
+            fwrite($output, '</table></body></html>');
             fclose($output);
         };
 
@@ -138,12 +152,18 @@ class DataSiswaController extends Controller
 
     public function exportPdf(Request $request, AmalFatimahApiService $api): Response
     {
+        @ini_set('memory_limit', '1024M');
+        @set_time_limit(300);
+
         $ui = $this->extractUiFilters($request);
-        $rows = $api->getSiswa(array_merge($this->toWsFilters($ui), TableSort::resolve($request->query(), 'nocust', 'asc')), 200, 0);
+        $rows = $this->fetchAllSiswaRows($api, array_merge($this->toWsFilters($ui), TableSort::resolve($request->query(), 'nocust', 'asc')));
 
         $pdf = Pdf::loadView('master-data.data-siswa.export-pdf', [
             'rows' => $rows,
-            'filters' => $ui,
+            'filters' => array_merge($ui, [
+                'siswa' => $ui['nis'],
+                'q' => trim((string) $request->query('q', '')),
+            ]),
             'printedAt' => now('Asia/Jakarta'),
         ])->setPaper('a4', 'landscape');
 

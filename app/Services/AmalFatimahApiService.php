@@ -2152,6 +2152,7 @@ class AmalFatimahApiService
             'thn_angkatan' => trim((string) ($filters['thn_angkatan'] ?? '')),
             'thn_akademik' => trim((string) ($filters['thn_akademik'] ?? '')),
             'kelas_id' => trim((string) ($filters['kelas_id'] ?? '')),
+            'kelompok' => trim((string) ($filters['kelompok'] ?? '')),
             'nama_tagihan' => trim((string) ($filters['nama_tagihan'] ?? '')),
             'kode_post' => trim((string) ($filters['kode_post'] ?? '')),
             'nama_post' => trim((string) ($filters['nama_post'] ?? '')),
@@ -2161,6 +2162,7 @@ class AmalFatimahApiService
             'sort_urutan' => trim((string) ($filters['sort_urutan'] ?? '')),
             'sort_by' => trim((string) ($filters['sort_by'] ?? '')),
             'sort_dir' => trim((string) ($filters['sort_dir'] ?? '')),
+            'only_unpaid' => trim((string) ($filters['only_unpaid'] ?? '')),
         ], static fn ($v) => $v !== ''));
 
         if ($rekapCetak) {
@@ -2435,6 +2437,7 @@ class AmalFatimahApiService
             'limit' => $limit,
             'offset' => $offset,
             'include_total' => 0,
+            'per_tagihan' => !empty($filters['per_tagihan']) ? 1 : 0,
         ], array_filter([
             'tgl_dari' => trim((string) ($filters['tgl_dari'] ?? '')),
             'tgl_sampai' => trim((string) ($filters['tgl_sampai'] ?? '')),

@@ -41,19 +41,25 @@
         .dp-btn-search { background: #2563eb; border-color: #2563eb; color: #fff; }
         .dp-btn-search:hover { filter: brightness(1.05); }
         .dp-btn-print { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
-        .dp-btn-print-pdf { background: #dc2626; border-color: #dc2626; color: #fff; }
         .dp-btn-soon { opacity: 0.85; cursor: not-allowed; }
         .dp-notes { padding: 0 16px 12px; font-size: 12px; color: #b91c1c; font-weight: 600; }
         .dp-notes li { margin-bottom: 4px; }
         .dp-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #eef2f7; }
         .dp-select, .dp-input-search { height: 34px; border: 1px solid #d1d5db; border-radius: 8px; padding: 0 10px; font-size: 12px; }
         .dp-table-wrap { overflow-x: auto; }
-        .dp-table { width: 100%; min-width: 1380px; border-collapse: collapse; font-size: 12px; }
+        .dp-table { width: 100%; min-width: 1200px; border-collapse: collapse; font-size: 12px; }
         .dp-table th, .dp-table td { border-bottom: 1px solid #eef2f7; padding: 8px 6px; text-align: left; vertical-align: middle; }
         .dp-table th { background: #fafbfd; color: #4b5563; font-weight: 700; white-space: nowrap; }
         .dp-num { text-align: right; white-space: nowrap; }
         .dp-check { width: 36px; text-align: center; }
         .dp-check input { width: 16px; height: 16px; cursor: pointer; vertical-align: middle; }
+        .dp-expand { width: 32px; text-align: center; }
+        .dp-expand-btn { width: 22px; height: 22px; line-height: 18px; padding: 0; border: 1px solid #2563eb; border-radius: 6px; background: #eff6ff; color: #1d4ed8; font-weight: 800; cursor: pointer; }
+        .dp-detail-cell { background: #f8fafc; padding: 10px 16px 12px 76px !important; }
+        .dp-detail-table { border-collapse: collapse; font-size: 12px; min-width: 420px; }
+        .dp-detail-table th, .dp-detail-table td { border: 1px solid #e5e7eb; padding: 5px 10px; text-align: left; }
+        .dp-detail-table th { background: #eef2f7; }
+        .dp-detail-table .dp-num { text-align: right; }
         .dp-footer { padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 12px; color: #6b7280; }
         .dp-page { min-width: 30px; height: 30px; border: 1px solid #d1d5db; border-radius: 999px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; color: #4b5563; font-weight: 700; background: #fff; }
         .dp-page.active { background: #2563eb; color: #fff; border-color: #2563eb; }
@@ -194,40 +200,10 @@
                             @endforeach
                         </select>
                     </div>
-                    <div class="dp-fld">
-                        <label>Nama Post</label>
-                        <select name="nama_post">
-                            <option value="">Semua</option>
-                            @php $namaPostSeen = []; @endphp
-                            @foreach (($filterOptions['akun'] ?? []) as $ak)
-                                @php
-                                    $namaAkun = trim((string) (is_array($ak) ? ($ak['nama'] ?? '') : ''));
-                                    $kode = trim((string) (is_array($ak) ? ($ak['kode'] ?? '') : ''));
-                                    if ($namaAkun === '') {
-                                        $namaAkun = $kode;
-                                    }
-                                @endphp
-                                @if ($namaAkun !== '' && !isset($namaPostSeen[$namaAkun]))
-                                    @php $namaPostSeen[$namaAkun] = true; @endphp
-                                    <option value="{{ $namaAkun }}" {{ (($filters['nama_post'] ?? '') === $namaAkun) ? 'selected' : '' }}>{{ $namaAkun }}</option>
-                                @endif
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="dp-fld">
-                        <label>Periode Mulai</label>
-                        <input type="date" name="periode_mulai" value="{{ $filters['periode_mulai'] ?? '' }}" title="Filter tanggal tagihan (FTGLTagihan)">
-                    </div>
-                    <div class="dp-fld">
-                        <label>Periode Akhir</label>
-                        <input type="date" name="periode_akhir" value="{{ $filters['periode_akhir'] ?? '' }}" title="Filter tanggal tagihan (FTGLTagihan)">
-                    </div>
                 </div>
 
                 <div class="dp-actions-top">
-                    <button type="button" class="dp-btn dp-btn-print" id="dpBtnKartu" title="Centang siswa di tabel lalu klik">Cetak Kartu Siswa</button>
                     <button type="button" class="dp-btn dp-btn-print" id="dpBtnKuitansi" title="Centang siswa di tabel lalu klik">Cetak Kuitansi</button>
-                    <button type="button" class="dp-btn dp-btn-print-pdf" id="dpBtnRekapPdf" title="PDF rekap sesuai filter (tanggal opsional; maks. 8.000 baris)">Cetak PDF</button>
                 </div>
 
                 <ul class="dp-notes">
@@ -270,14 +246,13 @@
                     <thead>
                         <tr>
                             <th class="dp-check"><input type="checkbox" id="dpSelAll" aria-label="Pilih semua di halaman ini"></th>
+                            <th class="dp-expand"></th>
                             <th>No</th>
                             <th>NIS</th>
                             <th>NAMA</th>
                             <th>Unit</th>
                             <th>Kelas</th>
                             <th>Kelompok</th>
-                            <th>Kode Post</th>
-                            <th>Nama Post</th>
                             <th>Nama Tagihan</th>
                             <th class="dp-num">Tagihan</th>
                             <th>Metode</th>
@@ -287,7 +262,7 @@
                     </thead>
                     <tbody id="dpTbody">
                         <tr id="dpLoadingRow">
-                            <td colspan="14" style="text-align:center;color:#6b7280;padding:20px;">Memuat data tabel…</td>
+                            <td colspan="13" style="text-align:center;color:#6b7280;padding:20px;">Memuat data tabel…</td>
                         </tr>
                     </tbody>
                 </table>
@@ -306,13 +281,7 @@
         </div>
     </div>
 
-    <form id="dpFormKartu" method="POST" action="{{ route('keu.penerimaan.kartu_siswa') }}" target="_blank" style="display:none;" aria-hidden="true">
-        @csrf
-    </form>
     <form id="dpFormKuitansi" method="POST" action="{{ route('keu.penerimaan.kuitansi') }}" target="_blank" style="display:none;" aria-hidden="true">
-        @csrf
-    </form>
-    <form id="dpFormRekapPdf" method="POST" action="{{ route('keu.penerimaan.rekap_pdf') }}" target="_blank" style="display:none;" aria-hidden="true">
         @csrf
     </form>
 
@@ -426,23 +395,6 @@
                 }
             }
 
-            var dpBtnKartu = document.getElementById('dpBtnKartu');
-            var dpFormKartu = document.getElementById('dpFormKartu');
-            if (dpBtnKartu && dpFormKartu) {
-                dpBtnKartu.addEventListener('click', function () {
-                    var bills = dpCollectCheckedBills();
-                    if (bills.length === 0) {
-                        alert('Pilih minimal satu baris tagihan (centang di tabel).');
-                        return;
-                    }
-                    dpFillExportForm(dpFormKartu, 'data-dp-kartu-dyn', null);
-                    bills.forEach(function (key) {
-                        dpAppendDynHidden(dpFormKartu, 'selected_bills[]', key, 'data-dp-kartu-dyn');
-                    });
-                    dpFormKartu.submit();
-                });
-            }
-
             var dpBtnKuitansi = document.getElementById('dpBtnKuitansi');
             var dpFormKuitansi = document.getElementById('dpFormKuitansi');
             function dpSubmitKuitansi(dengan2k) {
@@ -466,12 +418,56 @@
                 dpBtnKuitansi.addEventListener('click', function () { dpSubmitKuitansi(false); });
             }
 
-            var dpBtnRekapPdf = document.getElementById('dpBtnRekapPdf');
-            var dpFormRekapPdf = document.getElementById('dpFormRekapPdf');
-            if (dpBtnRekapPdf && dpFormRekapPdf) {
-                dpBtnRekapPdf.addEventListener('click', function () {
-                    dpFillExportForm(dpFormRekapPdf, 'data-dp-rekap-pdf-dyn', null);
-                    dpFormRekapPdf.submit();
+            var detailUrl = @json(route('keu.penerimaan.bill_detail'));
+            if (tbody) {
+                tbody.addEventListener('click', function (e) {
+                    var btn = e.target.closest ? e.target.closest('.dp-expand-btn') : null;
+                    if (!btn) {
+                        return;
+                    }
+                    var tr = btn.closest('tr');
+                    var next = tr ? tr.nextElementSibling : null;
+                    if (next && next.classList.contains('dp-detail-row')) {
+                        next.remove();
+                        btn.textContent = '+';
+                        return;
+                    }
+                    btn.textContent = '−';
+                    var dr = document.createElement('tr');
+                    dr.className = 'dp-detail-row';
+                    dr.innerHTML = '<td colspan="13" class="dp-detail-cell"><span style="color:#6b7280;">Memuat rincian…</span></td>';
+                    tr.parentNode.insertBefore(dr, tr.nextSibling);
+                    var cell = dr.firstChild;
+                    var qs = '?custid=' + encodeURIComponent(btn.getAttribute('data-custid') || '') +
+                        '&billcd=' + encodeURIComponent(btn.getAttribute('data-billcd') || '');
+                    fetch(detailUrl + qs, {
+                        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                        credentials: 'same-origin'
+                    })
+                        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+                        .then(function (pack) {
+                            var j = pack.j || {};
+                            if (!pack.ok || !j.ok) {
+                                cell.innerHTML = '<span style="color:#b91c1c;">' + esc(j.message || 'Gagal memuat rincian.') + '</span>';
+                                return;
+                            }
+                            var lines = j.lines || [];
+                            if (lines.length === 0) {
+                                cell.innerHTML = '<span style="color:#6b7280;">Tidak ada rincian post.</span>';
+                                return;
+                            }
+                            var total = 0;
+                            var body = lines.map(function (ln, i) {
+                                total += Number(ln.billam || 0);
+                                return '<tr><td>' + (i + 1) + '</td><td>' + esc(ln.kode_post || '-') + '</td><td>' +
+                                    esc(ln.nama_post || '-') + '</td><td class="dp-num">' + fmtRp(ln.billam) + '</td></tr>';
+                            }).join('');
+                            cell.innerHTML = '<table class="dp-detail-table"><thead><tr><th>No</th><th>Kode Post</th><th>Nama Post</th><th class="dp-num">Nominal</th></tr></thead>' +
+                                '<tbody>' + body + '</tbody><tfoot><tr><th colspan="3">Total</th><th class="dp-num">' + fmtRp(total) + '</th></tr></tfoot></table>';
+                        })
+                        .catch(function () {
+                            cell.innerHTML = '<span style="color:#b91c1c;">Gagal menghubungi server.</span>';
+                        });
                 });
             }
 
@@ -506,28 +502,27 @@
                                 errEl.style.display = 'block';
                                 errEl.textContent = msg;
                             }
-                            tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;color:#b91c1c;padding:20px;">' +
+                            tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:#b91c1c;padding:20px;">' +
                                 esc(msg) + '</td></tr>';
                             if (footerInfo) footerInfo.innerHTML = '';
                             return;
                         }
                         var rows = j.rows || [];
                         if (rows.length === 0) {
-                            tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;color:#6b7280;padding:20px;">Tidak ada data untuk filter ini.</td></tr>';
+                            tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:#6b7280;padding:20px;">Tidak ada data untuk filter ini.</td></tr>';
                         } else {
                             tbody.innerHTML = rows.map(function (r, idx) {
                                 var no = (j.first_item || 0) + idx;
                                 var hay = esc((r.search_hay || '').replace(/"/g, ''));
                                 return '<tr class="dp-data-row" data-dp-hay="' + hay + '">' +
                                     '<td class="dp-check"><input type="checkbox" class="dp-row-cb" data-custid="' + esc(String(r.custid || r.CUSTID || 0)) + '" data-billcd="' + escAttr(r.billcd || r.BILLCD || '') + '"></td>' +
+                                    '<td class="dp-expand"><button type="button" class="dp-expand-btn" title="Lihat rincian tagihan" data-custid="' + escAttr(r.custid || r.CUSTID || 0) + '" data-billcd="' + escAttr(r.billcd || r.BILLCD || '') + '">+</button></td>' +
                                     '<td>' + esc(no) + '</td>' +
                                     '<td>' + esc(r.nis || '-') + '</td>' +
                                     '<td>' + esc(r.nama || '-') + '</td>' +
                                     '<td>' + esc(r.unit || '-') + '</td>' +
                                     '<td>' + esc(r.kelas || '-') + '</td>' +
                                     '<td>' + esc(r.kelompok || '-') + '</td>' +
-                                    '<td>' + esc(r.kode_post || '-') + '</td>' +
-                                    '<td>' + esc(r.nama_post || '-') + '</td>' +
                                     '<td>' + esc(r.nama_tagihan || '-') + '</td>' +
                                     '<td class="dp-num">' + fmtRp(r.tagihan) + '</td>' +
                                     '<td>' + esc(r.metode || '-') + '</td>' +
@@ -551,7 +546,7 @@
                             errEl.style.display = 'block';
                             errEl.textContent = 'Gagal menghubungi server.';
                         }
-                        if (tbody) tbody.innerHTML = '<tr><td colspan="14" style="text-align:center;color:#b91c1c;padding:20px;">Gagal menghubungi server.</td></tr>';
+                        if (tbody) tbody.innerHTML = '<tr><td colspan="13" style="text-align:center;color:#b91c1c;padding:20px;">Gagal menghubungi server.</td></tr>';
                     });
             }
         })();

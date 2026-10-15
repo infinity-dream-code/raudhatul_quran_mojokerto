@@ -23,6 +23,8 @@
         .tbl th { background: #ededed; font-size: 6pt; text-align: center; font-weight: 700; }
         .num { text-align: right; white-space: nowrap; }
         .tot-row td { font-weight: 700; background: #f3f4f6; }
+        .periode-row td { font-weight: 700; background: #dbeafe; text-align: left; padding: 3px 4px; }
+        .sub-row td { font-weight: 700; background: #f9fafb; }
     </style>
 </head>
 <body>
@@ -48,12 +50,12 @@
     <div class="meta">
         <table>
             <tr><td class="k">Sekolah</td><td>: {{ $meta['sekolah'] ?? 'Semua' }}</td></tr>
-            <tr><td class="k">Tahun Pelajaran</td><td>: {{ $meta['tahun_pelajaran'] ?? 'Semua' }}</td></tr>
+            <tr><td class="k">Tahun Akademik</td><td>: {{ $meta['tahun_pelajaran'] ?? 'Semua' }}</td></tr>
             <tr><td class="k">Dari Tanggal</td><td>: {{ $meta['dari_tanggal'] ?? '-' }}</td></tr>
             <tr><td class="k">Sampai Tanggal</td><td>: {{ $meta['sampai_tanggal'] ?? '-' }}</td></tr>
             <tr><td class="k">Kelas</td><td>: {{ $meta['kelas'] ?? 'Semua' }}</td></tr>
+            <tr><td class="k">Kelompok Kelas</td><td>: {{ $meta['kelompok'] ?? 'Semua' }}</td></tr>
             <tr><td class="k">Kode Post</td><td>: {{ $meta['kode_post'] ?? 'Semua' }}</td></tr>
-            <tr><td class="k">Nama Post</td><td>: {{ $meta['nama_post'] ?? 'Semua' }}</td></tr>
             <tr><td class="k">Nama Tagihan</td><td>: {{ $meta['nama_tagihan'] ?? 'Semua' }}</td></tr>
         </table>
     </div>
@@ -82,39 +84,77 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach ($rows as $r)
-                    @php
+                @php
+                    $totalCols = 4 + count($kelasOrder) * (count($kelompokOrder) + 1);
+                    $periodeGroups = [];
+                    foreach ($rows as $r) {
                         $r = is_array($r) ? $r : [];
-                        $tahun = (string) ($r['tahun'] ?? '-');
-                        $showTahun = $tahun !== $prevTahun ? $tahun : '';
-                        $prevTahun = $tahun;
+                        $pk = (string) ($r['periode'] ?? '');
+                        if (!isset($periodeGroups[$pk])) {
+                            $periodeGroups[$pk] = [
+                                'label' => (string) ($r['periode_label'] ?? ($pk !== '' ? $pk : '-')),
+                                'rows' => [],
+                            ];
+                        }
+                        $periodeGroups[$pk]['rows'][] = $r;
+                    }
+                @endphp
+                @foreach ($periodeGroups as $group)
+                    @php
+                        $prevTahun = null;
+                        $groupTotals = [];
+                        $groupTotal = 0;
                     @endphp
-                    <tr>
-                        <td>{{ $showTahun !== '' ? $showTahun : '' }}</td>
-                        <td style="text-align:left;">{{ $r['kode'] ?? '-' }}</td>
-                        <td>{{ $r['nama'] ?? '-' }}</td>
-                        @foreach ($kelasOrder as $ki => $kelas)
-                            @php $sub = 0; @endphp
-                            @foreach ($kelompokOrder as $kj => $k)
+                    <tr class="periode-row">
+                        <td colspan="{{ $totalCols }}">Periode Tagihan: {{ $group['label'] }}</td>
+                    </tr>
+                    @foreach ($group['rows'] as $r)
+                        @php
+                            $tahun = (string) ($r['tahun'] ?? '-');
+                            $showTahun = $tahun !== $prevTahun ? $tahun : '';
+                            $prevTahun = $tahun;
+                        @endphp
+                        <tr>
+                            <td>{{ $showTahun !== '' ? $showTahun : '' }}</td>
+                            <td style="text-align:left;">{{ $r['kode'] ?? '-' }}</td>
+                            <td>{{ $r['nama'] ?? '-' }}</td>
+                            @foreach ($kelasOrder as $ki => $kelas)
+                                @php $sub = 0; @endphp
+                                @foreach ($kelompokOrder as $kj => $k)
+                                    @php
+                                        $v = (int) (($r['byClass'][$kelas][$k] ?? 0));
+                                        $sub += $v;
+                                        $key = ($ki * 1000) + $kj;
+                                        $colTotals[$key] = ($colTotals[$key] ?? 0) + $v;
+                                        $groupTotals[$key] = ($groupTotals[$key] ?? 0) + $v;
+                                    @endphp
+                                    <td class="num">{{ dt_rekap_matrix_rp($v) }}</td>
+                                @endforeach
                                 @php
-                                    $v = (int) (($r['byClass'][$kelas][$k] ?? 0));
-                                    $sub += $v;
-                                    $key = ($ki * 1000) + $kj;
-                                    $colTotals[$key] = ($colTotals[$key] ?? 0) + $v;
+                                    $sumKey = 'sum_' . $ki;
+                                    $colTotals[$sumKey] = ($colTotals[$sumKey] ?? 0) + $sub;
+                                    $groupTotals[$sumKey] = ($groupTotals[$sumKey] ?? 0) + $sub;
                                 @endphp
-                                <td class="num">{{ dt_rekap_matrix_rp($v) }}</td>
+                                <td class="num">{{ dt_rekap_matrix_rp($sub) }}</td>
                             @endforeach
                             @php
-                                $sumKey = 'sum_' . $ki;
-                                $colTotals[$sumKey] = ($colTotals[$sumKey] ?? 0) + $sub;
+                                $rowTotal = (int) ($r['total'] ?? 0);
+                                $grandTotal += $rowTotal;
+                                $groupTotal += $rowTotal;
                             @endphp
-                            <td class="num">{{ dt_rekap_matrix_rp($sub) }}</td>
+                            <td class="num">{{ dt_rekap_matrix_rp($rowTotal) }}</td>
+                        </tr>
+                    @endforeach
+                    <tr class="sub-row">
+                        <td colspan="3" class="num" style="text-align:right;padding-right:4px;">Subtotal {{ $group['label'] }}</td>
+                        @foreach ($kelasOrder as $ki => $kelas)
+                            @foreach ($kelompokOrder as $kj => $k)
+                                @php $key = ($ki * 1000) + $kj; @endphp
+                                <td class="num">{{ dt_rekap_matrix_rp((int) ($groupTotals[$key] ?? 0)) }}</td>
+                            @endforeach
+                            <td class="num">{{ dt_rekap_matrix_rp((int) ($groupTotals['sum_' . $ki] ?? 0)) }}</td>
                         @endforeach
-                        @php
-                            $rowTotal = (int) ($r['total'] ?? 0);
-                            $grandTotal += $rowTotal;
-                        @endphp
-                        <td class="num">{{ dt_rekap_matrix_rp($rowTotal) }}</td>
+                        <td class="num">{{ dt_rekap_matrix_rp($groupTotal) }}</td>
                     </tr>
                 @endforeach
                 <tr class="tot-row">

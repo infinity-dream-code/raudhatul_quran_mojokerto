@@ -189,6 +189,7 @@ Route::middleware(['web', 'dummy.auth'])->group(function () {
         Route::get('/tagihan-siswa/export-tagihan', [TagihanSiswaController::class, 'export'])->name('tagihan.export');
         Route::match(['get', 'post'], '/tagihan-siswa/export-tagihan/print', [TagihanSiswaController::class, 'exportPrint'])->name('tagihan.export_print');
         Route::get('/tagihan-siswa/rekap-tagihan', [TagihanSiswaController::class, 'rekap'])->name('tagihan.rekap');
+        Route::post('/tagihan-siswa/rekap-tagihan/export-excel', [TagihanSiswaController::class, 'rekapExportExcel'])->name('tagihan.rekap_export_excel');
 
         // Manual Pembayaran
         Route::get('/manual-pembayaran', [ManualPembayaranController::class, 'index'])->name('manual');
@@ -203,10 +204,12 @@ Route::middleware(['web', 'dummy.auth'])->group(function () {
         // Penerimaan Siswa
         Route::get('/penerimaan-siswa/data', [PenerimaanSiswaController::class, 'data'])->name('penerimaan.data');
         Route::get('/penerimaan-siswa/data/rows', [PenerimaanSiswaController::class, 'dataRows'])->name('penerimaan.data_rows');
+        Route::get('/penerimaan-siswa/data/bill-detail', [PenerimaanSiswaController::class, 'billDetail'])->name('penerimaan.bill_detail');
         Route::post('/penerimaan-siswa/kartu-siswa', [PenerimaanSiswaController::class, 'printKartuSiswa'])->name('penerimaan.kartu_siswa');
         Route::post('/penerimaan-siswa/kuitansi', [PenerimaanSiswaController::class, 'printKuitansi'])->name('penerimaan.kuitansi');
         Route::match(['get', 'post'], '/penerimaan-siswa/rekap-pdf', [PenerimaanSiswaController::class, 'printRekapPdf'])->name('penerimaan.rekap_pdf');
         Route::match(['get', 'post'], '/penerimaan-siswa/rekap-excel', [PenerimaanSiswaController::class, 'printRekapExcel'])->name('penerimaan.rekap_excel');
+        Route::post('/penerimaan-siswa/rekap-matrix-excel', [PenerimaanSiswaController::class, 'printRekapMatrixExcel'])->name('penerimaan.rekap_matrix_excel');
         Route::match(['get', 'post'], '/penerimaan_siswa/rekap_pdf', [PenerimaanSiswaController::class, 'printRekapPdf']);
         Route::get('/penerimaan-siswa/rekap', [PenerimaanSiswaController::class, 'rekap'])->name('penerimaan.rekap');
         Route::get('/penerimaan-siswa/rekap/rows', [PenerimaanSiswaController::class, 'rekapRows'])->name('penerimaan.rekap_rows');

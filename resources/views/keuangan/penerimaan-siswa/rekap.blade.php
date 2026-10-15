@@ -101,26 +101,6 @@
                         </select>
                     </div>
                     <div class="rp-fld">
-                        <label>Nama Post</label>
-                        <select name="nama_post">
-                            <option value="">Semua</option>
-                            @php $namaPostSeen = []; @endphp
-                            @foreach (($filterOptions['akun'] ?? []) as $ak)
-                                @php
-                                    $namaAkun = trim((string) (is_array($ak) ? ($ak['nama'] ?? '') : ''));
-                                    $kode = trim((string) (is_array($ak) ? ($ak['kode'] ?? '') : ''));
-                                    if ($namaAkun === '') {
-                                        $namaAkun = $kode;
-                                    }
-                                @endphp
-                                @if ($namaAkun !== '' && !isset($namaPostSeen[$namaAkun]))
-                                    @php $namaPostSeen[$namaAkun] = true; @endphp
-                                    <option value="{{ $namaAkun }}" {{ (($filters['nama_post'] ?? '') === $namaAkun) ? 'selected' : '' }}>{{ $namaAkun }}</option>
-                                @endif
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="rp-fld">
                         <label>Unit</label>
                         <select name="sekolah" title="Filter unit dari mst_sekolah">
                             <option value="">Semua</option>
@@ -204,7 +184,8 @@
 
                 <div class="rp-actions">
                     <button type="button" class="rp-btn rp-btn-print" id="rpBtnRekapPdf" title="PDF rekap (maks. 8.000 baris)">Cetak PDF</button>
-                    <button type="button" class="rp-btn rp-btn-print" id="rpBtnRekapExcel" title="Excel detail per baris (maks. 8.000 baris)">Export Excel</button>
+                    <button type="button" class="rp-btn rp-btn-print" id="rpBtnRekapMatrixExcel" title="Excel rekap (format sama dengan Cetak PDF)">Export Excel</button>
+                    <button type="button" class="rp-btn rp-btn-print" id="rpBtnRekapExcel" title="Excel detail per baris (maks. 8.000 baris)">Export Excel Detail</button>
                     <button type="button" class="rp-btn rp-btn-kartu" id="rpBtnKartu" title="Centang satu siswa di tabel, isi filter tanggal, lalu klik">Cetak Per NIS</button>
                     <a class="rp-btn" href="{{ route('keu.penerimaan.rekap') }}">Reset</a>
                     <button type="submit" class="rp-btn rp-btn-search">Cari</button>
@@ -288,6 +269,9 @@
         @csrf
     </form>
     <form id="rpFormRekapExcel" method="POST" action="{{ route('keu.penerimaan.rekap_excel') }}" target="_blank" style="display:none;" aria-hidden="true">
+        @csrf
+    </form>
+    <form id="rpFormRekapMatrixExcel" method="POST" action="{{ route('keu.penerimaan.rekap_matrix_excel') }}" target="_blank" style="display:none;" aria-hidden="true">
         @csrf
     </form>
 
@@ -426,6 +410,15 @@
                 rpBtnRekapExcel.addEventListener('click', function () {
                     rpFillExportForm(rpFormRekapExcel, 'data-rp-rekap-excel-dyn');
                     rpFormRekapExcel.submit();
+                });
+            }
+
+            var rpBtnRekapMatrixExcel = document.getElementById('rpBtnRekapMatrixExcel');
+            var rpFormRekapMatrixExcel = document.getElementById('rpFormRekapMatrixExcel');
+            if (rpBtnRekapMatrixExcel && rpFormRekapMatrixExcel) {
+                rpBtnRekapMatrixExcel.addEventListener('click', function () {
+                    rpFillExportForm(rpFormRekapMatrixExcel, 'data-rp-rekap-matrix-excel-dyn');
+                    rpFormRekapMatrixExcel.submit();
                 });
             }
 

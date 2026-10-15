@@ -16,6 +16,15 @@
                     {{-- Decoy agar browser tidak isi username/password login ke field tap --}}
                     <input type="text" class="tar-autofill-trap" tabindex="-1" aria-hidden="true" autocomplete="username">
                     <input type="password" class="tar-autofill-trap" tabindex="-1" aria-hidden="true" autocomplete="current-password">
+                    <div class="tar-scan-bar">
+                        <button type="button" id="btnTarScan" class="tar-scan-btn">
+                            <i class="fa-solid fa-camera" aria-hidden="true"></i>
+                            <span id="btnTarScanLabel">Scan QR (Kamera)</span>
+                        </button>
+                    </div>
+                    <div id="tarQrWrap" class="tar-qr-wrap" hidden>
+                        <div id="tarQrReader"></div>
+                    </div>
                     <div class="tar-panel">
                         <div class="tar-row">
                             <div class="tar-label">TAP ID</div>
@@ -150,6 +159,32 @@
             color: #5b21b6;
             text-align: center;
         }
+        .tar-scan-bar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 12px;
+        }
+        .tar-scan-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            border: 0;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+            background: #7c3aed;
+            cursor: pointer;
+        }
+        .tar-scan-btn:hover { background: #6d28d9; }
+        .tar-qr-wrap {
+            max-width: 340px;
+            margin: 0 auto 16px;
+            border: 2px dashed #c4b5fd;
+            border-radius: 10px;
+            overflow: hidden;
+        }
         .tar-autofill-trap {
             position: absolute;
             width: 0;
@@ -165,6 +200,7 @@
         }
     </style>
 
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script>
         (function () {
             const lookupUrl = @json(route('smartcard.tap_ambil_rutin.lookup'));
@@ -279,6 +315,7 @@
 
                     lastFailedTapId = '';
                     const d = json.data || {};
+                    if (d.tap_id) tapId.value = d.tap_id;
                     cardLoaded = true;
                     nama.value = d.nama || '';
                     saldo.value = formatRp(d.saldo || 0);
@@ -379,6 +416,62 @@
                     ambil.focus();
                 }
             };
+
+            const btnScan = document.getElementById('btnTarScan');
+            const btnScanLabel = document.getElementById('btnTarScanLabel');
+            const qrWrap = document.getElementById('tarQrWrap');
+            let qrScanner = null;
+            let scannerActive = false;
+
+            const stopScanner = function () {
+                if (qrScanner && scannerActive) {
+                    qrScanner.stop().then(function () { qrScanner.clear(); }).catch(function () {});
+                }
+                scannerActive = false;
+                qrWrap.hidden = true;
+                btnScanLabel.textContent = 'Scan QR (Kamera)';
+            };
+
+            const startScanner = async function () {
+                if (scannerActive) {
+                    stopScanner();
+                    return;
+                }
+                if (!qrWrap.hidden) return;
+                if (typeof Html5Qrcode === 'undefined') {
+                    alertMsg('Scanner QR gagal dimuat. Periksa koneksi internet atau tap kartu manual.', true);
+                    return;
+                }
+
+                qrWrap.hidden = false;
+                if (!qrScanner) {
+                    qrScanner = new Html5Qrcode('tarQrReader');
+                }
+
+                try {
+                    await qrScanner.start(
+                        { facingMode: 'environment' },
+                        { fps: 10, qrbox: { width: 250, height: 250 } },
+                        function (decodedText) {
+                            const value = String(decodedText || '').trim();
+                            if (!scannerActive || !value) return;
+                            stopScanner();
+                            resetCard(false);
+                            lastFailedTapId = '';
+                            tapId.value = value;
+                            doLookup();
+                        },
+                        function () {}
+                    );
+                    scannerActive = true;
+                    btnScanLabel.textContent = 'Tutup Kamera';
+                } catch (err) {
+                    qrWrap.hidden = true;
+                    alertMsg('Tidak dapat membuka kamera. Pastikan izin kamera aktif atau tap kartu manual.', true);
+                }
+            };
+
+            btnScan.addEventListener('click', startScanner);
 
             tapId.addEventListener('keydown', function (e) {
                 if (e.key === 'Enter') {

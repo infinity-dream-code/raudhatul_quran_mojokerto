@@ -55,7 +55,7 @@ class RekapPenerimaanHarianController extends Controller
         return [
             ["data" => null, "name" => "no", "columnType" => "row"],
             [
-                "data" => "TanggalKeluar",
+                "data" => "tanggal",
                 "name" => "Tanggal",
                 "columnType" => "dateformat",
                 "searchable" => true,
@@ -84,18 +84,17 @@ class RekapPenerimaanHarianController extends Controller
         $search_arr = $request->get("search", []);
         $searchValue = $search_arr["value"] ?? "";
 
-        $columnName = "scctcashout.TanggalKeluar";
-        $columnSortOrder = "DESC";
+        $columnName = "tanggal";
+        $columnSortOrder = "desc";
 
         if (!empty($order_arr)) {
             $columnIndex = $columnIndex_arr[0]["column"] ?? null;
             if (
                 $columnIndex !== null &&
-                !empty($columnName_arr[$columnIndex]["data"]) &&
-                $columnName_arr[$columnIndex]["data"] !== "no"
+                in_array($columnName_arr[$columnIndex]["data"] ?? null, ["tanggal", "total"], true)
             ) {
                 $columnName = $columnName_arr[$columnIndex]["data"];
-                $columnSortOrder = $order_arr[0]["dir"] ?? "desc";
+                $columnSortOrder = strtolower($order_arr[0]["dir"] ?? "desc") === "asc" ? "asc" : "desc";
             }
         }
 
@@ -139,17 +138,11 @@ class RekapPenerimaanHarianController extends Controller
             }
         }
 
-        $whereAny = [];
-
-        $select = array_unique(
-            array_merge($whereAny, [
-                "scctcashout.TanggalKeluar",
-            ]),
-        );
+        $teller = (string) session('user.username');
+        $cacheFilter = array_merge($filter, ['teller' => $teller]);
 
         $query = DB::connection('DATA_MYSQL')->table('scctcashout')
-            ->where('teller', '=', session('user.username'))
-            ->groupByRaw('DATE(scctcashout.TanggalKeluar)')
+            ->where('scctcashout.teller', '=', $teller)
             ->where(function ($query) use ($filterQuery) {
                 if ($filterQuery) {
                     $filterQuery($query);
@@ -160,33 +153,31 @@ class RekapPenerimaanHarianController extends Controller
 
         $totalRecordswithFilter =
             Cache::remember(
-                CacheHandler::cacheKey($this->cacheKey, 'total_filtered_data', $filter, $searchValue ?? ''),
+                CacheHandler::cacheKey($this->cacheKey, 'total_filtered_data', $cacheFilter, $searchValue ?? ''),
                 now()->addMinutes(10),
-                fn() => (clone $query)->count()
+                fn() => (int) (clone $query)
+                    ->selectRaw('COUNT(DISTINCT DATE(scctcashout.TanggalKeluar)) as aggregate')
+                    ->value('aggregate')
             );
 
         $total =
             Cache::remember(
-                CacheHandler::cacheKey($this->cacheKey, 'total_sum_value', $filter, $searchValue ?? ''),
+                CacheHandler::cacheKey($this->cacheKey, 'total_sum_value', $cacheFilter, $searchValue ?? ''),
                 now()->addMinutes(10),
-                fn() => DB::connection('DATA_MYSQL')->table('scctcashout')
-                    ->where('teller', '=', session('user.username'))->select([
-                        DB::raw("COALESCE(SUM(scctcashout.BILLAM), 0) as total"),
-                    ])->first()
+                fn() => (clone $query)
+                    ->selectRaw('COALESCE(SUM(scctcashout.BILLAM), 0) as total')
+                    ->first()
             );
 
-
-        $rowperpage = $rowperpage == "poll" ? $totalRecords : $rowperpage;
+        $rowperpage = $rowperpage == "poll" || (int) $rowperpage < 1 ? max($totalRecordswithFilter, 1) : (int) $rowperpage;
         $records = (clone $query)
+            ->selectRaw('DATE(scctcashout.TanggalKeluar) as tanggal')
+            ->selectRaw('COALESCE(SUM(scctcashout.BILLAM), 0) as total')
+            ->groupByRaw('DATE(scctcashout.TanggalKeluar)')
             ->orderBy($columnName, $columnSortOrder)
-            ->select($select)
-            ->addSelect(DB::raw("COALESCE(SUM(scctcashout.BILLAM), 0) as total"))
-            ->skip($start)
+            ->skip((int) $start)
             ->take($rowperpage)
             ->get();
-
-        $records->toArray();
-
 
         $response = [
             "draw" => intval($draw),
@@ -203,13 +194,14 @@ class RekapPenerimaanHarianController extends Controller
     public function total(): int
     {
         $key = Str::slug($this->cacheKey);
+        $teller = (string) session('user.username');
         return Cache::remember(
-            "{$key}:total_all_data",
+            "{$key}:total_all_data:" . Str::slug($teller),
             now()->addMinutes(10),
-            fn() => $totalRecords = DB::connection('DATA_MYSQL')->table('scctcashout')
-                ->where('teller', '=', session('user.username'))
-                ->groupByRaw('DATE(scctcashout.TanggalKeluar)')
-                ->count()
+            fn() => (int) DB::connection('DATA_MYSQL')->table('scctcashout')
+                ->where('teller', '=', $teller)
+                ->selectRaw('COUNT(DISTINCT DATE(scctcashout.TanggalKeluar)) as aggregate')
+                ->value('aggregate')
         );
     }
 }

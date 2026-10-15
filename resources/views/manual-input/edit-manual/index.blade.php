@@ -14,7 +14,7 @@
         .em-bc { font-size: 12px; color: #6b7280; padding: 0 18px 14px; }
         .em-layout {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) 340px;
+            grid-template-columns: minmax(0, 1fr) 400px;
             gap: 0;
             align-items: start;
             border-top: 1px solid #eef2f7;
@@ -180,11 +180,18 @@
             color: #0f172a;
             background: #f1f5f9;
         }
-        .em-detail-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 12px; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
-        .em-detail-table th, .em-detail-table td { border-bottom: 1px solid #eef2f7; padding: 8px 10px; text-align: left; vertical-align: middle; }
+        .em-detail-wrap { margin-top: 12px; overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; }
+        .em-detail-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .em-detail-table th, .em-detail-table td { border-bottom: 1px solid #eef2f7; padding: 8px 6px; text-align: left; vertical-align: middle; }
         .em-detail-table th { background: #f1f5f9; font-weight: 700; color: #475569; }
         .em-detail-table th.em-num,
-        .em-detail-table td.em-num { min-width: 130px; }
+        .em-detail-table td.em-num { width: 120px; }
+        .em-detail-table .em-line-kode { min-width: 120px; }
+        .em-detail-table .em-line-am { min-width: 100px; padding: 0 8px; font-size: 13px; }
+        .em-detail-table th:last-child,
+        .em-detail-table td:last-child { position: sticky; right: 0; width: 72px; white-space: nowrap; background: #fff; }
+        .em-detail-table th:last-child { background: #f1f5f9; }
+        .em-detail-table td.em-detail-empty { position: static; white-space: normal; }
         .em-detail-table tbody tr:last-child td { border-bottom: none; }
         .em-detail-empty { color: #9ca3af; font-style: italic; text-align: center; padding: 16px !important; }
         .em-bill-row { cursor: pointer; }
@@ -309,20 +316,22 @@
                     </div>
                     <button type="button" class="em-btn em-btn-primary" id="emBtnBuatDetail" style="width:100%;justify-content:center;">Buat Detail</button>
 
-                    <table class="em-detail-table" id="emTableDetail">
-                        <thead>
-                            <tr>
-                                <th>NAMA POST / AKUN</th>
-                                <th class="em-num">NOMINAL</th>
-                                <th class="em-ctr" style="width:88px;">AKSI</th>
-                            </tr>
-                        </thead>
-                        <tbody id="emTbodyDetail">
-                            <tr>
-                                <td colspan="3" class="em-detail-empty" id="emDetailPlaceholder">Silakan pilih tagihan</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <div class="em-detail-wrap">
+                        <table class="em-detail-table" id="emTableDetail">
+                            <thead>
+                                <tr>
+                                    <th>NAMA POST / AKUN</th>
+                                    <th class="em-num">NOMINAL</th>
+                                    <th class="em-ctr">AKSI</th>
+                                </tr>
+                            </thead>
+                            <tbody id="emTbodyDetail">
+                                <tr>
+                                    <td colspan="3" class="em-detail-empty" id="emDetailPlaceholder">Silakan pilih tagihan</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
 
                     <form id="emFormSimpan">
                         @csrf

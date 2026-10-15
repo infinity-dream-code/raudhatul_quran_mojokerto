@@ -173,6 +173,7 @@
                     'thn_angkatan' => $filters['thn_angkatan'] ?? '',
                     'thn_akademik' => $filters['thn_akademik'] ?? '',
                     'kelas_id' => $filters['kelas_id'] ?? '',
+                    'kelompok' => $filters['kelompok'] ?? '',
                     'nama_tagihan' => $filters['nama_tagihan'] ?? '',
                     'nis' => $filters['nis'] ?? '',
                     'nama' => $filters['nama'] ?? '',
@@ -227,6 +228,23 @@
                                 @if ($id !== '')
                                     <option value="{{ $id }}" {{ (($filters['kelas_id'] ?? '') === $id) ? 'selected' : '' }}>{{ $lbl }}</option>
                                 @endif
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="dt-fld">
+                        <label>Kelompok kelas</label>
+                        <select name="kelompok">
+                            <option value="">Semua</option>
+                            @php
+                                $dtKelompokOpts = collect($filterOptions['kelas'] ?? [])
+                                    ->map(static fn ($k) => is_array($k) ? trim((string) ($k['kelas'] ?? '')) : '')
+                                    ->filter(static fn ($v) => $v !== '')
+                                    ->unique()
+                                    ->sort(SORT_NATURAL | SORT_FLAG_CASE)
+                                    ->values();
+                            @endphp
+                            @foreach ($dtKelompokOpts as $kl)
+                                <option value="{{ $kl }}" {{ (($filters['kelompok'] ?? '') === $kl) ? 'selected' : '' }}>{{ $kl }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -296,26 +314,26 @@
 
             <form id="dtFormExcel" class="dt-sr-only" method="POST" action="{{ route('keu.tagihan.data_export_excel') }}" target="_blank" aria-hidden="true">
                 @csrf
-                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'nis', 'nama', 'siswa', 'sort_by', 'sort_dir', 'sort_urutan'] as $fk)
+                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'kelompok', 'nama_tagihan', 'nis', 'nama', 'siswa', 'sort_by', 'sort_dir', 'sort_urutan'] as $fk)
                     <input type="hidden" name="{{ $fk }}" value="{{ $filters[$fk] ?? '' }}">
                 @endforeach
             </form>
             <form id="dtFormPdf" class="dt-sr-only" method="POST" action="{{ route('keu.tagihan.data_export_pdf') }}" target="_blank" aria-hidden="true">
                 @csrf
-                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'nis', 'nama', 'siswa', 'sort_by', 'sort_dir', 'sort_urutan'] as $fk)
+                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'kelompok', 'nama_tagihan', 'nis', 'nama', 'siswa', 'sort_by', 'sort_dir', 'sort_urutan'] as $fk)
                     <input type="hidden" name="{{ $fk }}" value="{{ $filters[$fk] ?? '' }}">
                 @endforeach
             </form>
             <form id="dtFormKartu" class="dt-sr-only" method="POST" action="{{ route('keu.tagihan.data_print_kartu') }}" target="_blank" aria-hidden="true">
                 @csrf
-                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'nis', 'nama', 'siswa', 'sort_by', 'sort_dir', 'sort_urutan'] as $fk)
+                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'kelompok', 'nama_tagihan', 'nis', 'nama', 'siswa', 'sort_by', 'sort_dir', 'sort_urutan'] as $fk)
                     <input type="hidden" name="{{ $fk }}" value="{{ $filters[$fk] ?? '' }}">
                 @endforeach
                 <input type="hidden" name="selected_rows" id="dtSelectedRows" value="">
             </form>
             <form id="dtFormRekap" class="dt-sr-only" method="POST" action="{{ route('keu.tagihan.data_print_rekap') }}" target="_blank" aria-hidden="true">
                 @csrf
-                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'nama_tagihan', 'nis', 'nama', 'siswa', 'sort_by', 'sort_dir', 'sort_urutan'] as $fk)
+                @foreach (['tgl_dari', 'tgl_sampai', 'thn_angkatan', 'thn_akademik', 'kelas_id', 'kelompok', 'nama_tagihan', 'nis', 'nama', 'siswa', 'sort_by', 'sort_dir', 'sort_urutan'] as $fk)
                     <input type="hidden" name="{{ $fk }}" value="{{ $filters[$fk] ?? '' }}">
                 @endforeach
                 <input type="hidden" name="has_search_context" id="dtHasSearchContext" value="{{ request()->query->count() > 0 ? '1' : '0' }}">
@@ -628,11 +646,45 @@
                         btnRekap.disabled = true;
                         var prev = btnRekap.textContent;
                         btnRekap.textContent = 'Membuat rekap…';
-                        formRekap.submit();
-                        window.setTimeout(function () {
+                        var pdfWin = window.open('', '_blank');
+                        var resetBtn = function () {
                             btnRekap.disabled = false;
                             btnRekap.textContent = prev;
-                        }, 120000);
+                        };
+                        fetch(formRekap.action, {
+                            method: 'POST',
+                            body: new FormData(formRekap),
+                            credentials: 'same-origin',
+                            headers: { 'Accept': 'application/pdf', 'X-Requested-With': 'XMLHttpRequest' }
+                        })
+                            .then(function (res) {
+                                var ct = (res.headers.get('content-type') || '').toLowerCase();
+                                if (!res.ok || !ct.includes('application/pdf')) {
+                                    return res.json().catch(function () { return {}; }).then(function (j) {
+                                        throw new Error((j && j.message) ? j.message : 'Gagal membuat PDF rekap.');
+                                    });
+                                }
+                                return res.blob();
+                            })
+                            .then(function (blob) {
+                                var blobUrl = URL.createObjectURL(blob);
+                                if (pdfWin && !pdfWin.closed) {
+                                    pdfWin.location.href = blobUrl;
+                                } else {
+                                    var a = document.createElement('a');
+                                    a.href = blobUrl;
+                                    a.download = 'rekap-tagihan.pdf';
+                                    document.body.appendChild(a);
+                                    a.click();
+                                    a.remove();
+                                }
+                                window.setTimeout(function () { URL.revokeObjectURL(blobUrl); }, 120000);
+                            })
+                            .catch(function (err) {
+                                if (pdfWin && !pdfWin.closed) pdfWin.close();
+                                alert(err && err.message ? err.message : 'Gagal membuat PDF rekap.');
+                            })
+                            .finally(resetBtn);
                     });
                 }
             })();

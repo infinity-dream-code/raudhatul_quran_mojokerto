@@ -6,17 +6,12 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class PindahSaldoController extends Controller
 {
-    private const PER_PAGE_DEFAULT = 10;
-
     private const ADMIN_FEE = 1000;
 
     private const TRAN_SPP = 'sccttran';
@@ -43,39 +38,17 @@ class PindahSaldoController extends Controller
         $tanggalManual = trim((string) $request->query('tanggal_manual', ''));
         $note = trim((string) $request->query('note', ''));
 
-        $perPage = self::PER_PAGE_DEFAULT;
-        $page = max(1, (int) $request->query('page', 1));
-
         $nama = '';
         $nis = '';
         $saldoSpp = 0;
         $saldoCashless = 0;
 
-        $siswaPaginator = new LengthAwarePaginator([], 0, $perPage, $page, [
-            'path' => $request->url(),
-            'query' => $request->query(),
-        ]);
-
-        if ($isSearch) {
-            $result = $this->fetchSiswaRowsPaginated(
-                $nisFilter !== '' ? $nisFilter : null,
-                $perPage,
-                $page
-            );
-            $siswaPaginator = new Paginator(
-                $result['rows'],
-                $perPage,
-                $page,
-                ['path' => $request->url(), 'query' => $request->query()]
-            );
+        if ($isSearch && $custid <= 0 && $nisFilter !== '') {
+            $custid = $this->resolveCustidFromSearch($nisFilter);
         }
 
         if ($custid > 0) {
-            $fromList = ($isSearch ?? false)
-                ? collect($siswaPaginator->items())->first(static fn ($r) => (int) ($r->custid ?? 0) === $custid)
-                : null;
-
-            $siswa = $fromList ?: $this->fetchSiswaByCustidInScope($custid);
+            $siswa = $this->fetchSiswaByCustidInScope($custid);
             if ($siswa) {
                 $nama = trim((string) ($siswa->nama ?? ''));
                 $nis = trim((string) ($siswa->nis ?? ''));
@@ -96,9 +69,24 @@ class PindahSaldoController extends Controller
             'saldoCashless' => $saldoCashless,
             'tanggalManual' => $tanggalManual,
             'note' => $note,
-            'siswaPaginator' => $siswaPaginator,
             'adminFee' => self::ADMIN_FEE,
         ]);
+    }
+
+    private function resolveCustidFromSearch(string $keyword): int
+    {
+        $exact = $this->buildSiswaListQuery(null)
+            ->whereRaw('TRIM(scctcust.NOCUST) = ?', [$keyword])
+            ->value('scctcust.CUSTID');
+        if ($exact) {
+            return (int) $exact;
+        }
+
+        $rows = $this->buildSiswaListQuery($keyword)
+            ->limit(2)
+            ->pluck('scctcust.CUSTID');
+
+        return $rows->count() === 1 ? (int) $rows->first() : 0;
     }
 
     public function saldo(Request $request): JsonResponse
@@ -416,39 +404,6 @@ class PindahSaldoController extends Controller
         $this->applySchoolScope($query);
 
         return $query->pluck('CUSTID')->map(static fn ($id) => (int) $id)->all();
-    }
-
-    /**
-     * @return array{rows: Collection}
-     */
-    private function fetchSiswaRowsPaginated(?string $nisFilter, int $perPage, int $page): array
-    {
-        $base = $this->buildSiswaListQuery($nisFilter);
-
-        $rows = (clone $base)
-            ->select([
-                'scctcust.CUSTID as custid',
-                'scctcust.NOCUST as nis',
-                'scctcust.NMCUST as nama',
-                DB::raw('COALESCE(NULLIF(TRIM(mst_kelas.unit), \'\'), TRIM(scctcust.CODE02)) as kelas'),
-                DB::raw('COALESCE(NULLIF(TRIM(mst_kelas.kelas), \'\'), TRIM(scctcust.DESC03)) as kelompok'),
-                DB::raw('COALESCE(NULLIF(TRIM(mst_kelas.jenjang), \'\'), TRIM(scctcust.DESC02)) as jenjang'),
-            ])
-            ->orderBy('scctcust.NMCUST')
-            ->offset(max(0, ($page - 1) * $perPage))
-            ->limit($perPage + 1)
-            ->get();
-
-        if ($rows->count() > $perPage) {
-            $rows = $rows->slice(0, $perPage)->values();
-        }
-
-        foreach ($rows as $row) {
-            $row->saldo_spp = null;
-            $row->saldo_cashless = 0;
-        }
-
-        return ['rows' => $rows];
     }
 
     private function buildSiswaListQuery(?string $nisFilter)

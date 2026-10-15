@@ -61,30 +61,74 @@ class TapBelanjaController extends Controller
             ], 422);
         }
 
+        \Log::info('getSaldo - Request tap_id:', ['tap_id' => $tapId]);
+
+        $data = [];
         try {
-            \Log::info('getSaldo - Request tap_id:', ['tap_id' => $tapId]);
-            
             $saldo = DB::connection('DATA_MYSQL')
                 ->select('SELECT GetSaldoCard_1VACashless(?) AS saldo', [$tapId]);
-            
-            \Log::info('getSaldo - Raw result from DB:', ['result' => $saldo[0]->saldo ?? 'NULL']);
-            
-            $data = explode("|", $saldo[0]->saldo);
-            
-            \Log::info('getSaldo - Exploded data:', ['data' => $data, 'count' => count($data)]);
-            
-            return response()->json(["data" => $data, "tap_id" => $tapId]);
-        } catch (\Exception $e) {
-            \Log::error('getSaldo - Error:', [
+
+            $raw = trim((string) ($saldo[0]->saldo ?? ''));
+            \Log::info('getSaldo - Raw result from DB:', ['result' => $raw !== '' ? $raw : 'NULL']);
+
+            if ($raw !== '') {
+                $data = array_map('trim', explode("|", $raw));
+            }
+        } catch (\Throwable $e) {
+            \Log::error('getSaldo - GetSaldoCard_1VACashless gagal, memakai query langsung', [
+                'tap_id' => $tapId,
                 'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
             ]);
-            
+        }
+
+        if (count($data) !== 3) {
+            try {
+                $data = $this->fetchSaldoDirect($tapId);
+            } catch (\Throwable $e) {
+                \Log::error('getSaldo - Error:', [
+                    'tap_id' => $tapId,
+                    'message' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString()
+                ]);
+
+                return response()->json([
+                    "message" => "gagal mendapatkan data saldo, silahkan coba lagi",
+                    "error" => $e->getMessage()
+                ], 422);
+            }
+        }
+
+        if ($data === []) {
             return response()->json([
-                "message" => "gagal mendapatkan data saldo, silahkan coba lagi",
-                "error" => $e->getMessage()
+                "message" => "Kartu tidak ditemukan, silahkan tap kartu yang valid",
+                "errors" => ["tap_id" => ["Kartu tidak ditemukan"]],
             ], 422);
         }
+
+        \Log::info('getSaldo - Data:', ['data' => $data]);
+
+        return response()->json(["data" => $data, "tap_id" => $tapId]);
+    }
+
+    private function fetchSaldoDirect(string $tapId): array
+    {
+        $card = DB::connection('DATA_MYSQL')
+            ->table('sm_pin')
+            ->join('scctcust', 'sm_pin.CUSTID', '=', 'scctcust.CUSTID')
+            ->where('sm_pin.PID', $tapId)
+            ->first(['sm_pin.CUSTID as custid', 'scctcust.NMCUST as nama']);
+
+        if (!$card) {
+            return [];
+        }
+
+        $row = DB::connection('DATA_MYSQL')
+            ->table('sccttran_cashless')
+            ->where('CUSTID', $card->custid)
+            ->selectRaw('CAST(COALESCE(SUM(KREDIT), 0) AS SIGNED) - CAST(COALESCE(SUM(DEBET), 0) AS SIGNED) AS saldo')
+            ->first();
+
+        return [$tapId, (string) (int) ($row->saldo ?? 0), trim((string) ($card->nama ?? ''))];
     }
 
     const STATUS_MAP = [
@@ -198,8 +242,16 @@ class TapBelanjaController extends Controller
 
             $config = self::STATUS_MAP[$statusKey] ?? [
                 'code' => 9999,
-                'message' => 'Unknown error',
+                'message' => 'Transaksi gagal (' . $result . ')',
             ];
+
+            if ($config['code'] === 9999) {
+                \Log::warning('payment - Unknown result from WebPaymentBUY', [
+                    'tap_id' => $tapId,
+                    'teller' => session('user.username'),
+                    'result' => $result,
+                ]);
+            }
 
             \Log::info('payment - Final response', [
                 'status' => $statusKey,
@@ -214,14 +266,16 @@ class TapBelanjaController extends Controller
                 'data'   => $data,
             ], 200);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             \Log::error('payment - Exception occurred', [
+                'tap_id' => $tapId,
+                'teller' => session('user.username'),
                 'message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
 
             return response()->json([
-                "message" => "gagal mendapatkan data saldo, silahkan coba lagi",
+                "message" => "Gagal memproses pembayaran, silahkan coba lagi",
                 "error" => $e->getMessage()
             ], 422);
         }

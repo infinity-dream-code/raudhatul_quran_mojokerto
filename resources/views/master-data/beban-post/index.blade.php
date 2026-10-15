@@ -18,6 +18,7 @@
         .bp-toolbar { padding:12px 18px; display:flex; justify-content:flex-end; border-top:1px solid #eef2f7; }
         .bp-search { display:flex; align-items:center; gap:8px; font-size:13px; color:#6b7280; }
         .bp-search input { width:220px; height:34px; border:1px solid #e5e7eb; border-radius:7px; padding:0 10px; font-size:12px; }
+        .bp-per-page { height:34px; border:1px solid #e5e7eb; border-radius:7px; padding:0 8px; font-size:12px; background:#fff; }
         .bp-table-wrap { overflow-x:auto; border-top:1px solid #eef2f7; }
         .bp-table { width:100%; border-collapse:collapse; min-width:700px; }
         .bp-table th,.bp-table td { border-bottom:1px solid #eef2f7; padding:10px 12px; font-size:13px; text-align:left; }
@@ -53,6 +54,7 @@
             <form method="GET" action="{{ route('master.beban_post') }}">
                 <input type="hidden" name="sort_by" value="{{ $sortBy ?? 'kodeakun' }}">
                 <input type="hidden" name="sort_dir" value="{{ $sortDir ?? 'asc' }}">
+                <input type="hidden" name="per_page" value="{{ (int) ($perPage ?? 10) }}">
                 @if (($keyword ?? '') !== '')
                     <input type="hidden" name="q" value="{{ $keyword }}">
                 @endif
@@ -82,13 +84,22 @@
                                     $kp = (string) ($kls['id'] ?? $kls['kode_prod'] ?? '');
                                     $un = (string) ($kls['unit'] ?? '');
                                     $klKelas = (string) ($kls['jenjang'] ?? '');
-                                    $klKelompok = (string) ($kls['kelompok'] ?? $kls['kelas'] ?? $kls['nama_kelas'] ?? '');
+                                    $klKelompok = (string) ($kls['kelas'] ?? $kls['nama_kelas'] ?? '');
                                     $parts = array_values(array_filter([$un, $klKelas, $klKelompok], static fn ($v) => $v !== ''));
                                     $label = implode(' - ', $parts);
                                 @endphp
                                 @if ($kp !== '' && $label !== '')
                                     <option value="{{ $kp }}" {{ ($kodeProd ?? '') === $kp ? 'selected' : '' }}>{{ $label }}</option>
                                 @endif
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="bp-field">
+                        <label>Kelompok Kelas</label>
+                        <select name="kelompok" class="bp-input">
+                            <option value="">Semua</option>
+                            @foreach (($filterOptions['kelompok'] ?? []) as $klp)
+                                <option value="{{ $klp }}" {{ ($kelompok ?? '') === $klp ? 'selected' : '' }}>{{ $klp }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -125,7 +136,15 @@
                 @if (($kodeProd ?? '') !== '')<input type="hidden" name="kode_prod" value="{{ $kodeProd }}">@endif
                 @if (($kodeAkun ?? '') !== '')<input type="hidden" name="kode_akun" value="{{ $kodeAkun }}">@endif
                 @if (($nominal ?? '') !== '')<input type="hidden" name="nominal" value="{{ $nominal }}">@endif
-                <span>Cari:</span>
+                @if (($kelompok ?? '') !== '')<input type="hidden" name="kelompok" value="{{ $kelompok }}">@endif
+                <span>Tampilkan</span>
+                <select name="per_page" class="bp-per-page" onchange="this.form.submit()">
+                    @foreach ([10, 25, 50, 100] as $pp)
+                        <option value="{{ $pp }}" {{ (int) ($perPage ?? 10) === $pp ? 'selected' : '' }}>{{ $pp }}</option>
+                    @endforeach
+                </select>
+                <span>entri</span>
+                <span style="margin-left:12px;">Cari:</span>
                 <input type="text" name="q" value="{{ $keyword ?? '' }}" placeholder="kata kunci pencarian">
             </form>
         </div>

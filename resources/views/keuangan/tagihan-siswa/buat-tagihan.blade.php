@@ -38,13 +38,14 @@
             <div class="bt-grid">
                 <div class="bt-fld">
                     <label>Tahun Pelajaran</label>
-                    <select name="thn_akademik" id="thn-akademik">
+                    <select name="thn_akademik" id="thn-akademik" data-depan-start="{{ (int) ($thnAkaDepanStart ?? 0) }}">
                         <option value="">Pilih Tahun Pelajaran</option>
                         @foreach (($filterOptions['thn_akademik'] ?? []) as $th)
                             @php $val = (string)($th['thn_aka'] ?? ''); @endphp
                             <option value="{{ $val }}" {{ (($filters['thn_akademik'] ?? '') === $val) ? 'selected' : '' }}>{{ $val }}</option>
                         @endforeach
                     </select>
+                    <small id="thn-akademik-hint" style="display:none;font-size:11px;color:#b45309;margin-top:4px;"></small>
                 </div>
                 <div class="bt-fld">
                     <label>Tahun Angkatan</label>
@@ -238,6 +239,44 @@
             const tagihanSelect = document.getElementById('tagihan-select');
             const fungsiInput = document.getElementById('fungsi-input');
             const kelasFilterSelect = document.querySelector('form[method="GET"] select[name="kelas_id"]');
+            const thnAkaHint = document.getElementById('thn-akademik-hint');
+            const thnAkaAllOptions = thnAkademikSelect
+                ? Array.from(thnAkademikSelect.options).map((o) => ({ value: o.value, text: o.textContent }))
+                : [];
+            const thnAkaDepanStart = parseInt(thnAkademikSelect?.dataset.depanStart || '0', 10) || 0;
+            const bulanRegex = /JANUARI|JANUARY|FEBRUARI|FEBRUARY|MARET|MARCH|APRIL|MEI|MAY|JUNI|JUNE|JULI|JULY|AGUSTUS|AUGUST|SEPTEMBER|OKTOBER|OCTOBER|NOVEMBER|DESEMBER|DECEMBER/;
+
+            const applyThnAkademikRule = () => {
+                if (!thnAkademikSelect) return;
+                const namaTagihan = (tagihanSelect?.value || '').trim();
+                const onlyDepan = namaTagihan !== '' && !bulanRegex.test(namaTagihan.toUpperCase()) && thnAkaDepanStart > 0;
+                const current = thnAkademikSelect.value;
+                const allowed = thnAkaAllOptions.filter((o) => {
+                    if (o.value === '' || !onlyDepan) return true;
+                    const m = o.value.match(/\d{4}/);
+                    return !!m && parseInt(m[0], 10) === thnAkaDepanStart;
+                });
+                thnAkademikSelect.innerHTML = '';
+                allowed.forEach((o) => thnAkademikSelect.add(new Option(o.text, o.value)));
+                if (allowed.some((o) => o.value === current)) {
+                    thnAkademikSelect.value = current;
+                } else {
+                    const firstReal = allowed.find((o) => o.value !== '');
+                    thnAkademikSelect.value = firstReal ? firstReal.value : '';
+                }
+                if (thnAkaHint) {
+                    const label = thnAkaDepanStart + '/' + (thnAkaDepanStart + 1);
+                    if (onlyDepan) {
+                        thnAkaHint.textContent = allowed.some((o) => o.value !== '')
+                            ? 'Tagihan non-bulanan (daftar ulang) hanya untuk tahun pelajaran depan (' + label + ').'
+                            : 'Tahun pelajaran depan (' + label + ') belum ada di master tahun akademik.';
+                        thnAkaHint.style.display = 'block';
+                    } else {
+                        thnAkaHint.textContent = '';
+                        thnAkaHint.style.display = 'none';
+                    }
+                }
+            };
 
             const fetchFungsi = async () => {
                 if (!thnAkademikSelect || !fungsiInput) return;
@@ -532,6 +571,7 @@
             }
 
             const onBillFilterChange = () => {
+                applyThnAkademikRule();
                 if (hiddenTagihan && tagihanSelect) hiddenTagihan.value = (tagihanSelect.value || '').trim();
                 if (hiddenAkademik && thnAkademikSelect) hiddenAkademik.value = (thnAkademikSelect.value || '').trim();
                 fetchFungsi();
@@ -544,6 +584,10 @@
             if (thnAkademikSelect) thnAkademikSelect.addEventListener('change', onBillFilterChange);
             if (tagihanSelect) tagihanSelect.addEventListener('change', onBillFilterChange);
             if (kelasFilterSelect) kelasFilterSelect.addEventListener('change', fetchFungsi);
+            applyThnAkademikRule();
+            if (hiddenAkademik && thnAkademikSelect && hiddenAkademik.value !== '') {
+                hiddenAkademik.value = (thnAkademikSelect.value || '').trim();
+            }
             fetchFungsi();
         })();
     </script>

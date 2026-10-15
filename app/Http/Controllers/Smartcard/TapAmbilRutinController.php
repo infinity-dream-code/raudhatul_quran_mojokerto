@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Smartcard;
 
 use App\Http\Controllers\Controller;
+use App\Services\Cashless\CashlessQrParser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -20,7 +21,7 @@ class TapAmbilRutinController extends Controller
 
     public function lookup(Request $request): JsonResponse
     {
-        $tapId = trim((string) $request->input('tap_id', ''));
+        $tapId = CashlessQrParser::toPid((string) $request->input('tap_id', ''));
         if ($tapId === '') {
             return $this->fail('TAP ID wajib diisi.', 422);
         }
@@ -59,7 +60,7 @@ class TapAmbilRutinController extends Controller
 
     public function process(Request $request): JsonResponse
     {
-        $tapId = trim((string) $request->input('tap_id', ''));
+        $tapId = CashlessQrParser::toPid((string) $request->input('tap_id', ''));
         $pin = trim((string) $request->input('pin', ''));
         $ambil = $this->parseAmount($request->input('ambil', ''));
 

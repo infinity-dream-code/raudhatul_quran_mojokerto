@@ -23,8 +23,7 @@
 </head>
 <body>
     @php
-        use App\Support\BrandLogo;
-        $logoDataUri = BrandLogo::dataUri();
+        $logoDataUri = extension_loaded('gd') ? \App\Support\BrandLogo::dataUri() : null;
         $genderLabel = static function ($code04): string {
             $g = strtoupper(trim((string) $code04));
             if ($g === '') return '-';
@@ -58,12 +57,12 @@
     <h1 class="title">Data Siswa</h1>
     <p class="meta">
         Dicetak {{ $printedAt->format('d/m/Y H:i') }} WIB · Total data: {{ count($rows ?? []) }}<br>
-        Filter: Angkatan {{ $filters['angkatan'] !== '' ? $filters['angkatan'] : 'Semua' }},
-        Sekolah {{ $filters['sekolah'] !== '' ? $filters['sekolah'] : 'Semua' }},
-        Kelas {{ $filters['kelas'] !== '' ? $filters['kelas'] : 'Semua' }},
-        Kelompok {{ $filters['kelompok'] !== '' ? $filters['kelompok'] : 'Semua' }},
-        Siswa {{ $filters['siswa'] !== '' ? $filters['siswa'] : 'Semua' }},
-        Cari {{ $filters['q'] !== '' ? $filters['q'] : 'Semua' }}
+        Filter: Angkatan {{ ($filters['angkatan'] ?? '') !== '' ? $filters['angkatan'] : 'Semua' }},
+        Sekolah {{ ($filters['sekolah'] ?? '') !== '' ? $filters['sekolah'] : 'Semua' }},
+        Kelas {{ ($filters['kelas'] ?? '') !== '' ? $filters['kelas'] : 'Semua' }},
+        Kelompok {{ ($filters['kelompok'] ?? '') !== '' ? $filters['kelompok'] : 'Semua' }},
+        Siswa {{ ($filters['siswa'] ?? '') !== '' ? $filters['siswa'] : 'Semua' }},
+        Cari {{ ($filters['q'] ?? '') !== '' ? $filters['q'] : 'Semua' }}
     </p>
 
     <table>
@@ -114,7 +113,7 @@
                     <td>{{ $wali !== '' ? $wali : '-' }}</td>
                 </tr>
             @empty
-                <tr><td colspan="13" class="ctr" style="padding:16px;color:#6b7280;">Tidak ada data</td></tr>
+                <tr><td colspan="14" class="ctr" style="padding:16px;color:#6b7280;">Tidak ada data</td></tr>
             @endforelse
         </tbody>
     </table>

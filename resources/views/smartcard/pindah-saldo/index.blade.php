@@ -120,73 +120,6 @@
                     <input type="hidden" name="tanggal_manual" id="tanggalManualStore" value="{{ ($tanggalManual ?? '') !== '0000-00-00' ? ($tanggalManual ?? '') : '' }}">
                     <input type="hidden" name="note" id="noteStore" value="{{ $note ?? '' }}">
                 </form>
-
-                <div class="sc-table-section">
-                    <div class="ps-table-head">
-                        <div class="sc-table-title">Daftar Siswa</div>
-                        @if ($isSearch ?? false)
-                            <span class="ps-count-badge">Halaman {{ ($siswaPaginator ?? null)?->currentPage() ?? 1 }}</span>
-                        @endif
-                    </div>
-                    <div class="sc-table-wrap ps-table-wrap">
-                        <table class="sc-table" id="psTableSiswa">
-                            <thead>
-                                <tr>
-                                    <th style="width:110px;">NIS</th>
-                                    <th>Nama Siswa</th>
-                                    <th style="text-align:right;width:120px;">Saldo SPP</th>
-                                    <th style="width:80px;">Kelas</th>
-                                    <th style="width:90px;">Kelompok</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @if ($isSearch ?? false)
-                                    @forelse (($siswaPaginator ?? null)?->items() ?? [] as $row)
-                                        <tr class="ps-row-pick @if((int)($custid ?? 0) === (int)($row->custid ?? 0)) ps-row-active @endif"
-                                            tabindex="0"
-                                            data-custid="{{ (int) ($row->custid ?? 0) }}"
-                                            data-nis="{{ $row->nis ?? '' }}"
-                                            data-nama="{{ $row->nama ?? '' }}"
-                                            data-saldo-spp="">
-                                            <td><span class="ps-nis">{{ $row->nis ?? '—' }}</span></td>
-                                            <td>{{ $row->nama ?? '—' }}</td>
-                                            <td style="text-align:right;"><span class="ps-saldo-spp ps-saldo-pending">…</span></td>
-                                            <td>{{ $row->kelas ?? '—' }}</td>
-                                            <td>{{ $row->kelompok ?? '—' }}</td>
-                                        </tr>
-                                    @empty
-                                        <tr><td colspan="5" class="sc-empty">Tidak ada data siswa.</td></tr>
-                                    @endforelse
-                                @else
-                                    <tr>
-                                        <td colspan="5" class="sc-empty">Klik <strong>Cari</strong> untuk menampilkan daftar siswa (10 per halaman).</td>
-                                    </tr>
-                                @endif
-                            </tbody>
-                        </table>
-                    </div>
-
-                    @if (($isSearch ?? false) && ($siswaPaginator ?? null) && count($siswaPaginator->items()) > 0)
-                        <div class="ps-table-footer">
-                            <div>Halaman {{ $siswaPaginator->currentPage() }} — {{ count($siswaPaginator->items()) }} siswa</div>
-                            @if ($siswaPaginator->hasPages())
-                                <div class="ps-table-pages">
-                                    @if ($siswaPaginator->onFirstPage())
-                                        <span class="ps-page disabled">Sebelumnya</span>
-                                    @else
-                                        <a class="ps-page" href="{{ $siswaPaginator->appends(request()->query())->previousPageUrl() }}">Sebelumnya</a>
-                                    @endif
-                                    <span class="ps-page active">{{ $siswaPaginator->currentPage() }}</span>
-                                    @if ($siswaPaginator->hasMorePages())
-                                        <a class="ps-page" href="{{ $siswaPaginator->appends(request()->query())->nextPageUrl() }}">Selanjutnya</a>
-                                    @else
-                                        <span class="ps-page disabled">Selanjutnya</span>
-                                    @endif
-                                </div>
-                            @endif
-                        </div>
-                    @endif
-                </div>
             </div>
         </div>
     </div>
@@ -261,27 +194,6 @@
         .ps-summary-total strong { color: #b45309; }
         .ps-summary-divider { width: 1px; height: 36px; background: #ddd6fe; }
         .ps-hidden-form { display: none; }
-        .ps-table-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-        .ps-count-badge { font-size: 12px; font-weight: 700; color: #6d28d9; background: #ede9fe; padding: 4px 10px; border-radius: 999px; }
-        .ps-table-wrap { max-height: 400px; overflow: auto; border: 1px solid #e9d5ff; border-radius: 12px; }
-        .ps-row-pick { cursor: pointer; }
-        .ps-row-pick:hover td { background: #faf5ff; }
-        .ps-row-active td { background: #ede9fe !important; box-shadow: inset 3px 0 0 #7c3aed; }
-        .ps-nis { font-family: ui-monospace, monospace; color: #5b21b6; font-weight: 600; }
-        .ps-saldo-spp { font-weight: 700; color: #1d4ed8; }
-        .ps-saldo-cashless { font-weight: 700; color: #047857; }
-        .ps-table-footer {
-            padding: 12px 4px 0; display: flex; justify-content: space-between; align-items: center;
-            flex-wrap: wrap; gap: 8px; font-size: 12px; color: #6b7280;
-        }
-        .ps-table-pages { display: flex; gap: 6px; }
-        .ps-page {
-            min-width: 30px; height: 30px; border: 1px solid #c4b5fd; border-radius: 999px; padding: 0 10px;
-            display: inline-flex; align-items: center; justify-content: center; text-decoration: none;
-            color: #5b21b6; font-weight: 700; background: #fff;
-        }
-        .ps-page.active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
-        .ps-page.disabled { pointer-events: none; opacity: 0.45; }
         .sc-field-nis { position: relative; z-index: 1; }
         .sc-field-nis.sc-dropdown-open { z-index: 50; }
         #siswaAutoList {
@@ -308,7 +220,6 @@
         (function () {
             const siswaSearchUrl = @json(route('keu.manual.siswa_search'));
             const saldoUrl = @json(route('smartcard.pindah_saldo.saldo'));
-            const batchSaldoUrl = @json(route('smartcard.pindah_saldo.batch_saldo'));
             const adminFee = {{ (int) ($adminFee ?? 1000) }};
             const siswaInput = document.getElementById('siswaSearchInput');
             const custidHidden = document.getElementById('custidHidden');
@@ -428,25 +339,6 @@
                 });
             }
 
-            const tableBody = document.querySelector('#psTableSiswa tbody');
-            if (tableBody) {
-                tableBody.addEventListener('click', function (e) {
-                    const row = e.target.closest('.ps-row-pick');
-                    if (!row) return;
-                    document.querySelectorAll('.ps-row-pick').forEach(function (r) { r.classList.remove('ps-row-active'); });
-                    row.classList.add('ps-row-active');
-                    pickSiswa(
-                        row.getAttribute('data-custid'),
-                        row.getAttribute('data-nis'),
-                        row.getAttribute('data-nama'),
-                        row.getAttribute('data-saldo-spp'),
-                        0,
-                        true
-                    );
-                    loadSaldo(row.getAttribute('data-custid'), row.getAttribute('data-saldo-spp'));
-                });
-            }
-
             if (siswaInput && siswaList && siswaWrap) {
                 const closeList = function () {
                     siswaList.style.display = 'none';
@@ -523,46 +415,6 @@
             if (tanggalManual) tanggalManual.addEventListener('change', syncHidden);
             if (noteInput) noteInput.addEventListener('input', syncHidden);
             syncHidden();
-
-            const loadTableSaldos = function () {
-                const rows = document.querySelectorAll('#psTableSiswa tbody tr.ps-row-pick[data-custid]');
-                if (!rows.length) return;
-                const ids = [];
-                rows.forEach(function (row) {
-                    const id = parseInt(row.getAttribute('data-custid') || '0', 10);
-                    if (id > 0) ids.push(id);
-                });
-                if (!ids.length) return;
-                fetch(batchSaldoUrl + '?custids=' + encodeURIComponent(ids.join(',')), {
-                    headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-                    credentials: 'same-origin',
-                })
-                    .then(function (res) { return res.json(); })
-                    .then(function (json) {
-                        if (!json.ok || !json.saldo_spp) return;
-                        rows.forEach(function (row) {
-                            const id = parseInt(row.getAttribute('data-custid') || '0', 10);
-                            const saldo = parseInt(json.saldo_spp[id] ?? json.saldo_spp[String(id)] ?? 0, 10) || 0;
-                            row.setAttribute('data-saldo-spp', String(saldo));
-                            const cell = row.querySelector('.ps-saldo-spp');
-                            if (cell) {
-                                cell.textContent = formatRp(saldo);
-                                cell.classList.remove('ps-saldo-pending');
-                            }
-                        });
-                    })
-                    .catch(function () {
-                        rows.forEach(function (row) {
-                            const cell = row.querySelector('.ps-saldo-spp');
-                            if (cell) {
-                                cell.textContent = '0';
-                                cell.classList.remove('ps-saldo-pending');
-                            }
-                        });
-                    });
-            };
-
-            loadTableSaldos();
         })();
     </script>
 @endsection
