@@ -36,7 +36,7 @@
 
     <div class="page-heading">
         <h2>Beban Post</h2>
-        <p>Daftar beban post dari web service.</p>
+        <p>Daftar beban post.</p>
     </div>
 
     <div class="bp-card">

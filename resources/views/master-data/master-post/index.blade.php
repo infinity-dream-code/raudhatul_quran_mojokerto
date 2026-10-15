@@ -120,7 +120,7 @@
 
     <div class="page-heading">
         <h2>Master Post</h2>
-        <p>Data master post dari web service.</p>
+        <p>Data master post.</p>
     </div>
 
     <div class="mp-card">

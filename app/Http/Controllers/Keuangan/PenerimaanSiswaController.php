@@ -120,7 +120,7 @@ class PenerimaanSiswaController extends Controller
         if ($custid <= 0 || $billcd === '') {
             return response()->json([
                 'ok' => false,
-                'message' => 'custid dan billcd wajib diisi',
+                'message' => 'Data tagihan tidak valid.',
             ], 422);
         }
 

@@ -93,7 +93,7 @@ class TapBelanjaController extends Controller
 
                 return response()->json([
                     "message" => "gagal mendapatkan data saldo, silahkan coba lagi",
-                    "error" => $e->getMessage()
+                    "error" => "gagal mendapatkan data saldo"
                 ], 422);
             }
         }
@@ -242,7 +242,7 @@ class TapBelanjaController extends Controller
 
             $config = self::STATUS_MAP[$statusKey] ?? [
                 'code' => 9999,
-                'message' => 'Transaksi gagal (' . $result . ')',
+                'message' => 'Transaksi gagal, silakan coba lagi.',
             ];
 
             if ($config['code'] === 9999) {
@@ -276,7 +276,7 @@ class TapBelanjaController extends Controller
 
             return response()->json([
                 "message" => "Gagal memproses pembayaran, silahkan coba lagi",
-                "error" => $e->getMessage()
+                "error" => "gagal memproses pembayaran"
             ], 422);
         }
     }

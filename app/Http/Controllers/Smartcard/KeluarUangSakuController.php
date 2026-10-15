@@ -10,6 +10,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class KeluarUangSakuController extends Controller
@@ -185,7 +186,9 @@ class KeluarUangSakuController extends Controller
                 ]);
             });
         } catch (\Throwable $e) {
-            return redirect()->back()->withInput()->with('smartcard_error', 'Gagal menyimpan pengeluaran: ' . $e->getMessage());
+            Log::error('[Smartcard] keluar uang saku: ' . $e->getMessage(), ['custid' => $custid]);
+
+            return redirect()->back()->withInput()->with('smartcard_error', 'Gagal menyimpan pengeluaran, silakan coba lagi.');
         }
 
         $saldoBaru = $this->fetchSaldo($custid);

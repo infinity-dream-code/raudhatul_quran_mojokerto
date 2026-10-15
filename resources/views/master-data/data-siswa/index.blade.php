@@ -331,7 +331,7 @@
 
     <div class="page-heading">
         <h2>Data Siswa</h2>
-        <p>Daftar siswa dari web service — filter, cari, dan pagination.</p>
+        <p>Daftar siswa — filter, cari, dan pagination.</p>
     </div>
 
     <div class="ds-wrap">
@@ -590,7 +590,7 @@
                 <button type="button" class="ds-modal-close" id="dsResetModalClose" aria-label="Tutup">×</button>
             </div>
             <div class="ds-modal-b">
-                <p style="margin:0;font-size:13px;color:#374151;">Reset login Android siswa? Akun akan dibuat/diperbarui di <strong>sm_user</strong>.</p>
+                <p style="margin:0;font-size:13px;color:#374151;">Reset login Android siswa? Akun login Android siswa akan dibuat/diperbarui.</p>
                 <div class="ds-modal-fields">
                     <div class="ds-modal-row"><label>NIS</label><input type="text" id="dsResetNocust" readonly></div>
                     <div class="ds-modal-row"><label>Nama</label><input type="text" id="dsResetNmcust" readonly></div>

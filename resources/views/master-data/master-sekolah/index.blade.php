@@ -26,7 +26,7 @@
 
     <div class="page-heading">
         <h2>Master Sekolah</h2>
-        <p>Data master sekolah dari web service.</p>
+        <p>Data master sekolah.</p>
     </div>
 
     <div class="ms-card">

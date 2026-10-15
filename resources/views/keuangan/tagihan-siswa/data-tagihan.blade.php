@@ -831,7 +831,7 @@
                                 window.location.reload();
                                 return;
                             }
-                            var msg = (res && (res.message || (res.errors && JSON.stringify(res.errors)))) || 'Gagal ubah urutan';
+                            var msg = (res && res.message) || 'Gagal ubah urutan';
                             alert(msg);
                             btn.disabled = false;
                         })

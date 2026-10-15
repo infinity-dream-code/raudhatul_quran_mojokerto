@@ -25,7 +25,7 @@ class SikeuPindahKelasService
     public function getSiswaByKelas(int $kelasSumber, ?string $search = null, int $limit = 10, int $offset = 0): array
     {
         if (!$this->isConfigured()) {
-            return ['ok' => false, 'message' => 'Koneksi database SIKEU belum dikonfigurasi', 'total' => 0, 'rows' => []];
+            return ['ok' => false, 'message' => 'Layanan belum siap. Hubungi administrator.', 'total' => 0, 'rows' => []];
         }
 
         $search = $search !== null ? trim($search) : '';
@@ -95,7 +95,7 @@ class SikeuPindahKelasService
         } catch (Throwable $e) {
             Log::error('[SIKEU] getSiswaByKelas: ' . $e->getMessage());
 
-            return ['ok' => false, 'message' => 'Gagal mengambil data siswa dari database', 'total' => 0, 'rows' => []];
+            return ['ok' => false, 'message' => 'Gagal mengambil data siswa, silakan coba lagi.', 'total' => 0, 'rows' => []];
         }
     }
 
@@ -106,7 +106,7 @@ class SikeuPindahKelasService
     public function pindahKelas(int $kelasSumber, int $kelasTujuan, string $mode, array $custids = []): array
     {
         if (!$this->isConfigured()) {
-            return ['ok' => false, 'message' => 'Koneksi database SIKEU belum dikonfigurasi', 'data' => []];
+            return ['ok' => false, 'message' => 'Layanan belum siap. Hubungi administrator.', 'data' => []];
         }
 
         if ($kelasTujuan <= 0) {
@@ -161,7 +161,7 @@ class SikeuPindahKelasService
 
             $custids = array_values(array_filter(array_map('intval', $custids), static fn (int $v) => $v > 0));
             if ($custids === []) {
-                return ['ok' => false, 'message' => 'custids wajib diisi untuk mode pilihan', 'data' => []];
+                return ['ok' => false, 'message' => 'Pilih minimal satu siswa untuk dipindahkan.', 'data' => []];
             }
 
             $total = $conn->table('scctcust')

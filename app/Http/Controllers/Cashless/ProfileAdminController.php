@@ -140,7 +140,7 @@ class ProfileAdminController extends Controller
             ]);
             return response()->json([
                 'message' => 'Gagal, password diubah', 
-                'error' => $e->getMessage()
+                'error' => 'gagal mengubah password'
             ], 422);
         }
     }

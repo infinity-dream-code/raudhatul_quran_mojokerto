@@ -72,7 +72,7 @@ class TagihanSiswaController extends Controller
             return response()->json([
                 'ok' => false,
                 'rows' => [],
-                'message' => (string) ($res['message'] ?? 'Gagal memuat daftar harga dari WS.'),
+                'message' => (string) ($res['message'] ?? 'Gagal memuat daftar harga, silakan coba lagi.'),
             ]);
         }
 
@@ -853,7 +853,7 @@ XML);
         if ($custid <= 0 || $billcd === '') {
             return response()->json([
                 'ok' => false,
-                'message' => 'custid dan billcd wajib diisi',
+                'message' => 'Data tagihan tidak valid.',
             ], 422);
         }
 
@@ -898,7 +898,7 @@ XML);
         $filters = $this->validatedDataTagihanFiltersFromRequest($request);
         $rawRows = $this->fetchAllDataTagihanRowsForExport($api, $filters);
         if ($rawRows === null) {
-            return redirect()->back()->with('export_error', 'Gagal mengambil data dari server. Pastikan filter sudah diklik Cari dan ws.php terbaru sudah di-upload.');
+            return redirect()->back()->with('export_error', 'Gagal mengambil data dari server. Pastikan filter sudah diklik Cari, lalu coba lagi.');
         }
         $rows = $this->buildDataTagihanExportRowsFromApiRows($rawRows);
         if (count($rows) === 0) {
@@ -951,7 +951,17 @@ XML);
         $buf .= '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' . "\n";
         $buf .= '<Styles><Style ss:ID="hdr"><Font ss:Bold="1"/></Style><Style ss:ID="n"><NumberFormat ss:Format="#,##0"/></Style><Style ss:ID="t"><NumberFormat ss:Format="@"/></Style></Styles>' . "\n";
         $buf .= '<Worksheet ss:Name="' . $esc(mb_substr($sheetName, 0, 31)) . '"><Table>' . "\n";
-        $buf .= '<Row>';
+        foreach (array_values($headers) as $i => $h) {
+            $maxLen = mb_strlen((string) $h);
+            foreach ($rows as $row) {
+                $cell = $row[$i] ?? '';
+                $len = is_int($cell) ? strlen(number_format($cell, 0, ',', '.')) : mb_strlen((string) $cell);
+                $maxLen = max($maxLen, $len);
+            }
+            $width = min(300, max(40, $maxLen * 7 + 12));
+            $buf .= '<Column ss:Width="' . $width . '"/>';
+        }
+        $buf .= "\n" . '<Row>';
         foreach ($headers as $h) {
             $buf .= '<Cell ss:StyleID="hdr"><Data ss:Type="String">' . $esc((string) $h) . '</Data></Cell>';
         }
@@ -985,7 +995,7 @@ XML);
         $filters = $this->validatedDataTagihanFiltersFromRequest($request);
         $rawRows = $this->fetchAllDataTagihanRowsForExport($api, $filters);
         if ($rawRows === null) {
-            return redirect()->back()->with('export_error', 'Gagal mengambil data dari server. Pastikan filter sudah diklik Cari dan ws.php terbaru sudah di-upload.');
+            return redirect()->back()->with('export_error', 'Gagal mengambil data dari server. Pastikan filter sudah diklik Cari, lalu coba lagi.');
         }
         $rows = $this->buildDataTagihanExportRowsFromApiRows($rawRows);
         if (count($rows) === 0) {
@@ -1025,7 +1035,7 @@ XML);
 
         $rawRows = $this->fetchTagihanRowsForKartuSiswa($api, $selectedCustIds);
         if ($rawRows === null) {
-            return redirect()->back()->with('export_error', 'Gagal mengambil data dari server. Pastikan ws.php terbaru sudah di-upload, lalu coba lagi.');
+            return redirect()->back()->with('export_error', 'Gagal mengambil data dari server, silakan coba lagi.');
         }
 
         $cards = $this->buildKartuSiswaCardsFromTagihanRows($rawRows, $selectedCustIds);
@@ -1062,7 +1072,7 @@ XML);
         if ($rawRows === null) {
             return $this->rekapPrintErrorResponse(
                 $request,
-                'Gagal mengambil data dari server. Pastikan ws.php terbaru sudah di-upload.',
+                'Gagal mengambil data dari server, silakan coba lagi.',
                 $matrixJson
             );
         }
@@ -1849,7 +1859,7 @@ XML);
         $filters['nama_post'] = '';
         $rawRows = $this->fetchAllDataTagihanRowsForExport($api, $filters, self::REKAP_EXPORT_MAX_ROWS, [], true);
         if ($rawRows === null) {
-            return redirect()->back()->with('export_error', 'Gagal mengambil data dari server. Pastikan ws.php terbaru sudah di-upload.');
+            return redirect()->back()->with('export_error', 'Gagal mengambil data dari server, silakan coba lagi.');
         }
         $rows = $this->normalizeRekapTagihanRows($rawRows);
         if ($rows === []) {

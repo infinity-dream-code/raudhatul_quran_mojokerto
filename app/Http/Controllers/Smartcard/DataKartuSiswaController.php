@@ -78,7 +78,7 @@ class DataKartuSiswaController extends Controller
             return redirect()
                 ->back()
                 ->withInput()
-                ->with('smartcard_error', 'Siswa tidak ditemukan di database.');
+                ->with('smartcard_error', 'Siswa tidak ditemukan.');
         }
 
         $existsPid = DB::connection('sikeu')

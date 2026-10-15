@@ -57,6 +57,13 @@ class Handler extends ExceptionHandler
                 // ignore session issues during exception rendering
             }
 
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Server sedang sibuk, silakan coba lagi.',
+                ], 503);
+            }
+
             return response()->view('errors.500', [
                 'exception' => $e,
             ], 500);

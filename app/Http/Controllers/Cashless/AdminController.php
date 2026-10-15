@@ -59,9 +59,11 @@ class AdminController extends Controller
             $data = explode("|", $saldo[0]->saldo);
             return response()->json(["data" => $data]);
         } catch (\Exception $e) {
+            \Log::error('Admin getSaldo: ' . $e->getMessage());
+
             return response()->json([
                 "message" => "gagal mendapatkan data saldo, silahkan coba lagi",
-                "error" => $e->getMessage()
+                "error" => "gagal mendapatkan data saldo"
             ], 422);
         }
     }
@@ -106,7 +108,9 @@ class AdminController extends Controller
                     ]);
             return response()->json(["data" => $result[0]->result]);
         } catch (\Exception $e) {
-            return response()->json(["message" => "gagal mendapatkan data saldo, silahkan coba lagi", "error" => $e->getMessage()], 422);
+            \Log::error('Admin payment: ' . $e->getMessage());
+
+            return response()->json(["message" => "gagal mendapatkan data saldo, silahkan coba lagi", "error" => "gagal mendapatkan data saldo"], 422);
         }
     }
 }

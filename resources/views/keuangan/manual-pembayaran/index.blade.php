@@ -30,11 +30,11 @@
         <p>
             Keuangan /
             @if ($mpIsNis)
-                Pembayaran Manual NIS — <b>NIS</b> di sini = nomor <b>NOCUST</b> (bukan kolom NIS terpisah). No. pendaftaran tidak dipakai.
+                Pembayaran Manual NIS — cari dengan <b>NIS</b> atau nama. No. pendaftaran tidak dipakai.
             @elseif ($mpIsNonSiswa)
                 Pembayaran Manual No Pendaftaran — hanya <b>No. Pendaftaran</b> atau nama.
             @else
-                Pembayaran Manual — cari dengan NIS, no. pendaftaran (NUM2ND), NOCUST, atau nama.
+                Pembayaran Manual — cari dengan NIS, no. pendaftaran, atau nama.
             @endif
         </p>
     </div>
@@ -222,7 +222,7 @@
                         <thead>
                             <tr>
                                 <th class="mp-th-check"></th>
-                                <th>@if ($mpIsNis) NIS @elseif ($mpIsNonSiswa) NO. DAFTAR @else NOCUST @endif</th>
+                                <th>@if ($mpIsNis) NIS @elseif ($mpIsNonSiswa) NO. DAFTAR @else NIS @endif</th>
                                 <th>NAMA</th>
                                 <th>UNIT</th>
                                 <th>KELAS</th>

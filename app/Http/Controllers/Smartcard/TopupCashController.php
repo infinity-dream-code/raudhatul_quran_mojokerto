@@ -10,6 +10,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -179,10 +180,12 @@ class TopupCashController extends Controller
                 $this->insertTopupRows($custid, $trxDate, $nominal, $fee, $transNo);
             });
         } catch (\Throwable $e) {
+            Log::error('[Smartcard] top up cash: ' . $e->getMessage(), ['custid' => $custid]);
+
             return redirect()
                 ->back()
                 ->withInput()
-                ->with('smartcard_error', 'Gagal menyimpan top up: ' . $e->getMessage());
+                ->with('smartcard_error', 'Gagal menyimpan top up, silakan coba lagi.');
         }
 
         $saldoBaru = $this->fetchSaldo($custid);

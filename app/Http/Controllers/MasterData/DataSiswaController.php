@@ -101,7 +101,9 @@ class DataSiswaController extends Controller
             $textCols = [1, 2, 4];
 
             fwrite($output, '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">'
-                . '<head><meta charset="UTF-8"><style>td,th{border:1px solid #999;} .txt{mso-number-format:"\@";}</style></head><body><table>');
+                . '<head><meta charset="UTF-8"><style>td,th{border:1px solid #999;white-space:nowrap;} .txt{mso-number-format:"\@";}</style></head><body><table>');
+            $colWidths = [40, 110, 150, 220, 130, 170, 80, 130, 90, 90, 110, 260, 180];
+            fwrite($output, implode('', array_map(static fn ($w) => '<col width="' . $w . '" style="width:' . $w . 'px">', $colWidths)));
             fwrite($output, '<tr>' . implode('', array_map(static fn ($h) => '<th>' . $esc($h) . '</th>', $headers)) . '</tr>');
 
             foreach ($rows as $index => $row) {

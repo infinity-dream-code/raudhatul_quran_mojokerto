@@ -58,7 +58,7 @@ function loadEnv(string $path): void
         http_response_code(500);
         echo json_encode([
             "status" => 500,
-            "message" => "ENV tidak ditemukan"
+            "message" => "Layanan belum siap. Hubungi administrator."
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -349,7 +349,7 @@ function createKelas(array $req): array
         http_response_code(422);
         echo json_encode([
             "status" => 422,
-            "message" => "Field unit, kelas, dan kelompok wajib diisi"
+            "message" => "Unit, kelas, dan kelompok wajib diisi"
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -569,7 +569,7 @@ function createSekolah(array $req): array
         http_response_code(422);
         echo json_encode([
             "status" => 422,
-            "message" => "Field DESC01 wajib diisi"
+            "message" => "Nama unit sekolah wajib diisi"
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -657,7 +657,7 @@ function updateSekolah(array $req): array
         http_response_code(422);
         echo json_encode([
             "status" => 422,
-            "message" => "Field CODE01 dan DESC01 wajib diisi"
+            "message" => "Kode dan nama unit sekolah wajib diisi"
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -690,7 +690,7 @@ function updateSekolah(array $req): array
         http_response_code(409);
         echo json_encode([
             "status" => 409,
-            "message" => "CODE01 atau DESC01 sudah digunakan"
+            "message" => "Kode atau nama unit sekolah sudah digunakan"
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -817,7 +817,7 @@ function getAkunByKode(array $req): array
         http_response_code(422);
         echo json_encode([
             "status" => 422,
-            "message" => "KodeAkun wajib diisi"
+            "message" => "Kode akun wajib diisi"
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -851,7 +851,7 @@ function createAkun(array $req): array
         http_response_code(422);
         echo json_encode([
             "status" => 422,
-            "message" => "Field KodeAkun dan NamaAkun wajib diisi"
+            "message" => "Kode akun dan nama akun wajib diisi"
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -860,7 +860,7 @@ function createAkun(array $req): array
         http_response_code(422);
         echo json_encode([
             "status" => 422,
-            "message" => "KodeAkun maksimal 5 karakter"
+            "message" => "Kode akun maksimal 5 karakter"
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -874,7 +874,7 @@ function createAkun(array $req): array
         http_response_code(409);
         echo json_encode([
             "status" => 409,
-            "message" => "KodeAkun sudah terdaftar"
+            "message" => "Kode akun sudah terdaftar"
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -1297,7 +1297,7 @@ function getSiswaByCustid(array $req): array
         http_response_code(422);
         echo json_encode([
             "status" => 422,
-            "message" => "CUSTID tidak valid"
+            "message" => "Data siswa tidak valid"
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -1569,7 +1569,7 @@ function resetLoginAndroidBulk(array $req): array
         http_response_code(422);
         echo json_encode([
             'status'  => 422,
-            'message' => 'custids wajib diisi',
+            'message' => 'Pilih minimal satu siswa',
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -1579,7 +1579,7 @@ function resetLoginAndroidBulk(array $req): array
         http_response_code(422);
         echo json_encode([
             'status'  => 422,
-            'message' => 'custids tidak valid',
+            'message' => 'Data siswa yang dipilih tidak valid',
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -1652,7 +1652,7 @@ function getThnAkaByUrut(array $req): array
         http_response_code(422);
         echo json_encode([
             "status" => 422,
-            "message" => "urut tidak valid"
+            "message" => "Urutan tidak valid"
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -1684,7 +1684,7 @@ function createThnAka(array $req): array
         http_response_code(422);
         echo json_encode([
             "status" => 422,
-            "message" => "Field thn_aka wajib diisi"
+            "message" => "Tahun pelajaran wajib diisi"
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -1794,7 +1794,7 @@ function getBebanPostByUrut(array $req): array
         http_response_code(422);
         echo json_encode([
             "status" => 422,
-            "message" => "urut tidak valid"
+            "message" => "Urutan tidak valid"
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -1885,7 +1885,7 @@ function createBebanPost(array $req): array
         http_response_code(422);
         echo json_encode([
             "status" => 422,
-            "message" => "Field kode_prod, KodeAkun, thn_masuk, nominal wajib diisi"
+            "message" => "Kelompok kelas, kode akun, tahun masuk, dan nominal wajib diisi"
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -2381,7 +2381,7 @@ function importSiswa(array $req): array
             http_response_code(500);
             echo json_encode([
                 "status" => 500,
-                "message" => "Library SimpleXLSX.php tidak ditemukan di config/"
+                "message" => "Gagal membaca file Excel. Hubungi administrator."
             ], JSON_UNESCAPED_UNICODE);
             exit;
         }
@@ -2393,7 +2393,7 @@ function importSiswa(array $req): array
             http_response_code(422);
             echo json_encode([
                 "status" => 422,
-                "message" => "Gagal membaca file Excel: " . SimpleXLSX::parseError()
+                "message" => "Gagal membaca file Excel"
             ], JSON_UNESCAPED_UNICODE);
             exit;
         }
@@ -2476,7 +2476,7 @@ function importSiswa(array $req): array
             http_response_code(422);
             echo json_encode([
                 'status'  => 422,
-                'message' => 'Sekolah tidak ditemukan di mst_sekolah. Periksa Master Sekolah.',
+                'message' => 'Sekolah tidak ditemukan. Periksa Master Sekolah.',
             ], JSON_UNESCAPED_UNICODE);
             exit;
         }
@@ -2805,7 +2805,7 @@ function importSiswa(array $req): array
                 $inserted++;
             }
         } catch (Throwable $e) {
-            $errors[] = ['nis' => $rowKey, 'error' => $e->getMessage()];
+            $errors[] = ['nis' => $rowKey, 'error' => 'Gagal menyimpan data siswa'];
             writeLog([
                 'scope' => 'importSiswa.row_error',
                 'row'   => $i + 1,
@@ -2899,7 +2899,7 @@ function importSettingAtributSiswa(array $req): array
         $simplexlsxPath = __DIR__ . "/config/SimpleXLSX.php";
         if (!file_exists($simplexlsxPath)) {
             http_response_code(500);
-            echo json_encode(["status" => 500, "message" => "Library SimpleXLSX.php tidak ditemukan di config/"], JSON_UNESCAPED_UNICODE);
+            echo json_encode(["status" => 500, "message" => "Gagal membaca file Excel. Hubungi administrator."], JSON_UNESCAPED_UNICODE);
             exit;
         }
         require_once $simplexlsxPath;
@@ -3008,7 +3008,8 @@ function importSettingAtributSiswa(array $req): array
                 $inserted++;
             }
         } catch (Throwable $e) {
-            $errors[] = ["nis" => $nis, "error" => $e->getMessage()];
+            $errors[] = ["nis" => $nis, "error" => "Gagal menyimpan atribut siswa"];
+            writeLog(["scope" => "importSettingAtributSiswa.row_error", "nis" => $nis, "error" => $e->getMessage()]);
         }
     }
 
@@ -3112,7 +3113,7 @@ function pindahKelas(array $req): array
     $modePemindahan = trim((string) ($req["mode"]         ?? ""));
     if ($kelasTujuan === "") {
         http_response_code(422);
-        echo json_encode(["status" => 422, "message" => "kelas_tujuan wajib diisi"], JSON_UNESCAPED_UNICODE);
+        echo json_encode(["status" => 422, "message" => "Kelas tujuan wajib diisi"], JSON_UNESCAPED_UNICODE);
         exit;
     }
     if ($kelasSumber !== "" && $kelasSumber === $kelasTujuan) {
@@ -3122,7 +3123,7 @@ function pindahKelas(array $req): array
     }
     if (!in_array($modePemindahan, ["semua", "pilihan"], true)) {
         http_response_code(422);
-        echo json_encode(["status" => 422, "message" => "mode harus bernilai 'semua' atau 'pilihan'"], JSON_UNESCAPED_UNICODE);
+        echo json_encode(["status" => 422, "message" => "Mode pindah kelas tidak valid"], JSON_UNESCAPED_UNICODE);
         exit;
     }
     $pdo = dbConnectPdo();
@@ -3181,13 +3182,13 @@ function pindahKelas(array $req): array
     $custids = $req["custids"] ?? [];
     if (!is_array($custids) || count($custids) === 0) {
         http_response_code(422);
-        echo json_encode(["status" => 422, "message" => "custids wajib diisi untuk mode pilihan"], JSON_UNESCAPED_UNICODE);
+        echo json_encode(["status" => 422, "message" => "Pilih minimal satu siswa untuk dipindahkan"], JSON_UNESCAPED_UNICODE);
         exit;
     }
     $custids = array_values(array_filter(array_map("intval", $custids), fn($v) => $v > 0));
     if (count($custids) === 0) {
         http_response_code(422);
-        echo json_encode(["status" => 422, "message" => "custids tidak valid"], JSON_UNESCAPED_UNICODE);
+        echo json_encode(["status" => 422, "message" => "Data siswa yang dipilih tidak valid"], JSON_UNESCAPED_UNICODE);
         exit;
     }
     $placeholders = implode(",", array_fill(0, count($custids), "?"));
@@ -4059,7 +4060,7 @@ function enrichTagihanExcelRows(array $req): array
                 'kelas'       => trim((string) ($m['KELAS'] ?? '')),
                 'kelompok'    => trim((string) ($m['KELOMPOK'] ?? '')),
                 'ok'          => $isActive,
-                'error'       => $isActive ? '' : 'Siswa tidak aktif (STCUST=0)',
+                'error'       => $isActive ? '' : 'Siswa tidak aktif',
             ];
         } else {
             $out[] = [
@@ -4073,7 +4074,7 @@ function enrichTagihanExcelRows(array $req): array
                 'kelas'       => '',
                 'kelompok'    => '',
                 'ok'          => false,
-                'error'       => 'NIS / ID tidak ditemukan di scctcust',
+                'error'       => 'NIS tidak ditemukan di data siswa',
             ];
         }
     }
@@ -4092,7 +4093,7 @@ function createTagihanExcelUpload(array $req): array
 
     if ($thn_akademik === '' || $periode === '') {
         http_response_code(422);
-        echo json_encode(['status' => 422, 'message' => 'thn_akademik dan periode wajib diisi'], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['status' => 422, 'message' => 'Tahun pelajaran dan periode wajib diisi'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -4100,7 +4101,7 @@ function createTagihanExcelUpload(array $req): array
 
     if (!is_array($rows) || count($rows) === 0) {
         http_response_code(422);
-        echo json_encode(['status' => 422, 'message' => 'rows tidak boleh kosong'], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['status' => 422, 'message' => 'Data tagihan tidak boleh kosong'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -4122,14 +4123,14 @@ function createTagihanExcelUpload(array $req): array
         $akunRow = $stmtAkun->fetch();
         if (!$akunRow) {
             http_response_code(422);
-            echo json_encode(['status' => 422, 'message' => 'Kode akun (post) tidak ditemukan di u_akun'], JSON_UNESCAPED_UNICODE);
+            echo json_encode(['status' => 422, 'message' => 'Kode akun (post) tidak ditemukan'], JSON_UNESCAPED_UNICODE);
             exit;
         }
     } else {
         http_response_code(422);
         echo json_encode([
             'status'  => 422,
-            'message' => 'Kode post untuk tagihan "' . $tagihan . '" tidak ditemukan. Periksa Master Tagihan (kolom kode) atau u_akun.',
+            'message' => 'Kode post untuk tagihan "' . $tagihan . '" tidak ditemukan. Periksa Master Tagihan atau Master Post.',
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -4178,13 +4179,13 @@ function createTagihanExcelUpload(array $req): array
             $custidIn = (int) ($r['custid'] ?? 0);
 
             if (($nis === '' && $custidIn <= 0) || $nominal <= 0) {
-                $errors[] = ['nis' => $nis, 'error' => 'NIS / id atau nominal tidak valid'];
+                $errors[] = ['nis' => $nis, 'error' => 'NIS atau nominal tidak valid'];
                 continue;
             }
 
             $custid = resolveCustIdForTagihanRow($pdo, $nis, $custidIn);
             if ($custid <= 0) {
-                $errors[] = ['nis' => $nis, 'error' => 'NIS / CUSTID tidak ditemukan di scctcust'];
+                $errors[] = ['nis' => $nis, 'error' => 'NIS tidak ditemukan di data siswa'];
                 $skipped++;
                 continue;
             }
@@ -4196,7 +4197,7 @@ function createTagihanExcelUpload(array $req): array
                 $errors[] = [
                     'nis' => $nis,
                     'custid' => $custid,
-                    'error' => 'Siswa tidak aktif (STCUST=0), tagihan tidak dibuat',
+                    'error' => 'Siswa tidak aktif, tagihan tidak dibuat',
                 ];
                 $skipped++;
                 continue;
@@ -4234,15 +4235,17 @@ function createTagihanExcelUpload(array $req): array
                 ]);
                 $inserted++;
             } catch (Throwable $e) {
-                $errors[] = ['nis' => $nis, 'error' => $e->getMessage()];
+                $errors[] = ['nis' => $nis, 'error' => 'Gagal menyimpan tagihan'];
+                writeLog(['scope' => 'createTagihanExcel.row_error', 'nis' => $nis, 'error' => $e->getMessage()]);
             }
         }
 
         $pdo->commit();
     } catch (Throwable $e) {
         $pdo->rollBack();
+        writeLog(['scope' => 'createTagihanExcel.error', 'error' => $e->getMessage()]);
         http_response_code(500);
-        echo json_encode(['status' => 500, 'message' => 'Gagal menyimpan tagihan: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['status' => 500, 'message' => 'Gagal menyimpan tagihan, silakan coba lagi.'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -5546,7 +5549,8 @@ function getKartuSiswaPenerimaan(array $req): array
         $stmt->execute();
         $billRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (Throwable $e) {
-        return ['error' => 'Gagal mengambil data penerimaan: ' . $e->getMessage(), 'cards' => []];
+        writeLog(['scope' => 'kartuSiswaPenerimaan.bills_error', 'error' => $e->getMessage()]);
+        return ['error' => 'Gagal mengambil data penerimaan, silakan coba lagi.', 'cards' => []];
     }
 
     $inS = [];
@@ -5583,7 +5587,8 @@ function getKartuSiswaPenerimaan(array $req): array
             }
         }
     } catch (Throwable $e) {
-        return ['error' => 'Gagal mengambil data siswa: ' . $e->getMessage(), 'cards' => []];
+        writeLog(['scope' => 'kartuSiswaPenerimaan.siswa_error', 'error' => $e->getMessage()]);
+        return ['error' => 'Gagal mengambil data siswa, silakan coba lagi.', 'cards' => []];
     }
 
     $cards = [];
@@ -5725,7 +5730,8 @@ function getRekapPenerimaanMatrix(array $req): array
         $stmt->execute();
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (Throwable $e) {
-        return ['rows' => [], 'truncated' => false, 'error' => $e->getMessage()];
+        writeLog(['scope' => 'rekapPenerimaanMatrix.error', 'error' => $e->getMessage()]);
+        return ['rows' => [], 'truncated' => false, 'error' => 'Gagal mengambil data rekap penerimaan, silakan coba lagi.'];
     }
 
     foreach ($rows as &$row) {
@@ -6377,7 +6383,7 @@ function getEditManualBillsByCustid(array $req): array
 {
     $custid = (int) ($req['custid'] ?? 0);
     if ($custid <= 0) {
-        return ['error' => 'custid tidak valid', 'unpaid' => [], 'paid' => []];
+        return ['error' => 'Data siswa tidak valid', 'unpaid' => [], 'paid' => []];
     }
 
     $pdo = dbConnectPdo();
@@ -6386,7 +6392,7 @@ function getEditManualBillsByCustid(array $req): array
     $stCheck->execute([$custid]);
     $stRow = $stCheck->fetch(PDO::FETCH_ASSOC);
     if (!$stRow || !scctcustIsActive($stRow['STCUST'] ?? 0)) {
-        return ['error' => 'Siswa tidak aktif (STCUST=0)', 'unpaid' => [], 'paid' => []];
+        return ['error' => 'Siswa tidak aktif', 'unpaid' => [], 'paid' => []];
     }
 
     $sql = "
@@ -6437,7 +6443,7 @@ function getEditManualBillDetailRows(array $req): array
     $custid = (int) ($req['custid'] ?? 0);
     $billcd = trim((string) ($req['billcd'] ?? ''));
     if ($custid <= 0 || $billcd === '') {
-        return ['error' => 'custid dan billcd wajib diisi'];
+        return ['error' => 'Data tagihan tidak valid'];
     }
 
     $pdo = dbConnectPdo();
@@ -6502,7 +6508,7 @@ function saveEditManualBillDetail(array $req): array
     }
 
     if ($custid <= 0 || $billcd === '') {
-        return ['ok' => false, 'message' => 'custid dan billcd wajib diisi.'];
+        return ['ok' => false, 'message' => 'Data tagihan tidak valid.'];
     }
     if (count($lines) > 80) {
         return ['ok' => false, 'message' => 'Maksimal 80 baris detail.'];
@@ -6526,7 +6532,7 @@ function saveEditManualBillDetail(array $req): array
 
     $billAa = (int) ($h['bill_aa'] ?? 0);
     if ($billAa <= 0) {
-        return ['ok' => false, 'message' => 'AA tagihan tidak valid (hubungi admin).'];
+        return ['ok' => false, 'message' => 'Urutan tagihan tidak valid (hubungi admin).'];
     }
 
     $detailCol = detectScctbillDetailCustColumn($pdo);
@@ -6602,7 +6608,9 @@ function saveEditManualBillDetail(array $req): array
             $pdo->rollBack();
         }
 
-        return ['ok' => false, 'message' => 'Gagal simpan: ' . $e->getMessage()];
+        writeLog(['scope' => 'saveEditManualBillDetail.error', 'custid' => $custid, 'billcd' => $billcd, 'error' => $e->getMessage()]);
+
+        return ['ok' => false, 'message' => 'Gagal menyimpan data tagihan, silakan coba lagi.'];
     }
 }
 
@@ -6656,7 +6664,9 @@ function hapusTagihanSiswaBatch(array $req): array
             $pdo->rollBack();
         }
 
-        return ['deleted' => 0, 'failed' => [], 'error' => 'Gagal menghapus: ' . $e->getMessage()];
+        writeLog(['scope' => 'hapusTagihanSiswaBatch.error', 'error' => $e->getMessage()]);
+
+        return ['deleted' => 0, 'failed' => [], 'error' => 'Gagal menghapus tagihan, silakan coba lagi.'];
     }
 
     return ['deleted' => $deleted, 'failed' => $failed];
@@ -6904,7 +6914,7 @@ function getSaldoVirtualAccountMutasi(array $req): array
 {
     $custid = (int) ($req['custid'] ?? 0);
     if ($custid <= 0) {
-        return ['error' => 'custid tidak valid', 'siswa' => null, 'rows' => [], 'totals' => ['debet' => 0, 'kredit' => 0, 'saldo' => 0], 'meta' => []];
+        return ['error' => 'Data siswa tidak valid', 'siswa' => null, 'rows' => [], 'totals' => ['debet' => 0, 'kredit' => 0, 'saldo' => 0], 'meta' => []];
     }
 
     $pdo = dbConnectPdo();
@@ -7217,20 +7227,20 @@ function createManualPembayaran(array $req): array
 
     if ($custid <= 0) {
         http_response_code(422);
-        echo json_encode(['status' => 422, 'message' => 'custid wajib diisi'], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['status' => 422, 'message' => 'Data siswa wajib dipilih'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
     $allowedFidbank = array_column(getManualPembayaranBankOptions(), 'fidbank');
     if (!in_array($fidbank, $allowedFidbank, true)) {
         http_response_code(422);
-        echo json_encode(['status' => 422, 'message' => 'fidbank tidak valid'], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['status' => 422, 'message' => 'Jenis transaksi tidak valid'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
     if (!is_array($selectedBillcds) || $selectedBillcds === []) {
         http_response_code(422);
-        echo json_encode(['status' => 422, 'message' => 'selected_billcds wajib diisi'], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['status' => 422, 'message' => 'Pilih minimal satu tagihan'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -7244,7 +7254,7 @@ function createManualPembayaran(array $req): array
     $billcds = array_keys($billcds);
     if ($billcds === []) {
         http_response_code(422);
-        echo json_encode(['status' => 422, 'message' => 'selected_billcds tidak valid'], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['status' => 422, 'message' => 'Tagihan yang dipilih tidak valid'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -7466,7 +7476,7 @@ function updateDataTagihanUrutan(array $req): array
 
     if ($custid === '' || !in_array($direction, ['up', 'down'], true)) {
         http_response_code(422);
-        echo json_encode(['status' => 422, 'message' => 'custid dan direction (up|down) wajib valid'], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['status' => 422, 'message' => 'Data tagihan atau arah urutan tidak valid'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -7485,7 +7495,7 @@ function updateDataTagihanUrutan(array $req): array
 
     if ($aa === '') {
         http_response_code(404);
-        echo json_encode(['status' => 404, 'message' => 'Kolom AA tagihan tidak ditemukan'], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['status' => 404, 'message' => 'Urutan tagihan tidak ditemukan'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -7508,10 +7518,11 @@ function updateDataTagihanUrutan(array $req): array
             $call->closeCursor();
         } while ($call->nextRowset());
     } catch (Throwable $e) {
+        writeLog(['scope' => 'updateDataTagihanUrutan.error', 'custid' => $custid, 'error' => $e->getMessage()]);
         http_response_code(500);
         echo json_encode([
             'status'  => 500,
-            'message' => 'Gagal mengubah urutan: ' . $e->getMessage(),
+            'message' => 'Gagal mengubah urutan, silakan coba lagi.',
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -7545,7 +7556,7 @@ function dataTagihanDeactivateBill(PDO $pdo, int $custid, string $billcd): array
 {
     $billcd = trim($billcd);
     if ($custid <= 0 || $billcd === '') {
-        return ['ok' => false, 'message' => 'custid/billcd tidak valid'];
+        return ['ok' => false, 'message' => 'Data tagihan tidak valid'];
     }
 
     $chk = $pdo->prepare("
@@ -7585,7 +7596,7 @@ function hapusTagihanDeleteUnpaidBill(PDO $pdo, int $custid, string $billcd): ar
 {
     $billcd = trim($billcd);
     if ($custid <= 0 || $billcd === '') {
-        return ['ok' => false, 'message' => 'custid/billcd tidak valid'];
+        return ['ok' => false, 'message' => 'Data tagihan tidak valid'];
     }
 
     $detailCol = detectScctbillDetailCustColumn($pdo);
@@ -7612,7 +7623,7 @@ function hapusTagihanDeleteUnpaidBill(PDO $pdo, int $custid, string $billcd): ar
     ");
     $delB->execute([':c' => $custid, ':b' => $billcd]);
     if ($delB->rowCount() === 0) {
-        return ['ok' => false, 'message' => 'Gagal menghapus header tagihan.'];
+        return ['ok' => false, 'message' => 'Gagal menghapus tagihan.'];
     }
 
     return ['ok' => true, 'message' => ''];
@@ -7625,7 +7636,7 @@ function deleteDataTagihanRow(array $req): array
 
     if ($custid <= 0 || $billcd === '') {
         http_response_code(422);
-        echo json_encode(['status' => 422, 'message' => 'custid dan billcd wajib diisi'], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['status' => 422, 'message' => 'Data tagihan tidak valid'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -7668,7 +7679,7 @@ function createBuatTagihan(array $req): array
 
     if ($thn_akademik === '' || $kelas_id === '') {
         http_response_code(422);
-        echo json_encode(['status' => 422, 'message' => 'thn_akademik dan kelas_id wajib diisi'], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['status' => 422, 'message' => 'Tahun pelajaran dan kelas wajib diisi'], JSON_UNESCAPED_UNICODE);
         exit;
     }
     $fungsi = resolveBillacPeriodeByTagihan($tagihan, $fungsi, $thn_akademik);
@@ -7678,13 +7689,13 @@ function createBuatTagihan(array $req): array
 
     if (!is_array($custids) || count($custids) === 0) {
         http_response_code(422);
-        echo json_encode(['status' => 422, 'message' => 'custids wajib diisi'], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['status' => 422, 'message' => 'Pilih minimal satu siswa'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
     if (!is_array($kode_akuns) || count($kode_akuns) === 0) {
         http_response_code(422);
-        echo json_encode(['status' => 422, 'message' => 'kode_akuns wajib diisi'], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['status' => 422, 'message' => 'Pilih minimal satu kode tagihan'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -7693,13 +7704,13 @@ function createBuatTagihan(array $req): array
 
     if (count($custids) === 0) {
         http_response_code(422);
-        echo json_encode(['status' => 422, 'message' => 'custids tidak valid'], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['status' => 422, 'message' => 'Data siswa yang dipilih tidak valid'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
     if (count($kode_akuns) === 0) {
         http_response_code(422);
-        echo json_encode(['status' => 422, 'message' => 'kode_akuns tidak valid'], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['status' => 422, 'message' => 'Kode tagihan yang dipilih tidak valid'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -7852,15 +7863,17 @@ function createBuatTagihan(array $req): array
                 }
                 $inserted++;
             } catch (Throwable $e) {
-                $errors[] = ['custid' => $custid, 'error' => $e->getMessage()];
+                $errors[] = ['custid' => $custid, 'error' => 'Gagal menyimpan tagihan'];
+                writeLog(['scope' => 'createBuatTagihan.row_error', 'custid' => $custid, 'error' => $e->getMessage()]);
             }
         }
 
         $pdo->commit();
     } catch (Throwable $e) {
         $pdo->rollBack();
+        writeLog(['scope' => 'createBuatTagihan.error', 'error' => $e->getMessage()]);
         http_response_code(500);
-        echo json_encode(['status' => 500, 'message' => 'Gagal menyimpan tagihan: ' . $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['status' => 500, 'message' => 'Gagal menyimpan tagihan, silakan coba lagi.'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -8159,7 +8172,7 @@ try {
         http_response_code(401);
         echo json_encode([
             "status" => 401,
-            "message" => "Token wajib diisi"
+            "message" => "Sesi layanan tidak valid, silakan coba lagi"
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -8171,7 +8184,7 @@ try {
         http_response_code(500);
         echo json_encode([
             "status" => 500,
-            "message" => "JWT_KEY belum di set"
+            "message" => "Layanan belum siap. Hubungi administrator."
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -8186,7 +8199,7 @@ try {
         http_response_code(401);
         echo json_encode([
             "status" => 401,
-            "message" => "Token JWT tidak valid"
+            "message" => "Sesi layanan tidak valid, silakan coba lagi"
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -8974,7 +8987,7 @@ try {
     http_response_code(422);
     echo json_encode([
         "status" => 422,
-        "message" => "Method tidak valid"
+        "message" => "Permintaan tidak valid"
     ], JSON_UNESCAPED_UNICODE);
     exit;
 } catch (Throwable $e) {
@@ -8988,10 +9001,7 @@ try {
     ]);
 
     http_response_code(500);
-    $clientMessage = $e->getMessage();
-    if ($clientMessage === '' || strlen($clientMessage) > 500) {
-        $clientMessage = 'Gagal memproses permintaan (cek log server).';
-    }
+    $clientMessage = 'Gagal memproses permintaan, silakan coba lagi.';
     echo json_encode([
         "status" => 500,
         "message" => $clientMessage

@@ -24,7 +24,7 @@
         <div class="alert alert-warning d-flex align-items-center" role="alert">
             <i class="fa-solid fa-triangle-exclamation me-2"></i>
             <div>
-                Data SIKEU belum aktif: isi <code>JWT_KEY</code> atau <code>WS_AMAL_FATIMAH_JWT_KEY</code> di file <code>.env</code>, lalu jalankan <code>php artisan config:clear</code>.
+                Data keuangan belum dapat ditampilkan. Hubungi administrator sistem.
             </div>
         </div>
     @endif

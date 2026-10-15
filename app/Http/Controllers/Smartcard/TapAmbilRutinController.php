@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class TapAmbilRutinController extends Controller
@@ -128,7 +129,9 @@ class TapAmbilRutinController extends Controller
                 ]);
             });
         } catch (\Throwable $e) {
-            return $this->fail('Gagal menyimpan transaksi: ' . $e->getMessage(), 500);
+            Log::error('[Smartcard] tap ambil rutin: ' . $e->getMessage(), ['custid' => $custid]);
+
+            return $this->fail('Gagal menyimpan transaksi, silakan coba lagi.', 500);
         }
 
         $saldoBaru = $this->fetchSaldo($custid);

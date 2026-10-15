@@ -4,7 +4,7 @@
     <div class="sc-page sc-page-wide">
         <div class="page-heading sc-page-heading">
             <h2>Rekap Keluar Uang Saku</h2>
-            <p>Smartcard / Rekap pengeluaran uang saku (FIDBANK cash)</p>
+            <p>Smartcard / Rekap pengeluaran uang saku (tunai)</p>
         </div>
 
         <div class="card sc-card">

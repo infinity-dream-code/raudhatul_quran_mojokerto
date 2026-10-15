@@ -60,14 +60,14 @@
 
     <div class="page-heading">
         <h2>Tagihan Siswa — Upload Tagihan PMB Excel</h2>
-        <p>Sama seperti upload tagihan excel, tapi identitas siswa memakai <strong>No Pendaftaran (NUM2ND)</strong>.</p>
+        <p>Sama seperti upload tagihan excel, tapi identitas siswa memakai <strong>No Pendaftaran</strong>.</p>
     </div>
 
     <div class="eid-wrap">
         <div class="eid-card">
             <div class="eid-head">
                 <div class="eid-title">Upload Tagihan PMB Excel</div>
-                <div class="eid-sub">Periode diisi otomatis dari <strong>billac</strong>; post dari <strong>u_akun</strong>.</div>
+                <div class="eid-sub">Periode diisi otomatis sesuai tagihan; pilih post tagihan.</div>
             </div>
 
             @if (session('status')) <div class="eid-alert ok">{{ session('status') }}</div> @endif
@@ -96,7 +96,7 @@
                     </select>
                 </div>
                 <div class="eid-fld">
-                    <label>Post (u_akun) <span class="eid-req">*</span></label>
+                    <label>Post <span class="eid-req">*</span></label>
                     <select id="filter-kode-akun">
                         <option value="">Pilih Post</option>
                         @foreach (($akunPosts ?? []) as $a)
@@ -106,7 +106,7 @@
                     </select>
                 </div>
                 <div class="eid-fld">
-                    <label>Periode (billac)</label>
+                    <label>Periode</label>
                     <input type="text" id="filter-periode" value="{{ $selPeriode }}" placeholder="Otomatis" readonly>
                 </div>
             </div>
@@ -182,7 +182,7 @@
             <div class="eid-modal-b">
                 <ul class="eid-rules">
                     <li>File harus berformat <b>XLS / XLSX</b>, maksimal <b>1 MB</b>.</li>
-                    <li>Kolom wajib: <b>NO PENDAFTARAN</b> (NUM2ND) dan <b>NOMINAL</b>/<b>TAGIHAN</b>.</li>
+                    <li>Kolom wajib: <b>NO PENDAFTARAN</b> dan <b>NOMINAL</b>/<b>TAGIHAN</b>.</li>
                 </ul>
                 <form method="POST" action="{{ route('keu.tagihan.upload_pmb.import') }}" enctype="multipart/form-data" id="teImportForm">
                     @csrf

@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class PindahSaldoController extends Controller
@@ -216,7 +217,9 @@ class PindahSaldoController extends Controller
                 $this->insertCashlessRows($custid, $trxDate, $nominal, $adminFee, $transNo);
             });
         } catch (\Throwable $e) {
-            return redirect()->back()->withInput()->with('smartcard_error', 'Gagal pindah saldo: ' . $e->getMessage());
+            Log::error('[Smartcard] pindah saldo: ' . $e->getMessage(), ['custid' => $custid]);
+
+            return redirect()->back()->withInput()->with('smartcard_error', 'Gagal pindah saldo, silakan coba lagi.');
         }
 
         $saldoCashlessBaru = $this->fetchSaldoCashless($custid);

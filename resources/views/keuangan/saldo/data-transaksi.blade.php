@@ -92,7 +92,7 @@
                     </div>
                     <div class="dt-fld">
                         <label>Unit</label>
-                        <select name="sekolah" id="dtSekolah" title="Filter unit dari mst_sekolah">
+                        <select name="sekolah" id="dtSekolah" title="Filter unit sekolah">
                             <option value="">Semua</option>
                             @foreach (($filterOptions['sekolah'] ?? []) as $sk)
                                 @php

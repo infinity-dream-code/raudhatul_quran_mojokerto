@@ -4,7 +4,7 @@
     <div class="sc-page">
         <div class="page-heading sc-page-heading">
             <h2>Transaksi Belanja</h2>
-            <p>Smartcard / Data transaksi belanja siswa (FIDBANK = BUY)</p>
+            <p>Smartcard / Data transaksi belanja siswa</p>
         </div>
 
         <div class="card sc-card">

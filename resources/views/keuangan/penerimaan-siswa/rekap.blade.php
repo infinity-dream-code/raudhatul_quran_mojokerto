@@ -102,7 +102,7 @@
                     </div>
                     <div class="rp-fld">
                         <label>Unit</label>
-                        <select name="sekolah" title="Filter unit dari mst_sekolah">
+                        <select name="sekolah" title="Filter unit sekolah">
                             <option value="">Semua</option>
                             @foreach (($filterOptions['sekolah'] ?? []) as $sk)
                                 @php

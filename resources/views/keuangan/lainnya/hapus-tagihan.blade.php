@@ -145,7 +145,7 @@
                 </div>
 
                 <ul class="ht-notes">
-                    <li>Hanya tagihan <strong>belum lunas</strong> yang bisa dihapus (rincian lalu header tagihan dihapus dari database).</li>
+                    <li>Hanya tagihan <strong>belum lunas</strong> yang bisa dihapus (rincian beserta tagihannya akan dihapus permanen).</li>
                     <li>Pastikan browser anda tidak memblokir POP-UP!</li>
                 </ul>
 

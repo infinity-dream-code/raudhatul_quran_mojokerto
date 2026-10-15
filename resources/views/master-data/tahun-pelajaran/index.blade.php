@@ -87,7 +87,7 @@
 
     <div class="page-heading">
         <h2>Tahun Pelajaran</h2>
-        <p>Data tahun pelajaran dari web service.</p>
+        <p>Data tahun pelajaran.</p>
     </div>
 
     <div class="tp-card">

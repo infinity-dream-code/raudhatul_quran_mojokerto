@@ -335,9 +335,9 @@
                     url.searchParams.set('_t', Date.now().toString());
                     const res = await fetch(url.toString(), {
                         cache: 'no-store',
-                        headers: { 'Accept': 'application/json' },
+                        headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     });
-                    const json = await res.json();
+                    const json = await res.json().catch(() => null);
                     const serverFungsi = (json && json.fungsi) ? String(json.fungsi).trim() : '';
                     if (/^\d{6}$/.test(serverFungsi)) {
                         fungsiInput.value = serverFungsi;
@@ -415,10 +415,20 @@
                     url.searchParams.set('thn_akademik', (hiddenAkademik?.value || akademikSelect?.value || '').trim());
                     url.searchParams.set('tagihan', (hiddenTagihan?.value || tagihanSelect?.value || '').trim());
                     const fetchOnce = async () => {
-                        const res = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
-                        const json = await res.json();
+                        const res = await fetch(url.toString(), {
+                            cache: 'no-store',
+                            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                        });
+                        const text = await res.text();
+                        let json = null;
+                        try {
+                            json = JSON.parse(text);
+                        } catch (parseErr) {
+                            console.error('[daftar-harga] respon bukan JSON', res.status, text.slice(0, 500));
+                            throw new Error('Gagal memuat kode tagihan (HTTP ' + res.status + '). Silakan muat ulang halaman.');
+                        }
                         if (!res.ok || (json && json.ok === false)) {
-                            throw new Error((json && json.message) ? json.message : 'WS gagal merespons');
+                            throw new Error((json && json.message) ? json.message : 'Gagal mengambil data dari server, silakan coba lagi.');
                         }
                         return json;
                     };
@@ -440,7 +450,7 @@
                     });
                     updateAkunVisibility();
                 } catch (err) {
-                    const msg = (err && err.message) ? err.message : 'Gagal ambil kode tagihan dari WS. Coba klik ulang siswa atau cari lagi.';
+                    const msg = (err && err.message) ? err.message : 'Gagal mengambil kode tagihan. Coba klik ulang siswa atau cari lagi.';
                     renderAkunMessage(msg, true);
                     updateAkunVisibility();
                 }

@@ -49,7 +49,7 @@ class CashlessLoginController extends Controller
             ]);
 
             return back()
-                ->withErrors(['username' => 'Gagal terhubung ke database kantin, silakan coba lagi.'])
+                ->withErrors(['username' => 'Gagal terhubung ke server, silakan coba lagi.'])
                 ->withInput($request->only('username'));
         }
 

@@ -100,7 +100,7 @@ class CekLimitController extends Controller
 
             return response()->json([
                 "message" => "gagal mendapatkan data limit, silahkan coba lagi",
-                "error" => $e->getMessage()
+                "error" => "gagal mendapatkan data limit"
             ], 422);
         }
     }

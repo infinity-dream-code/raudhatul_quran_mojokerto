@@ -219,7 +219,7 @@ class AmalFatimahApiService
         if (!$this->wsReady()) {
             return [
                 'ok' => false,
-                'message' => 'Layanan SIKEU belum dikonfigurasi (JWT_KEY / WS_AMAL_FATIMAH_JWT_KEY kosong).',
+                'message' => 'Layanan belum siap. Hubungi administrator.',
                 'data' => [],
             ];
         }
@@ -490,7 +490,7 @@ class AmalFatimahApiService
                 ];
             }
 
-            return ['ok' => false, 'message' => 'Gagal menyimpan ke database: ' . $msg, 'data' => []];
+            return ['ok' => false, 'message' => 'Gagal menyimpan data kelas, silakan coba lagi.', 'data' => []];
         }
     }
 
@@ -538,7 +538,7 @@ class AmalFatimahApiService
         } catch (\Throwable $e) {
             Log::warning('[SIKEU DB] deleteKelas local: ' . $e->getMessage());
 
-            return ['ok' => false, 'message' => 'Gagal menghapus dari database.'];
+            return ['ok' => false, 'message' => 'Gagal menghapus data kelas, silakan coba lagi.'];
         }
     }
 
@@ -735,7 +735,7 @@ class AmalFatimahApiService
 
                 return [
                     'ok' => false,
-                    'message' => $local['message'] ?: ($wsMessage !== '' ? $wsMessage : 'Gagal menambahkan data kelas. Periksa koneksi web service.'),
+                    'message' => $local['message'] ?: ($wsMessage !== '' ? $wsMessage : 'Gagal menambahkan data kelas. Gagal terhubung ke server, silakan coba lagi.'),
                     'data' => [],
                 ];
             }
@@ -905,7 +905,7 @@ class AmalFatimahApiService
             Log::error('[WS Amal Fatimah] createSekolah: ' . $e->getMessage());
             return [
                 'ok' => false,
-                'message' => 'Terjadi kesalahan saat menghubungi web service',
+                'message' => 'Gagal terhubung ke server, silakan coba lagi.',
                 'data' => [],
             ];
         }
@@ -953,7 +953,7 @@ class AmalFatimahApiService
             Log::error('[WS Amal Fatimah] updateSekolah: ' . $e->getMessage());
             return [
                 'ok' => false,
-                'message' => 'Terjadi kesalahan saat menghubungi web service',
+                'message' => 'Gagal terhubung ke server, silakan coba lagi.',
                 'data' => [],
             ];
         }
@@ -1071,7 +1071,7 @@ class AmalFatimahApiService
             Log::error('[WS Amal Fatimah] createAkun: ' . $e->getMessage());
             return [
                 'ok' => false,
-                'message' => 'Terjadi kesalahan saat menghubungi web service',
+                'message' => 'Gagal terhubung ke server, silakan coba lagi.',
                 'data' => [],
             ];
         }
@@ -1165,7 +1165,7 @@ class AmalFatimahApiService
             Log::error('[WS Amal Fatimah] createThnAka: ' . $e->getMessage());
             return [
                 'ok' => false,
-                'message' => 'Terjadi kesalahan saat menghubungi web service',
+                'message' => 'Gagal terhubung ke server, silakan coba lagi.',
                 'data' => [],
             ];
         }
@@ -1346,7 +1346,7 @@ class AmalFatimahApiService
             Log::error('[WS Amal Fatimah] createSiswa: ' . $e->getMessage());
             return [
                 'ok' => false,
-                'message' => 'Terjadi kesalahan saat menghubungi web service',
+                'message' => 'Gagal terhubung ke server, silakan coba lagi.',
                 'data' => [],
             ];
         }
@@ -1518,7 +1518,7 @@ class AmalFatimahApiService
             Log::error('[WS Amal Fatimah] createBebanPost: ' . $e->getMessage());
             return [
                 'ok' => false,
-                'message' => 'Terjadi kesalahan saat menghubungi web service',
+                'message' => 'Gagal terhubung ke server, silakan coba lagi.',
                 'data' => [],
             ];
         }
@@ -1550,7 +1550,7 @@ class AmalFatimahApiService
                 ]);
                 return [
                     'ok' => false,
-                    'message' => 'Gagal export data siswa dari web service',
+                    'message' => 'Gagal export data siswa, silakan coba lagi.',
                     'filename' => null,
                     'content' => null,
                     'content_type' => null,
@@ -1641,7 +1641,7 @@ class AmalFatimahApiService
             Log::error('[WS Amal Fatimah] importSiswa: ' . $e->getMessage());
             return [
                 'ok' => false,
-                'message' => 'Terjadi kesalahan saat menghubungi web service',
+                'message' => 'Gagal terhubung ke server, silakan coba lagi.',
                 'data' => [],
             ];
         }
@@ -3526,7 +3526,7 @@ class AmalFatimahApiService
                 'bankOptions' => [],
                 'penerimaan' => [
                     'ok' => false,
-                    'message' => 'Web service SIKEU belum dikonfigurasi',
+                    'message' => 'Layanan belum siap. Hubungi administrator.',
                     'data' => ['rows' => [], 'total' => 0, 'meta' => ['sort_by_aa' => false, 'exact_total' => true]],
                 ],
             ];
@@ -3960,7 +3960,7 @@ class AmalFatimahApiService
         }
 
         if (!$this->wsReady()) {
-            return ['ok' => false, 'message' => 'Koneksi database SIKEU / web service belum dikonfigurasi'];
+            return ['ok' => false, 'message' => 'Layanan belum siap. Hubungi administrator.'];
         }
 
         $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
@@ -4042,7 +4042,7 @@ class AmalFatimahApiService
         }
 
         if (!$this->wsReady()) {
-            return ['ok' => false, 'message' => 'Koneksi database SIKEU / web service belum dikonfigurasi'];
+            return ['ok' => false, 'message' => 'Layanan belum siap. Hubungi administrator.'];
         }
 
         $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';

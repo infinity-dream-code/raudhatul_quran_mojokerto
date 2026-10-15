@@ -121,7 +121,7 @@ class EditManualController extends Controller
         if ($custid <= 0) {
             return response()->json([
                 'ok' => false,
-                'message' => 'custid tidak valid',
+                'message' => 'Data siswa tidak valid.',
                 'unpaid' => [],
                 'paid' => [],
             ], 422);
@@ -151,7 +151,7 @@ class EditManualController extends Controller
         if ($custid <= 0 || $billcd === '') {
             return response()->json([
                 'ok' => false,
-                'message' => 'custid dan billcd wajib diisi',
+                'message' => 'Data tagihan tidak valid.',
             ], 422);
         }
 
@@ -196,7 +196,7 @@ class EditManualController extends Controller
         if ($custid <= 0 || $billcd === '') {
             return response()->json([
                 'ok' => false,
-                'message' => 'custid dan billcd wajib diisi',
+                'message' => 'Data tagihan tidak valid.',
             ], 422);
         }
 
