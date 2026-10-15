@@ -83,6 +83,10 @@ Route::middleware(['web', 'sso.auth'])->group(function () {
     Route::get('/portal/sikeu', [\App\Http\Controllers\PortalController::class, 'sikeu'])->name('portal.sikeu');
     Route::get('/portal/switch', [\App\Http\Controllers\PortalController::class, 'switchModule'])->name('portal.switch');
     Route::get('/portal/cashless', [\App\Http\Controllers\PortalController::class, 'cashless'])->name('portal.cashless');
+    Route::get('/cashless/login', [\App\Http\Controllers\Cashless\CashlessLoginController::class, 'show'])->name('cashless.login');
+    Route::post('/cashless/login', [\App\Http\Controllers\Cashless\CashlessLoginController::class, 'login'])
+        ->middleware('throttle:10,1')
+        ->name('cashless.login.submit');
     Route::get('/portal/presensi', [\App\Http\Controllers\PortalController::class, 'presensi'])->name('portal.presensi');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 });

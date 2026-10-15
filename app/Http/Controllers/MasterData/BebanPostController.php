@@ -23,7 +23,7 @@ class BebanPostController extends Controller
         $sort = TableSort::resolve($request->query(), 'kodeakun', 'asc');
         $page = max(1, (int) $request->query('page', 1));
         $perPage = (int) $request->query('per_page', 10);
-        if (!in_array($perPage, [10, 25, 50, 100], true)) {
+        if (!in_array($perPage, [10, 25, 50], true)) {
             $perPage = 10;
         }
 

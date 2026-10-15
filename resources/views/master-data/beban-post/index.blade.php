@@ -139,7 +139,7 @@
                 @if (($kelompok ?? '') !== '')<input type="hidden" name="kelompok" value="{{ $kelompok }}">@endif
                 <span>Tampilkan</span>
                 <select name="per_page" class="bp-per-page" onchange="this.form.submit()">
-                    @foreach ([10, 25, 50, 100] as $pp)
+                    @foreach ([10, 25, 50] as $pp)
                         <option value="{{ $pp }}" {{ (int) ($perPage ?? 10) === $pp ? 'selected' : '' }}>{{ $pp }}</option>
                     @endforeach
                 </select>

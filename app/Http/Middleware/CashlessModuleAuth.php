@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Support\CashlessAuth;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -15,13 +14,10 @@ class CashlessModuleAuth
             return redirect()->route('login');
         }
 
-        if (session('auth_module') !== 'cashless') {
-            return redirect()->route('portal');
+        if (session('auth_module') !== 'cashless' || !session('cashless_kantin_ok') || !session('user.username')) {
+            return redirect()->route('cashless.login');
         }
-
-        CashlessAuth::syncSession();
 
         return $next($request);
     }
 }
-

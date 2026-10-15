@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Support\CashlessAuth;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -48,7 +47,7 @@ class PortalController extends Controller
             return redirect()->route('login');
         }
 
-        $request->session()->forget(['auth_module', 'dummy_logged_in', 'user']);
+        $request->session()->forget(['auth_module', 'dummy_logged_in', 'user', 'cashless_kantin_ok']);
 
         return redirect()->route('portal');
     }
@@ -58,10 +57,6 @@ class PortalController extends Controller
         if (!session('sso_authenticated')) {
             return redirect()->route('login');
         }
-
-        $request->session()->put('auth_module', 'cashless');
-        $request->session()->put('dummy_logged_in', false);
-        CashlessAuth::syncSession();
 
         $targetUrl = trim((string) (config('sso.modules.cashless.url') ?? ''));
         $targetHost = strtolower((string) parse_url($targetUrl, PHP_URL_HOST));
@@ -76,8 +71,15 @@ class PortalController extends Controller
                 && ($targetHost === '' || $targetHost === 'localhost' || $targetHost === '127.0.0.1' || $targetHost === $currentHost)
             )
         ) {
-            return redirect()->route('cashless.index');
+            if (session('auth_module') === 'cashless' && session('cashless_kantin_ok')) {
+                return redirect()->route('cashless.index');
+            }
+
+            return redirect()->route('cashless.login');
         }
+
+        $request->session()->put('auth_module', 'cashless');
+        $request->session()->put('dummy_logged_in', false);
 
         if ($this->isExternalUrl($targetUrl)) {
             $useSignedToken = (bool) config('sso.modules.cashless.use_signed_token', false);

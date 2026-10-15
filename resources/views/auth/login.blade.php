@@ -1,4 +1,12 @@
-﻿@php use App\Support\BrandLogo; @endphp
+﻿@php
+    use App\Support\BrandLogo;
+
+    $formAction = $formAction ?? route('login');
+    $heading = $heading ?? 'Masuk ke Portal';
+    $subheading = $subheading ?? 'Silakan masuk menggunakan akun Anda';
+    $showTurnstile = ($showTurnstile ?? true) && config('services.turnstile.site_key');
+    $backUrl = $backUrl ?? null;
+@endphp
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -172,8 +180,8 @@
     <div class="form-panel">
         <div class="form-card">
             <div class="mobile-logo"><img src="{{ BrandLogo::assetUrl() }}" alt="Logo Raudhatul Quran"></div>
-            <h1>Masuk ke Portal</h1>
-            <p class="sub">Silakan masuk menggunakan akun Anda</p>
+            <h1>{{ $heading }}</h1>
+            <p class="sub">{{ $subheading }}</p>
 
             @if ($errors->any())
                 <div class="error">{{ $errors->first() }}</div>
@@ -182,7 +190,7 @@
                 <div class="error" style="background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8;">{{ session('status') }}</div>
             @endif
 
-            <form method="POST" action="{{ route('login') }}">
+            <form method="POST" action="{{ $formAction }}">
                 @csrf
                 <div class="field">
                     <label for="username">Username</label>
@@ -193,7 +201,7 @@
                     <input type="password" id="password" name="password" required>
                 </div>
 
-                @if(config('services.turnstile.site_key'))
+                @if($showTurnstile)
                     <div class="turnstile-wrap">
                         <div
                             class="cf-turnstile"
@@ -207,11 +215,15 @@
                 <button type="submit">Masuk</button>
             </form>
 
+            @if($backUrl)
+                <p class="form-foot"><a href="{{ $backUrl }}" style="color:var(--primary);font-weight:600;text-decoration:none;">&larr; Kembali ke Portal</a></p>
+            @endif
+
             <p class="form-foot">Sistem Informasi Terpadu &middot; {{ config('app.name') }}</p>
         </div>
     </div>
 
-    @if(config('services.turnstile.site_key'))
+    @if($showTurnstile)
         <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     @endif
 </body>

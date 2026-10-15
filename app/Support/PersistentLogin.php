@@ -29,6 +29,7 @@ class PersistentLogin
             'auth_sekolah_code01',
             'auth_sekolah_nama',
             'user',
+            'cashless_kantin_ok',
         ];
     }
 
