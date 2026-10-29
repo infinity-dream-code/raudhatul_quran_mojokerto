@@ -18,7 +18,6 @@ class BebanPostController extends Controller
         $kodeProd = trim((string) $request->query('kode_prod', ''));
         $kodeAkun = trim((string) $request->query('kode_akun', ''));
         $nominal = trim((string) $request->query('nominal', ''));
-        $kelompok = trim((string) $request->query('kelompok', ''));
         $keyword = trim((string) $request->query('q', ''));
         $sort = TableSort::resolve($request->query(), 'kodeakun', 'asc');
         $page = max(1, (int) $request->query('page', 1));
@@ -35,12 +34,6 @@ class BebanPostController extends Controller
         ];
 
         $allRows = $this->fetchAllBebanPostRows($api, $filters);
-        if ($kelompok !== '') {
-            $needleKelompok = mb_strtolower($kelompok);
-            $allRows = array_values(array_filter($allRows, static function ($row) use ($needleKelompok) {
-                return mb_strtolower(trim((string) ($row['nama_kelas'] ?? ''))) === $needleKelompok;
-            }));
-        }
         if ($keyword !== '') {
             $needle = mb_strtolower($keyword);
             $allRows = array_values(array_filter($allRows, static function ($row) use ($needle) {
@@ -87,7 +80,6 @@ class BebanPostController extends Controller
                 'kelompok' => (string) ($item['kelompok'] ?? ''),
             ];
         }, $kelasFromApi);
-        $filterOptions['kelompok'] = self::kelompokOptions($filterOptions['kelas']);
 
         return view('master-data.beban-post.index', [
             'pageTitle' => 'Beban Post',
@@ -97,7 +89,6 @@ class BebanPostController extends Controller
             'kodeProd' => $kodeProd,
             'kodeAkun' => $kodeAkun,
             'nominal' => $nominal,
-            'kelompok' => $kelompok,
             'perPage' => $perPage,
             'keyword' => $keyword,
             'sortBy' => $sort['sort_by'],
@@ -208,24 +199,6 @@ class BebanPostController extends Controller
         }
 
         return $rows;
-    }
-
-    /**
-     * @param list<array<string, string>> $kelasRows
-     * @return list<string>
-     */
-    private static function kelompokOptions(array $kelasRows): array
-    {
-        $values = [];
-        foreach ($kelasRows as $row) {
-            $v = trim((string) ($row['kelas'] ?? ''));
-            if ($v !== '') {
-                $values[mb_strtolower($v)] = $v;
-            }
-        }
-        natcasesort($values);
-
-        return array_values($values);
     }
 }
 

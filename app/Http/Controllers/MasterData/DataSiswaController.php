@@ -182,10 +182,11 @@ class DataSiswaController extends Controller
     public function store(Request $request, AmalFatimahApiService $api): RedirectResponse
     {
         $validated = $request->validate([
-            'nis' => ['required', 'string', 'max:50'],
+            'nis' => ['required', 'string', 'max:50', 'not_regex:/^0/'],
             'nama' => ['required', 'string', 'max:200'],
         ], [
             'nis.required' => 'NIS wajib diisi.',
+            'nis.not_regex' => 'NIS tidak boleh diawali angka 0',
             'nama.required' => 'Nama wajib diisi.',
         ]);
 

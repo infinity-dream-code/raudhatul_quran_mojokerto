@@ -1143,6 +1143,15 @@ function createSiswa(array $req): array
         exit;
     }
 
+    if (nisStartsWithZero($nis)) {
+        http_response_code(422);
+        echo json_encode([
+            "status" => 422,
+            "message" => "NIS tidak boleh diawali angka 0",
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
     $nodaf = trim((string) ($req["NUM2ND"] ?? $req["nodaf"] ?? ""));
     $unit = trim((string) ($req["CODE02"] ?? $req["unit"] ?? ""));
     $kelas = trim((string) ($req["CODE03"] ?? $req["kelas_id"] ?? $req["kode_prod"] ?? ""));
@@ -1152,6 +1161,18 @@ function createSiswa(array $req): array
     $alamat = trim((string) ($req["DESC05"] ?? $req["alamat"] ?? ""));
 
     $pdo = dbConnectPdo();
+
+    if ($angkatan !== '') {
+        $validThnAka = loadValidThnAkaMap($pdo);
+        if (!isset($validThnAka[$angkatan])) {
+            http_response_code(422);
+            echo json_encode([
+                "status" => 422,
+                "message" => "Angkatan '{$angkatan}' tidak ada di master tahun pelajaran",
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+    }
 
     $check = $pdo->prepare("SELECT CUSTID FROM scctcust WHERE TRIM(NOCUST) = :nis LIMIT 1");
     $check->execute([":nis" => $nis]);
@@ -1513,6 +1534,86 @@ function syncSmUserForNis(PDO $pdo, string $nis, string $scope): bool
         ]);
         return false;
     }
+}
+
+function nisStartsWithZero(string $nis): bool
+{
+    $nis = trim($nis);
+
+    return $nis !== '' && $nis !== '-' && str_starts_with($nis, '0');
+}
+
+/**
+ * @return array<string, true>
+ */
+function loadValidThnAkaMap(PDO $pdo): array
+{
+    $map = [];
+    try {
+        $stmt = $pdo->query("SELECT TRIM(thn_aka) AS t FROM mst_thn_aka WHERE thn_aka IS NOT NULL AND TRIM(thn_aka) <> ''");
+        if ($stmt) {
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $t = trim((string) ($row['t'] ?? ''));
+                if ($t !== '') {
+                    $map[$t] = true;
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        writeLog(['scope' => 'loadValidThnAkaMap.error', 'error' => $e->getMessage()]);
+    }
+
+    return $map;
+}
+
+function rememberImportSmUserSync(PDO $pdo, string $nis, array &$errors, string $rowKey): void
+{
+    $nis = trim($nis);
+    if ($nis === '' || $nis === '-') {
+        return;
+    }
+    if (!syncSmUserForNis($pdo, $nis, 'importSiswa')) {
+        $label = $rowKey !== '' ? $rowKey : $nis;
+        $errors[] = ['nis' => $label, 'error' => 'Gagal membuat akun login Android untuk NIS ' . $nis];
+    }
+}
+
+/**
+ * @param list<string> $where
+ * @param array<string, mixed> $params
+ */
+function appendScctcustKelasIdFilter(PDO $pdo, string $kelasId, array &$where, array &$params, string $custAlias = 'c'): void
+{
+    $kelasId = trim($kelasId);
+    if ($kelasId === '') {
+        return;
+    }
+
+    $stmtKelas = $pdo->prepare('SELECT id, kelas, jenjang, unit FROM mst_kelas WHERE id = :id');
+    $stmtKelas->execute([':id' => (int) $kelasId]);
+    $kelasRow = $stmtKelas->fetch(PDO::FETCH_ASSOC) ?: [];
+    if ($kelasRow === []) {
+        $where[] = '1=0';
+        return;
+    }
+
+    $where[] = "(
+        (
+            TRIM({$custAlias}.CODE03) REGEXP '^[0-9]+$'
+            AND CAST(TRIM({$custAlias}.CODE03) AS UNSIGNED) = :kelas_id_int
+        )
+        OR TRIM({$custAlias}.CODE03) = :kelas_id
+        OR (
+            TRIM({$custAlias}.DESC02) = :jenjang_nama
+            AND TRIM({$custAlias}.DESC03) = :kelas_nama
+            AND TRIM({$custAlias}.CODE02) = :unit_nama
+        )
+    )";
+    $params[':kelas_id_int'] = (int) $kelasId;
+    $params[':kelas_id'] = $kelasId;
+    $params[':kelas_nama'] = trim((string) ($kelasRow['kelas'] ?? ''));
+    $params[':jenjang_nama'] = trim((string) ($kelasRow['jenjang'] ?? ''));
+    $params[':unit_nama'] = trim((string) ($kelasRow['unit'] ?? ''));
 }
 
 function resolveNisForAndroidReset(PDO $pdo, array $req): string
@@ -2459,6 +2560,7 @@ function importSiswa(array $req): array
     }
 
     $pdo = dbConnectPdo();
+    $validThnAka = loadValidThnAkaMap($pdo);
 
     $sekolahRow = null;
     if (in_array($metode, ['1', '2'], true)) {
@@ -2513,6 +2615,19 @@ function importSiswa(array $req): array
         $waliNama = $wali !== '' ? $wali : ($ayah !== '' ? $ayah : $ibu);
 
         $rowKey = $nis !== '' ? $nis : ($nodaf !== '' ? $nodaf : 'baris-' . ($i + 1));
+
+        if ($nis !== '' && nisStartsWithZero($nis)) {
+            $errors[] = ['nis' => $rowKey, 'error' => 'NIS tidak boleh diawali angka 0'];
+            $skipped++;
+            continue;
+        }
+
+        $angkatan = trim($angkatan);
+        if (in_array($metode, ['1', '2'], true) && $angkatan !== '' && !isset($validThnAka[$angkatan])) {
+            $errors[] = ['nis' => $rowKey, 'error' => "Angkatan '{$angkatan}' tidak ada di master tahun pelajaran"];
+            $skipped++;
+            continue;
+        }
 
         if ($metode === '1' && $nis === '') {
             $skipped++;
@@ -2600,6 +2715,13 @@ function importSiswa(array $req): array
                     ':custid' => $custId,
                 ]);
                 $updated++;
+                $nisForSync = $nis;
+                if ($nisForSync === '') {
+                    $stNis = $pdo->prepare('SELECT TRIM(NOCUST) AS nis FROM scctcust WHERE CUSTID = :id LIMIT 1');
+                    $stNis->execute([':id' => $custId]);
+                    $nisForSync = trim((string) ($stNis->fetchColumn() ?: ''));
+                }
+                rememberImportSmUserSync($pdo, $nisForSync, $errors, $rowKey);
                 continue;
             }
 
@@ -2632,7 +2754,7 @@ function importSiswa(array $req): array
                 }
                 $upd = $pdo->prepare('UPDATE scctcust SET NOCUST = :nis, LastUpdate = NOW() WHERE CUSTID = :custid');
                 $upd->execute([':nis' => $nis, ':custid' => (int) $existing['CUSTID']]);
-                syncSmUserForNis($pdo, $nis, 'importSiswa');
+                rememberImportSmUserSync($pdo, $nis, $errors, $rowKey);
                 $updated++;
                 continue;
             }
@@ -2677,8 +2799,8 @@ function importSiswa(array $req): array
                         ':GENUS'  => $waliNama !== '' ? $waliNama : null,
                         ':nodaf'  => $nodafDb,
                     ]);
-                    if ($nis !== '' && $nis !== $prevNis) {
-                        syncSmUserForNis($pdo, $nis, 'importSiswa');
+                    if ($nis !== '') {
+                        rememberImportSmUserSync($pdo, $nis, $errors, $rowKey);
                     }
                     $updated++;
                 } else {
@@ -2713,7 +2835,7 @@ function importSiswa(array $req): array
                         ':GENUS'  => $waliNama !== '' ? $waliNama : null,
                     ]);
                     if ($nis !== '') {
-                        syncSmUserForNis($pdo, $nis, 'importSiswa');
+                        rememberImportSmUserSync($pdo, $nis, $errors, $rowKey);
                     }
                     $inserted++;
                 }
@@ -2775,9 +2897,7 @@ function importSiswa(array $req): array
                     ':GENUS'  => $waliNama !== '' ? $waliNama : null,
                     ':custid' => $existingCustId,
                 ]);
-                if ($nisBaru) {
-                    syncSmUserForNis($pdo, $nis, 'importSiswa');
-                }
+                rememberImportSmUserSync($pdo, $nis, $errors, $rowKey);
                 $updated++;
             } else {
                 $ins = $pdo->prepare('
@@ -2801,7 +2921,7 @@ function importSiswa(array $req): array
                     ':DESC05' => $alamat !== '' ? $alamat : null,
                     ':GENUS'  => $waliNama !== '' ? $waliNama : null,
                 ]);
-                syncSmUserForNis($pdo, $nis, 'importSiswa');
+                rememberImportSmUserSync($pdo, $nis, $errors, $rowKey);
                 $inserted++;
             }
         } catch (Throwable $e) {
@@ -4556,8 +4676,7 @@ function getDataTagihan(array $req): array
     }
 
     if ($kelasId !== '') {
-        $where[] = 'c.CODE03 = :kelas_id';
-        $params[':kelas_id'] = $kelasId;
+        appendScctcustKelasIdFilter($pdo, $kelasId, $where, $params, 'c');
     }
 
     if ($nisFilter !== '') {
@@ -5005,8 +5124,7 @@ function getTagihanRekapMatrix(array $req): array
     }
 
     if ($kelasId !== '') {
-        $where[] = 'c.CODE03 = :kelas_id';
-        $params[':kelas_id'] = $kelasId;
+        appendScctcustKelasIdFilter($pdo, $kelasId, $where, $params, 'c');
     }
 
     if ($nisFilter !== '') {
@@ -7451,6 +7569,140 @@ function createManualPembayaran(array $req): array
     ];
 }
 
+function reversePenerimaan(array $req): array
+{
+    $rawItems = $req['items'] ?? $req['selected_bills'] ?? [];
+    if (!is_array($rawItems)) {
+        $rawItems = [];
+    }
+
+    $users = substr(trim((string) ($req['users'] ?? $req['username'] ?? '')), 0, 30);
+    $hostname = substr(trim((string) ($req['hostname'] ?? '')), 0, 250);
+    if ($hostname === '') {
+        $hostname = substr((string) (gethostname() ?: 'web'), 0, 250);
+    }
+
+    $items = [];
+    $seen = [];
+    foreach ($rawItems as $it) {
+        $custid = 0;
+        $billcd = '';
+        $aa = '';
+        if (is_string($it) || is_numeric($it)) {
+            $v = trim((string) $it);
+            if (preg_match('/^(\d+)\|(.+)$/', $v, $m)) {
+                $custid = (int) $m[1];
+                $billcd = trim((string) $m[2]);
+            }
+        } elseif (is_array($it)) {
+            $custid = (int) ($it['custid'] ?? $it['CUSTID'] ?? 0);
+            $billcd = trim((string) ($it['billcd'] ?? $it['BILLCD'] ?? ''));
+            $aa = trim((string) ($it['aa'] ?? $it['AA'] ?? ''));
+        }
+        if ($custid <= 0 || $billcd === '') {
+            continue;
+        }
+        $key = $custid . '|' . $billcd;
+        if (isset($seen[$key])) {
+            continue;
+        }
+        $seen[$key] = true;
+        $items[] = ['custid' => $custid, 'billcd' => $billcd, 'aa' => $aa];
+    }
+
+    if ($items === []) {
+        http_response_code(422);
+        echo json_encode([
+            'status' => 422,
+            'message' => 'Pilih minimal satu tagihan yang sudah lunas',
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $pdo = dbConnectPdo();
+    $sel = $pdo->prepare('
+        SELECT
+            TRIM(CAST(AA AS CHAR)) AS aa,
+            TRIM(BILLCD) AS billcd,
+            TRIM(CAST(PAIDST AS CHAR)) AS paidst
+        FROM scctbill
+        WHERE CUSTID = :c
+          AND TRIM(BILLCD) = :b
+          AND FSTSBolehBayar = 1
+        LIMIT 1
+    ');
+    $call = $pdo->prepare('CALL CancelPaymentSaldo(:v_CUSTID, :p_AA, :p_BILLCD, :p_users, :p_hostname)');
+
+    $reversed = 0;
+    $skipped = 0;
+
+    foreach ($items as $it) {
+        $custid = (string) $it['custid'];
+        $billcd = $it['billcd'];
+        $aa = $it['aa'];
+
+        $sel->execute([':c' => $it['custid'], ':b' => $billcd]);
+        $row = $sel->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            $skipped++;
+            continue;
+        }
+        if (trim((string) ($row['paidst'] ?? '')) !== '1') {
+            $skipped++;
+            continue;
+        }
+        if ($aa === '') {
+            $aa = trim((string) ($row['aa'] ?? ''));
+        }
+        if ($aa === '') {
+            $skipped++;
+            continue;
+        }
+
+        try {
+            $call->execute([
+                ':v_CUSTID' => substr($custid, 0, 20),
+                ':p_AA' => substr($aa, 0, 20),
+                ':p_BILLCD' => substr($billcd, 0, 30),
+                ':p_users' => $users,
+                ':p_hostname' => $hostname,
+            ]);
+            do {
+                $call->closeCursor();
+            } while ($call->nextRowset());
+            $reversed++;
+        } catch (Throwable $e) {
+            writeLog([
+                'scope' => 'reversePenerimaan.call_error',
+                'custid' => $custid,
+                'billcd' => $billcd,
+                'aa' => $aa,
+                'error' => $e->getMessage(),
+            ]);
+            http_response_code(500);
+            echo json_encode([
+                'status' => 500,
+                'message' => 'Gagal membatalkan pembayaran, silakan coba lagi.',
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+    }
+
+    if ($reversed <= 0) {
+        http_response_code(422);
+        echo json_encode([
+            'status' => 422,
+            'message' => 'Tidak ada tagihan lunas yang bisa dibatalkan. Pastikan baris yang dicentang sudah terbayar.',
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    return [
+        'reversed' => $reversed,
+        'skipped' => $skipped,
+    ];
+}
+
 /** Urutan berikutnya per CUSTID (1,2,3… per siswa). */
 function nextUrutanForCustid(PDO $pdo, int $custid): int
 {
@@ -7911,12 +8163,14 @@ function resolveBillacPeriodeByTagihan(string $tagihan, string $fallback = '', s
     ];
 
     $periodeBulan = date('m');
+    $isBulanan = false;
     $name = function_exists('mb_strtoupper')
         ? mb_strtoupper(trim($tagihan))
         : strtoupper(trim($tagihan));
     foreach ($monthMap as $key => $mm) {
         if ($name !== '' && str_contains($name, $key)) {
             $periodeBulan = $mm;
+            $isBulanan = true;
             break;
         }
     }
@@ -7924,7 +8178,9 @@ function resolveBillacPeriodeByTagihan(string $tagihan, string $fallback = '', s
     $yearPair = parseThnAkademikYearPair($thnAkademik);
     if ($yearPair !== null) {
         [$year1, $year2] = $yearPair;
-        $year = ((int) $periodeBulan < 7) ? $year2 : $year1;
+        $year = $isBulanan
+            ? (((int) $periodeBulan < 7) ? $year2 : $year1)
+            : $year1;
 
         return $year . $periodeBulan;
     }
@@ -8536,6 +8792,17 @@ try {
             'status' => 201,
             'method' => 'createManualPembayaran',
             'message' => 'Pembayaran manual berhasil diproses',
+            'data'   => $data,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+    if ($method === 'reversePenerimaan') {
+        $data = reversePenerimaan($req);
+        http_response_code(200);
+        echo json_encode([
+            'status' => 200,
+            'method' => 'reversePenerimaan',
+            'message' => 'Pembayaran berhasil dibatalkan',
             'data'   => $data,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;

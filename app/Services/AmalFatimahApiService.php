@@ -3938,6 +3938,62 @@ class AmalFatimahApiService
     }
 
     /**
+     * @param list<array{custid: int, billcd: string, aa?: string}> $items
+     * @return array{ok: bool, message: string, data: array<string,mixed>}
+     */
+    public function reversePenerimaan(array $items, string $users = '', string $hostname = ''): array
+    {
+        $jwtKey = config('services.ws_raudhatul_quran.jwt_key') ?? '';
+        $token = $this->jwt->encode(['sub' => 'reversePenerimaan', 'rnd' => uniqid()], $jwtKey);
+
+        $clean = [];
+        foreach ($items as $it) {
+            if (!is_array($it)) {
+                continue;
+            }
+            $custid = (int) ($it['custid'] ?? 0);
+            $billcd = trim((string) ($it['billcd'] ?? ''));
+            $aa = trim((string) ($it['aa'] ?? ''));
+            if ($custid > 0 && $billcd !== '') {
+                $row = ['custid' => $custid, 'billcd' => $billcd];
+                if ($aa !== '') {
+                    $row['aa'] = $aa;
+                }
+                $clean[] = $row;
+            }
+        }
+
+        $body = [
+            'method' => 'reversePenerimaan',
+            'token' => $token,
+            'items' => $clean,
+            'users' => trim($users),
+            'hostname' => trim($hostname),
+        ];
+
+        try {
+            $response = $this->wsPost($body);
+            $json = $response?->json();
+            if ($response && $response->successful() && (int) ($json['status'] ?? 0) === 200) {
+                return [
+                    'ok' => true,
+                    'message' => (string) ($json['message'] ?? 'Pembayaran berhasil dibatalkan'),
+                    'data' => is_array($json['data'] ?? null) ? $json['data'] : [],
+                ];
+            }
+
+            return [
+                'ok' => false,
+                'message' => (string) ($json['message'] ?? 'Gagal membatalkan pembayaran'),
+                'data' => [],
+            ];
+        } catch (\Throwable $e) {
+            Log::error('[WS Amal Fatimah] reversePenerimaan: ' . $e->getMessage());
+            return ['ok' => false, 'message' => 'Terjadi kesalahan saat menghubungi layanan', 'data' => []];
+        }
+    }
+
+    /**
      * @return array{ok: bool, message: string, nis?: string}
      */
     public function resetLoginAndroid(int $custid): array

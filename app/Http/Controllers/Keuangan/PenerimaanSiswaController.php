@@ -262,6 +262,41 @@ class PenerimaanSiswaController extends Controller
         return $pdf->stream('kuitansi-penerimaan' . $suffix . '-' . date('Ymd-His') . '.pdf');
     }
 
+    public function batalBayar(Request $request, AmalFatimahApiService $api): RedirectResponse
+    {
+        $selectedBills = $this->selectedBillsFromRequest($request);
+        $backFilters = array_filter(
+            $this->penerimaanFiltersFromPost($request),
+            static fn ($v) => $v !== '' && $v !== null
+        );
+        $perPage = (int) $request->input('per_page', 0);
+        if (in_array($perPage, [10, 25, 50, 100], true)) {
+            $backFilters['per_page'] = (string) $perPage;
+        }
+
+        if ($selectedBills === []) {
+            return redirect()->route('keu.penerimaan.data', $backFilters)
+                ->with('export_error', 'Pilih minimal satu baris tagihan (centang di tabel).');
+        }
+
+        $users = trim((string) (session('auth_username') ?: session('user.username') ?: ''));
+        $hostname = substr((string) $request->getHost(), 0, 250);
+        $res = $api->reversePenerimaan($selectedBills, $users, $hostname);
+        if (!($res['ok'] ?? false)) {
+            return redirect()->route('keu.penerimaan.data', $backFilters)
+                ->with('export_error', $res['message'] ?? 'Gagal membatalkan pembayaran.');
+        }
+
+        $data = is_array($res['data'] ?? null) ? $res['data'] : [];
+        $n = (int) ($data['reversed'] ?? 0);
+        $msg = $n > 0
+            ? sprintf('Pembayaran berhasil dibatalkan. Jumlah tagihan: %d.', $n)
+            : (string) ($res['message'] ?? 'Pembayaran berhasil dibatalkan.');
+
+        return redirect()->route('keu.penerimaan.data', $backFilters)
+            ->with('status', $msg);
+    }
+
     /**
      * Rekap data penerimaan (PDF) — matrix per siswa × jenis tagihan; hingga 8000 baris sumber.
      */

@@ -41,6 +41,7 @@
         .dp-btn-search { background: #2563eb; border-color: #2563eb; color: #fff; }
         .dp-btn-search:hover { filter: brightness(1.05); }
         .dp-btn-print { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+        .dp-btn-batal { background: #b91c1c; border-color: #b91c1c; color: #fff; }
         .dp-btn-soon { opacity: 0.85; cursor: not-allowed; }
         .dp-notes { padding: 0 16px 12px; font-size: 12px; color: #b91c1c; font-weight: 600; }
         .dp-notes li { margin-bottom: 4px; }
@@ -78,6 +79,9 @@
             <div class="dp-title">Data Penerimaan</div>
             <div class="dp-bc">Beranda &rsaquo; Data Penerimaan</div>
 
+            @if (session('status'))
+                <div class="dp-alert dp-info">{{ session('status') }}</div>
+            @endif
             @if (session('export_error'))
                 <div class="dp-alert dp-err">{{ session('export_error') }}</div>
             @endif
@@ -204,6 +208,7 @@
 
                 <div class="dp-actions-top">
                     <button type="button" class="dp-btn dp-btn-print" id="dpBtnKuitansi" title="Centang siswa di tabel lalu klik">Cetak Kuitansi</button>
+                    <button type="button" class="dp-btn dp-btn-batal" id="dpBtnBatalBayar" title="Centang tagihan lunas di tabel lalu klik">Batal Bayar</button>
                 </div>
 
                 <ul class="dp-notes">
@@ -282,6 +287,9 @@
     </div>
 
     <form id="dpFormKuitansi" method="POST" action="{{ route('keu.penerimaan.kuitansi') }}" target="_blank" style="display:none;" aria-hidden="true">
+        @csrf
+    </form>
+    <form id="dpFormBatalBayar" method="POST" action="{{ route('keu.penerimaan.batal_bayar') }}" style="display:none;" aria-hidden="true">
         @csrf
     </form>
 
@@ -416,6 +424,31 @@
             }
             if (dpBtnKuitansi) {
                 dpBtnKuitansi.addEventListener('click', function () { dpSubmitKuitansi(false); });
+            }
+
+            var dpBtnBatalBayar = document.getElementById('dpBtnBatalBayar');
+            var dpFormBatalBayar = document.getElementById('dpFormBatalBayar');
+            if (dpBtnBatalBayar && dpFormBatalBayar) {
+                dpBtnBatalBayar.addEventListener('click', function () {
+                    var bills = dpCollectCheckedBills();
+                    if (bills.length === 0) {
+                        alert('Pilih minimal satu baris tagihan (centang di tabel).');
+                        return;
+                    }
+                    if (!confirm('Batalkan pembayaran yang dicentang? Tagihan kembali belum lunas.')) {
+                        return;
+                    }
+                    var extra = [];
+                    var pp = document.querySelector('#dpToolbarForm select[name="per_page"]');
+                    if (pp && pp.value) {
+                        extra.push(['per_page', pp.value]);
+                    }
+                    dpFillExportForm(dpFormBatalBayar, 'data-dp-batal-dyn', extra);
+                    bills.forEach(function (key) {
+                        dpAppendDynHidden(dpFormBatalBayar, 'selected_bills[]', key, 'data-dp-batal-dyn');
+                    });
+                    dpFormBatalBayar.submit();
+                });
             }
 
             var detailUrl = @json(route('keu.penerimaan.bill_detail'));

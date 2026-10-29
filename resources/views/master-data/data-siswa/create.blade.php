@@ -21,6 +21,7 @@
                         <div>
                             <div style="font-weight:700;margin-bottom:6px;">NIS</div>
                             <input name="nis" type="text" value="{{ old('nis') }}" placeholder="NIS" required style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:10px;">
+                            <div style="margin-top:6px;font-size:12px;color:#b45309;line-height:1.4;">NIS tidak boleh diawali angka 0 karena berpengaruh pada nomor virtual account bank.</div>
                         </div>
                         <div>
                             <div style="font-weight:700;margin-bottom:6px;">Nama</div>

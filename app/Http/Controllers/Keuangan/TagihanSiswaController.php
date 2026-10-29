@@ -148,26 +148,7 @@ class TagihanSiswaController extends Controller
             'siswaRows' => $siswaPaginator,
             'daftarHargaRows' => $daftarHarga,
             'errorMsg' => $error,
-            'thnAkaDepanStart' => $this->thnAkademikDepanStartYear(),
         ]);
-    }
-
-    private function thnAkademikDepanStartYear(): int
-    {
-        $year = (int) now()->format('Y');
-        $currentStart = (int) now()->format('n') >= 7 ? $year : $year - 1;
-
-        return $currentStart + 1;
-    }
-
-    private function isTagihanBulanan(string $tagihan): bool
-    {
-        $name = mb_strtoupper(trim($tagihan));
-        if ($name === '') {
-            return false;
-        }
-
-        return (bool) preg_match('/JANUARI|JANUARY|FEBRUARI|FEBRUARY|MARET|MARCH|APRIL|MEI|MAY|JUNI|JUNE|JULI|JULY|AGUSTUS|AUGUST|SEPTEMBER|OKTOBER|OCTOBER|NOVEMBER|DESEMBER|DECEMBER/u', $name);
     }
 
     public function store(Request $request, AmalFatimahApiService $api): RedirectResponse
@@ -198,16 +179,6 @@ class TagihanSiswaController extends Controller
             'custids.required' => 'Pilih minimal satu siswa.',
             'kode_akuns.required' => 'Pilih minimal satu akun tagihan.',
         ]);
-
-        $tagihanNama = trim((string) ($validated['tagihan'] ?? ''));
-        if ($tagihanNama !== '' && !$this->isTagihanBulanan($tagihanNama)) {
-            $depanStart = $this->thnAkademikDepanStartYear();
-            preg_match('/\d{4}/', (string) $validated['thn_akademik'], $thnMatch);
-            if ((int) ($thnMatch[0] ?? 0) !== $depanStart) {
-                return redirect()->route('keu.tagihan.buat', $request->only(['thn_akademik', 'thn_angkatan', 'kelas_id', 'search', 'fungsi', 'tagihan']))
-                    ->with('error', sprintf('Tagihan non-bulanan (daftar ulang) hanya untuk tahun pelajaran depan (%d/%d).', $depanStart, $depanStart + 1));
-            }
-        }
 
         $res = $api->createBuatTagihan($validated);
         if (!$res['ok']) {

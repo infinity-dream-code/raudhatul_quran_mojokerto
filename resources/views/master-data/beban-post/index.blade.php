@@ -95,15 +95,6 @@
                         </select>
                     </div>
                     <div class="bp-field">
-                        <label>Kelompok Kelas</label>
-                        <select name="kelompok" class="bp-input">
-                            <option value="">Semua</option>
-                            @foreach (($filterOptions['kelompok'] ?? []) as $klp)
-                                <option value="{{ $klp }}" {{ ($kelompok ?? '') === $klp ? 'selected' : '' }}>{{ $klp }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="bp-field">
                         <label>Kode Akun</label>
                         <select name="kode_akun" class="bp-input">
                             <option value="">Semua</option>
@@ -136,7 +127,6 @@
                 @if (($kodeProd ?? '') !== '')<input type="hidden" name="kode_prod" value="{{ $kodeProd }}">@endif
                 @if (($kodeAkun ?? '') !== '')<input type="hidden" name="kode_akun" value="{{ $kodeAkun }}">@endif
                 @if (($nominal ?? '') !== '')<input type="hidden" name="nominal" value="{{ $nominal }}">@endif
-                @if (($kelompok ?? '') !== '')<input type="hidden" name="kelompok" value="{{ $kelompok }}">@endif
                 <span>Tampilkan</span>
                 <select name="per_page" class="bp-per-page" onchange="this.form.submit()">
                     @foreach ([10, 25, 50] as $pp)

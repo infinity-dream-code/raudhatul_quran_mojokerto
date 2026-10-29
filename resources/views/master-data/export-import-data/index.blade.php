@@ -157,6 +157,8 @@
                             <li class="list-group-item">File harus berformat <strong>XLSX</strong>.</li>
                             <li class="list-group-item">Ukuran file tidak boleh lebih dari <strong>1024KB / 1MB</strong>.</li>
                             <li class="list-group-item">Kolom wajib: <strong>NIS</strong> atau <strong>NODAF / NODAFTAR</strong>, plus <strong>NAMA, UNIT, KELAS, KELOMPOK, ANGKATAN</strong> saat simpan.</li>
+                            <li class="list-group-item">NIS tidak boleh diawali angka 0 karena berpengaruh pada nomor virtual account bank.</li>
+                            <li class="list-group-item">Angkatan harus sesuai master tahun pelajaran.</li>
                             <li class="list-group-item">
                                 Contoh file:
                                 <a href="{{ asset('format.xlsx') }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary ms-1">
